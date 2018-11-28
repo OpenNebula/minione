@@ -1,0 +1,788 @@
+#!/bin/bash
+# -------------------------------------------------------------------------- #
+# Copyright 2002-2018, OpenNebula Project, OpenNebula Systems                #
+#                                                                            #
+# Licensed under the Apache License, Version 2.0 (the "License"); you may    #
+# not use this file except in compliance with the License. You may obtain    #
+# a copy of the License at                                                   #
+#                                                                            #
+# http://www.apache.org/licenses/LICENSE-2.0                                 #
+#                                                                            #
+# Unless required by applicable law or agreed to in writing, software        #
+# distributed under the License is distributed on an "AS IS" BASIS,          #
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.   #
+# See the License for the specific language governing permissions and        #
+# limitations under the License.                                             #
+#--------------------------------------------------------------------------- #
+
+# default parameters values
+VERSION='5.6'
+FORCE='no'
+VERBOSE='no'
+ASK='yes'
+PASSWORD=$(< /dev/urandom tr -dc A-Za-z0-9 | head -c10)
+SSH_PUBKEY=""
+BRIDGE_INTERFACE='minionebr'
+NAT_INTERFACE=''
+VNET_ADDRESS='172.16.100.0'
+VNET_NETMASK='255.255.255.0'
+VNET_GATEWAY='172.16.100.1'
+VNET_AR_IP_START='172.16.100.1'
+VNET_AR_IP_COUNT='100'
+MARKET_APP_NAME='CentOS 7 - KVM'
+VM_PASSWORD='opennebula'
+
+usage() {
+    echo "-h --help                           List of supported arguments"
+    echo "--version [$VERSION]                     Specify OpenNebula version"
+    echo "-f --force                          Skip non-fatal validation errors"
+    echo "                                    (e.g., traces of existing inst.)"
+    echo "-v --verbose                        Be verbose"
+    echo "--yes                               Don't ask"
+    echo "--password [random generated]       Initial password for oneadmin"
+    echo "--ssh-pubkey [~/.ssh/id_rsa.pub]    User ssh public key"
+    echo "--bridge-interface [${BRIDGE_INTERFACE}]      Bridge interface for private networking"
+    echo "--nat-interface [first net device]  Interface to configure for NAT"
+    echo "--vnet-address [${VNET_ADDRESS}]       Virtual Network address"
+    echo "--vnet-netmask [${VNET_NETMASK}]      Virtual Network netmask"
+    echo "--vnet-gateway [${VNET_GATEWAY}]       Virtual Network gateway (i.e. bridge IP)"
+    echo "--vnet-ar-ip-start [${VNET_AR_IP_START}]   Virtual Network AR start IP"
+    echo "--vnet-ar-ip-count [100]            Virtual Network AR size"
+    echo "--marketapp-name [CentOS 7 - KVM]   Name of Marketplace appliance to import"
+    echo "--vm-password [${VM_PASSWORD}]          Root password for virtual machine"
+}
+
+#-------------------------------------------------------------------------------
+# COMMAND LINE PARSING
+#-------------------------------------------------------------------------------
+
+PARAMETERS='help,version:,force,verbose,yes,password:,ssh-pubkey:,\
+    bridge-interface:,nat-interface:,vnet-address:,vnet-netmask:,\
+    vnet-gateway:,vnet-ar-ip-start:,vnet-ar-ip-count:,marketapp-name:,\
+    vm-password'
+
+OPTS=`getopt -o "hvf" -l "$PARAMETERS" -n 'minione' -- "$@"`
+if [ $? != 0 ] ; then
+    usage
+    exit 1
+fi
+
+eval set -- "$OPTS"
+
+# global vars
+SUPPORTED_MAP='"5.6 CentOS 7"|"5.6 Ubuntu 16.04"|"5.6 Ubuntu 18.04"'
+PURGE='no'
+DISABLE_SELINUX='no'
+ENABLED_APPARMOR='no'
+MISSING_PKGS=''
+USE_QEMU='no'
+APPS_URL='https://marketplace.opennebula.systems/appliance'
+JSON_HEADERS='Accept: application/json'
+FORWARD=$(sysctl -n net.ipv4.ip_forward 2>/dev/null)
+
+while true ; do
+    case "$1" in
+        -v|--verbose) VERBOSE="yes"; shift;;
+        -f|--force) FORCE="yes"; shift;;
+        --help) usage; exit 0;;
+        --yes) ASK="no"; shift;;
+        --version) VERSION="$2" ; shift 2;;
+        --ssh-pubkey) SSH_PUBKEY="$2" ; shift 2;;
+        --password) PASSWORD="$2" ; shift 2;;
+        --bridge-interface) BRIDGE_INTERFACE="$2" ; shift 2;;
+        --nat-interface) NAT_INTERFACE="$2" ; shift 2;;
+        --vnet-address) VNET_ADDRESS="$2" ; shift 2;;
+        --vnet-netmask) VNET_NETMASK="$2" ; shift 2;;
+        --vnet-gateway) VNET_GATEWAY="$2" ; shift 2;;
+        --vnet-ar-ip-start) VNET_AR_IP_START="$2" ; shift 2;;
+        --vnet-ar-ip-count) VNET_AR_IP_COUNT="$2" ; shift 2;;
+        --marketapp-name) MARKET_APP_NAME="$2" ; shift 2;;
+        --vm-password-name) VM_PASSWORD="$2" ; shift 2;;
+        --) shift ; break ;;
+        *)  usage; exit 1 ;;
+    esac
+done
+
+title() {
+    echo ""
+    echo "### $@"
+}
+
+interface_exists() {
+    local DEV=$1
+    ip link show dev $DEV >/dev/null
+}
+
+get_interface_name() {
+    DEV=$(ip route | grep default | awk '{print $5}' 2>/dev/null)
+    if [[ -z "${DEV}" ]]; then
+        DEV=$(ip addr|grep '^[0-9]'|awk -F": " '{print $2}'|head -2|tail -1 2>/dev/null)
+    fi
+    echo "$DEV"
+}
+
+get_my_ip() {
+    DEV=$(get_interface_name)
+    IP=$(ip addr show dev ${DEV} | grep inet | head -1 | awk '{print $2}')
+    echo ${IP//\/[0-9]*/}
+}
+
+get_distname_and_version() {
+    local DIST
+    local VER
+
+    if type lsb_release >/dev/null 2>&1; then
+        DIST=$(lsb_release -si 2>/dev/null)
+        VER=$(lsb_release -sr 2>/dev/null)
+    elif [ -f /etc/redhat-release ]; then
+        DIST=$(cat /etc/redhat-release | cut -d ' ' -f1)
+        VER=$(cat /etc/redhat-release | sed -e 's/[^0-9\.]*//g')
+    elif [ -f /etc/os-release ]; then
+        DIST=$(grep ^NAME= /etc/os-release | cut -d\" -f2)
+        DIST=${DIST% Linux}
+        VER=$(grep ^VERSION_ID= /etc/os-release | cut -d\" -f2)
+    elif [ -f /etc/lsb-release ]; then
+        DIST=$(grep ^DISTRIB_ID= /etc/lsb-release | cut -d= -f2)
+        VER=$(grep ^DISTRIB_RELEASE= /etc/lsb-release | cut -d= -f2)
+    elif [ -f /etc/debian_version ]; then
+        DIST='Debian'
+        VER=$(cat /etc/debian_version)
+    elif [ -f /etc/SuSe-release ]; then
+        DIST='SuSe'
+    fi
+    [[ "${DIST}" =~ CentOS|RedHat ]] && VER=$(echo $VER | cut -c1)
+
+    echo "${DIST} ${VER}"
+}
+
+get_first_ssh_key() {
+    shopt -s nullglob
+    for K in $HOME/.ssh/*.pub; do
+        echo $K
+        return 0
+    done
+    shopt -u nullglob
+    return 1
+}
+
+mask2cidr() {
+   local X=${1##*255.}
+   set -- 0^^^128^192^224^240^248^252^254^ $(( (${#1} - ${#X})*2 )) ${X%%.*}
+   X=${1%%$3*}
+   echo $(( $2 + (${#X}/4) ))
+}
+
+yes_no() {
+    read ANS
+    while [[ "${ANS}" != yes && "${ANS}" != no ]]; do
+        echo 'yes or no?'
+        read ANS
+    done
+    [[ $ANS = no ]] && exit 0
+}
+
+check() {
+    local COMMAND=$1
+    local TEXT=$2
+    local ON_FAIL=$3
+    local TMP_FILE=$(mktemp)
+
+    [[ ${VERBOSE} = 'yes' ]] && echo -ne "${TEXT}  "
+
+    eval ${COMMAND} 2>${TMP_FILE}
+    RC=$?
+
+    if [[ ${RC} = '0' ]]; then
+        [[ ${VERBOSE} = 'yes' ]] && echo -e "\e[32mOK\e[0m"
+        return ${RC}
+    else
+        [[ ${VERBOSE} = 'no' ]] && echo -ne "${TEXT}  "
+        if [[ "$ON_FAIL" =~ "SKIP" ]]; then
+            echo -e "\e[33m${ON_FAIL}\e[0m"
+            unlink ${TMP_FILE}
+            return ${RC}
+
+        elif [[ ${FORCE} = 'yes' && "${ON_FAIL}" =~ "IGNORE" ]]; then
+            echo -e "\e[33m${ON_FAIL}\e[0m"
+            unlink ${TMP_FILE}
+            return 2
+        else
+            echo -e "\e[31mFAILED\e[0m"
+            ERROR=$(cat ${TMP_FILE})
+            if [[ -n "${ERROR}" ]]; then
+                echo "STDERR:"
+                echo ${ERROR}
+            fi
+            if [[ -n "${ON_FAIL}" &&  ! "${ON_FAIL}" =~ "IGNORE" ]]; then
+                echo "${ON_FAIL}"
+            fi
+            unlink ${TMP_FILE}
+            exit 1
+        fi
+    fi
+}
+
+centos?() {
+    [[ "$DISTNAME" =~ CentOS|RedHat ]]
+}
+
+redhat?() {
+    [[ "$DISTNAME" =~ RedHat ]]
+}
+
+ubuntu?() {
+    [[ "$DISTNAME" =~ Ubuntu ]]
+}
+
+
+firewalld_running?() {
+    systemctl -q is-active firewalld
+}
+
+repo_exists() {
+    if [[ ! "$DISTNAME" =~ CentOS|Ubuntu ]]; then
+        echo "Currently only CentOS or Ubuntu are supported" >&2
+        return 1
+    else
+        curl -q -f -s https://downloads.opennebula.org/repo/${VERSION}/${DISTNAME}/${DISTVER} >/dev/null
+    fi
+}
+
+disk_free() {
+    local LIMIT=$1
+    local WHERE=$2
+
+    read -r AVAIL TARGET <<<$(df -BG --output=avail,target $WHERE | tail -1)
+    AVAIL=${AVAIL%G}
+
+    if [[ "${AVAIL}" -lt "${LIMIT}" ]]; then
+        echo "Insufficient disk space, expected at least ${LIMIT}G on" \
+            "\"${TARGET}\" filesystem" >&2
+        return 1
+    fi
+}
+
+
+#-------------------------------------------------------------------------------
+# Checks & detection
+#-------------------------------------------------------------------------------
+title "Checks & detection"
+
+# check distribution name and version
+read -r DISTNAME DISTVER <<<$(get_distname_and_version)
+check "[[ \"${VERSION} ${DISTNAME} ${DISTVER}\" =~ $SUPPORTED_MAP ]]" \
+    "Checking distribution and version [${DISTNAME} ${DISTVER}]" \
+    "IGNORED Will try to install if repository exists"
+if [[ "$?" = 2 ]]; then
+    check "repo_exists" "Checking if OpenNebula repository exists"
+fi
+
+# check cpu flgas for virtualizaton capabilities
+check 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
+    "Checking cpu virtualization capabilities" \
+    "SKIP QEMU will be used" || USE_QEMU='yes'
+
+# check available disk space on /var
+check 'disk_free 20 /var' 'Check free disk space' 'IGNORE'
+
+# check if given interface exists
+if [[ -n "${NAT_INTERFACE}" ]]; then
+    check "interface_exists ${NAT_INTERFACE}" \
+    "Checking [${NAT_INTERFACE}] net device exists"
+else
+    NAT_INTERFACE=$(get_interface_name)
+    check "[[ -n \"${NAT_INTERFACE}\" ]]" \
+        "Using local interface [${NAT_INTERFACE}]"
+fi
+
+# check existing directories from previous installation
+check "[[ ! -e /etc/one && ! -e /var/lib/one ]]" \
+     "Checking directories from previous installation" \
+     "IGNORED will be deleted" || PURGE='yes'
+
+# check existing user from previous installation
+check "! id oneadmin  >/dev/null" \
+     "Checking user from previous installation" \
+     "IGNORED will be deleted" || PURGE='yes'
+
+# check if sshd service is running
+check "service sshd status >/dev/null" \
+     "Checking sshd service is running"
+
+# check if we have bridge-utils
+check "type brctl >/dev/null 2>&1" "Checking bridge-utils are installed" \
+    "SKIP will try to install" || MISSING_PKGS='bridge-utils'
+
+#check if birdge iface is not already present
+check "! interface_exists ${BRIDGE_INTERFACE}" \
+    "Checking $BRIDGE_INTERFACE interface is not present" "IGNORED"
+
+# check if given virtual network is already in routing table
+NETMASK_BITS=$(mask2cidr ${VNET_NETMASK})
+check "! ip route show ${VNET_ADDRESS}/${NETMASK_BITS} | grep dev >/dev/null" \
+    "Check given VN ${VNET_ADDRESS}/${NETMASK_BITS} is not routed"
+
+# Check SELunix or AppArmor
+SELINUX=$(getenforce 2>/dev/null)
+centos? && { check "[[ ! \"${SELINUX}\" = 'Enforcing' ]]" \
+    "Checking SELinux" "SKIP will try to disable" || DISABLE_SELINUX='yes'; }
+ubuntu? && { check "! aa-status >/dev/null 2>&1" \
+    "Checking AppArmor" "SKIP will try to modify" || ENABLED_APPARMOR='yes'; }
+
+# check for given ssh key
+if [[ -n "${SSH_PUBKEY}" ]]; then
+     check "[[ -f \"${SSH_PUBKEY}\"  ]]" \
+         "Check given ssh pub key ${SSH_PUBKEY} exists"
+#  or take the first founc, or generate
+else
+    SSH_PUBKEY=$(get_first_ssh_key)
+    if ! check "[[ -f \"${SSH_PUBKEY}\" ]]" "Checking for present ssh key" "SKIP" ; then
+        if [[ ! -d "$HOME/.ssh" ]]; then
+            mkdir "$HOME/.ssh/";
+            chmod 0700 "$HOME/.ssh/";
+        fi
+        check "ssh-keygen -t rsa -P \"\" -f $HOME/.ssh/id_rsa >/dev/null"\
+            "Generating ssh keypair in $HOME/.ssh/id_rsa"
+        SSH_PUBKEY="$HOME/.ssh/id_rsa.pub"
+    fi
+fi
+
+# check if the requested app name exists on market place
+if type jq >/dev/null 2>&1; then
+    JQ='.appliances[].name'
+    check "curl -s -H \"${JSON_HEADERS}\" ${APPS_URL} | jq "${JQ}" \
+        | grep \"${MARKET_APP_NAME}\" >/dev/null" \
+        "Checking presence of the market app: \"$MARKET_APP_NAME\"" "Not found"
+else
+    check "curl -s -H \"${JSON_HEADERS}\" ${APPS_URL} \
+        | grep '\"name\":\"${MARKET_APP_NAME}\"' >/dev/null" \
+        "Checking presence of the market app: \"$MARKET_APP_NAME\"" "Not found"
+fi
+
+
+#-------------------------------------------------------------------------------
+# Pre-installation report
+#-------------------------------------------------------------------------------
+
+title "Main deployment steps:"
+[[ "${PURGE}" = yes ]]            && echo "Purge previous installation"
+[[ "${DISABLE_SELINUX}" = yes ]]  && echo "Disable SELinux"
+[[ -n "${MISSING_PKGS}" ]]        && echo "Install ${MISSING_PKGS}"
+centos? && firewalld_running?     && echo "Disable_firewalld"
+echo "Configure bridge ${BRIDGE_INTERFACE} with IP ${VNET_GATEWAY}/${NETMASK_BITS}"
+echo "Enable NAT over ${NAT_INTERFACE}"
+echo "Using ssh public key ${SSH_PUBKEY}"
+echo "Install OpenNebula version ${VERSION}"
+[[ "${ENABLED_APPARMOR}" = yes ]] && echo "Modify AppArmor"
+
+echo ""
+echo "Do you agree? [yes/no]:"
+[[ "${ASK}" = 'yes' ]] && yes_no
+
+
+#-------------------------------------------------------------------------------
+# Installation
+#-------------------------------------------------------------------------------
+purge() {
+    rm -rf /etc/one /var/lib/one >/dev/null 2>&1
+    userdel -r -f oneadmin >/dev/null 2>&1
+    return 0
+}
+
+disable_selinux() {
+   setenforce 0 >/dev/null || return 1
+   sed -ie 's/^SELINUX=.*$/SELINUX=disabled/' /etc/sysconfig/selinux >/dev/null 2>&1
+}
+
+modify_apparmor() {
+    if ! grep '/var/lib/one/datastores' /etc/apparmor.d/abstractions/libvirt-qemu >/dev/null 2>&1; then
+        echo '  /var/lib/one/datastores/** rwk,' >> /etc/apparmor.d/abstractions/libvirt-qemu
+        systemctl reload apparmor
+    fi
+}
+
+install() {
+    if centos?; then
+        yum --quiet -y install $@ > /dev/null
+    elif ubuntu?; then
+        apt-get -q -y install $@ >/dev/null
+    fi
+}
+
+create_bridge() {
+    if centos?; then
+      cat > /etc/sysconfig/network-scripts/ifcfg-${BRIDGE_INTERFACE}<< EOF
+DEVICE=${BRIDGE_INTERFACE}
+TYPE=Bridge
+IPADDR=${VNET_AR_IP_START}
+NETMASK=${VNET_NETMASK}
+ONBOOT=yes
+BOOTPROTO=none
+IPV6INIT=NO
+IPV6_AUTOCONF=no
+NM_CONTROLLED=no
+EOF
+    elif ubuntu?; then
+        brctl addbr ${BRIDGE_INTERFACE} || return 1
+        mkdir /etc/network/interfaces.d 2>/dev/null
+        cat > /etc/network/interfaces.d/tap.cfg<< EOF
+iface tap0 inet manual
+    pre-up ip tuntap add tap0 mode tap user root
+EOF
+        cat > /etc/network/interfaces.d/minionebr.cfg<< EOF
+auto minionebr
+iface minionebr inet static
+  address ${VNET_AR_IP_START}
+  network ${VNET_ADDRESS}
+  netmask ${VNET_NETMASK}
+  bridge_stp off
+  bridge_fd 0
+  bridge_maxwait 0
+  bridge_ports tap
+EOF
+    fi
+}
+
+disable_firewalld() {
+    systemctl stop firewalld >/dev/null && \
+        systemctl disable firewalld >/dev/null
+}
+
+configure_nat() {
+    iptables --table nat -A POSTROUTING -s ${VNET_ADDRESS}/${NETMASK_BITS} ! \
+        -d ${VNET_ADDRESS}/${NETMASK_BITS} -j MASQUERADE || return 1
+
+    # verify nat by ping
+    sleep 1
+    ping -W 3 -c 1 -I ${VNET_AR_IP_START} 8.8.8.8 -q >/dev/null
+}
+
+iptables_persistent() {
+    cat << EOT > /etc/network/if-pre-up.d/iptablesload || return 1
+#!/bin/bash
+iptables-restore < /etc/iptables.rules
+exit 0
+EOT
+
+    cat << EOT > /etc/network/if-post-down.d/iptablessave || return 1
+#!/bin/bash
+iptables-save -c > /etc/iptables.rules
+if [ -f /etc/iptables.downrules ]; then
+   iptables-restore < /etc/iptables.downrules
+fi
+exit 0
+EOT
+
+    chmod 755 /etc/network/if-pre-up.d/iptablesload \
+        /etc/network/if-post-down.d/iptablessave || return 1
+}
+
+start_dnsmasq() {
+    cp /etc/dnsmasq.conf /etc/dnsmasq.conf.bk 2>/dev/null || return 1
+    echo "interface=${BRIDGE_INTERFACE}" > /etc/dnsmasq.conf || return 1
+    systemctl start dnsmasq
+}
+
+configure_repos() {
+    if centos?; then
+        cat << EOT > /etc/yum.repos.d/opennebula.repo
+[opennebula]
+name=opennebula
+baseurl=https://downloads.opennebula.org/repo/${VERSION}/CentOS/${DISTVER}/x86_64
+enabled=1
+gpgkey=https://downloads.opennebula.org/repo/repo.key
+gpgcheck=1
+EOT
+
+    elif ubuntu?; then
+        ( wget -q -O- https://downloads.opennebula.org/repo/repo.key | \
+            apt-key add - >/dev/null 2>&1 ) || return 1
+        echo "deb https://downloads.opennebula.org/repo/${VERSION}/Ubuntu/${DISTVER} stable opennebula" \
+            > /etc/apt/sources.list.d/opennebula.list  || return 1
+    fi
+}
+
+enable_rhel_extra_repos() {
+    subscription-manager repos --enable rhel-7-server-optional-rpms && \
+        subscription-manager repos --enable rhel-7-server-extras-rpms >/dev/null 2>&1
+}
+
+enable_epel() {
+    if redhat?; then
+        rpm -ivh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >/dev/null
+    elif centos? ; then
+        yum --quiet -y install epel-release >/dev/null
+    fi
+}
+
+install_opennebula_pkgs() {
+    if centos?; then
+        yum --quiet -y install opennebula-server opennebula-sunstone \
+            opennebula-ruby opennebula-gate opennebula-flow \
+            >/dev/null || return 1
+
+    elif ubuntu?; then
+        apt-get install -q -y opennebula opennebula-sunstone \
+            opennebula-gate opennebula-flow >/dev/null || return 1
+    fi
+}
+
+install_ruby_gems() {
+    centos? && ( yum --quiet -y install redhat-lsb >/dev/null 2>&1 || return 1 )
+    yes | /usr/share/one/install_gems >/dev/null 2>&1
+}
+
+install_opennebula_node_pkgs() {
+    if centos?; then
+        yum --quiet -y install opennebula-node-kvm >/dev/null || return 1
+        systemctl restart libvirtd || return 1
+
+        if redhat?; then
+            subscription-manager repos --enable \
+                rhel-7-server-rhv-4-mgmt-agent-rpms || return 1
+            yum --quiet -y install qemu-kvm-rhev || return 1
+        else
+            yum --quiet -y update centos-release >/dev/null
+            yum --quiet -y install centos-release-qemu-ev >/dev/null || return 1
+            yum --quiet -y install qemu-kvm-ev >/dev/null || return 1
+        fi
+    elif ubuntu?; then
+        apt-get install -q -y opennebula-node >/dev/null || return 1
+        service libvirt-bin restart || return 1
+    fi
+}
+
+title "Installation"
+VERBOSE='yes'
+
+[[ "${PURGE}" = yes ]] &&  check "purge" \
+    "Deleting traces from previous OpenNebula installaton"
+ubuntu? && check "apt-get -q -y update >/dev/null" "Updating apt cache"
+[[ "${DISABLE_SELINUX}" = 'yes' ]] && check "disable_selinux" "Disabling SELinux"
+[[ -n "${MISSING_PKGS}" ]] && check "install ${MISSING_PKGS}" "Install ${MISSING_PKGS}"
+check "create_bridge" "Creating bridge interface ${BRIDGE_INTERFACE}"
+centos? && check "service network restart >/dev/null 2>&1" "Restarting network"
+ubuntu? && check "service networking restart >/dev/null 2>&1" "Restarting network"
+centos? && firewalld_running? && check "disable_firewalld" "Disabling firewalld"
+[[ "$FORWARD" = 0 ]] && check "sysctl -w net.ipv4.ip_forward=1 >/dev/null" "Enabling ipv4 forward"
+check "configure_nat" "Configuring nat using iptables"
+centos? && check "iptables-save > /etc/sysconfig/iptables" "Saving iptables changes"
+ubuntu? && check "iptables_persistent" "Saving iptables changes"
+check "install dnsmasq" "Installing DNSMasq"
+check "start_dnsmasq" "Starting DNSMasq"
+check "configure_repos" "Configuring repositories"
+ubuntu? && check "apt-get -q -y update >/dev/null" "Updating apt cache"
+redhat? && check "enable_rhel_extra_repos" "Enabling RHEL 7 extra & opt repositories"
+centos? && check "enable_epel" "Installing epel"
+check "install_opennebula_pkgs" "Installing OpenNebula packages"
+check "install_ruby_gems" "Installing ruby gems"
+check "install_opennebula_node_pkgs" "Installing OpenNebula node packages"
+[[ "${ENABLED_APPARMOR}" = 'yes' ]] && check "modify_apparmor" "Updating AppArmor"
+
+
+#-------------------------------------------------------------------------------
+# Configuration
+#-------------------------------------------------------------------------------
+
+conf_change() {
+    local KEY=$1
+    local VALUE=$2
+
+    if [ -z "$3" ]; then
+        local CONF='/etc/one/oned.conf'
+    else
+        local CONF=$3
+    fi
+    sed -i -e "s/^${KEY}/${VALUE}/" ${CONF}  >/dev/null
+}
+
+switch_to_qemu() {
+    LINE_NUM=$(grep -n '^VM_MAD =' -A 10 /etc/one/oned.conf | \
+        grep -E '^[0-9]+-\s*TYPE' | grep kvm | awk -F\- '{print $1}')
+    sed -i "${LINE_NUM}s/kvm/qemu/" /etc/one/oned.conf
+}
+
+set_init_password() {
+    [[ ! -d $HOME/.one ]] && mkdir $HOME/.one || return 1
+    echo "oneadmin:$PASSWORD" > $HOME/.one/one_auth || return 1
+    echo "oneadmin:$PASSWORD" > /var/lib/one/.one/one_auth
+}
+
+deny_ssh_from_vnet() {
+    STAR_NET=${VNET_ADDRESS}
+    # 172.16.0.0 ~> 172.16.*.*, but  10.0.1.0~> 10.0.1.*
+    for I in 1 2 3 4; do
+        STAR_NET=$(echo ${STAR_NET} |sed -e 's/\(.*\)\.0\([0\.\*]*\)$/\1.*\2/')
+    done
+
+    if grep -v "DenyUsers ${STAR_NET}" /etc/ssh/sshd_config >/dev/null; then
+        echo "DenyUsers ${STAR_NET}" >> /etc/ssh/sshd_config
+    fi
+    systemctl restart sshd
+}
+
+add_keys_to_known_hosts() {
+    su oneadmin -c 'ssh-keyscan -H localhost > ~/.ssh/known_hosts' || return 1
+    HOSTNAME=$(hostname)
+    su oneadmin -c "ssh-keyscan -H ${HOSTNAME} >> ~/.ssh/known_hosts" || return 1
+    FQDN=$(hostname -f 2>/dev/null)
+    if [[ -n "$FQDN" && "$HOSTNAME" != "${FQDN}" ]]; then
+        su oneadmin -c "ssh-keyscan -H ${FQDN} >> ~/.ssh/known_hosts" || return 1
+    fi
+}
+
+test_ssh_connection() {
+    sudo -u oneadmin ssh localhost true >/dev/null || return 1
+}
+
+add_ssh_keys_to_oneadmin() {
+    local TMP_FILE=$(mktemp) || return 1
+    ONEADMIN_OS_USER_KEY=$(cat /var/lib/one/.ssh/id*pub 2>/dev/null)
+    SSH_PUBKEY_CONTENT=$(cat ${SSH_PUBKEY}  2>/dev/null)
+
+    cat > ${TMP_FILE}<< EOF
+SSH_PUBLIC_KEY="${ONEADMIN_OS_USER_KEY}
+${SSH_PUBKEY_CONTENT}"
+EOF
+
+    oneuser update 0 ${TMP_FILE} || return 1
+    rm ${TMP_FILE}
+}
+
+title "Configuration"
+check "conf_change \"\#ONEGATE_ENDPOINT = .*\" \"ONEGATE_ENDPOINT = 'http:\/\/${VNET_AR_IP_START}:5030'\""\
+        "Switching onegate endpoint in oned.conf"
+check "conf_change \"SCHED_INTERVAL = .*\" \"SCHED_INTERVAL = 10\" \"/etc/one/sched.conf\""\
+    "Switching scheduler interval to 10sec"
+[[ ${USE_QEMU} = 'yes' ]] && check "switch_to_qemu"  "Switching to QEMU emulation"
+check "set_init_password" "Setting initial password for current user and oneadmin"
+check "systemctl start opennebula opennebula-sunstone  >/dev/null 2>&1"\
+    "Starting opennebula services"
+check "onehost list >/dev/null 2>&1" "Checking OpenNebula is working"
+check "deny_ssh_from_vnet" "Disabling ssh from virtual network"
+check "add_keys_to_known_hosts" "Adding localhost ssh key to known_hosts"
+check "test_ssh_connection" "Testing ssh connection to localhost"
+check "add_ssh_keys_to_oneadmin" "Add ssh key to oneadmin user"
+
+
+#-------------------------------------------------------------------------------
+#  Bootstrap
+#-------------------------------------------------------------------------------
+onecli_cmd_tmpl() {
+    local COMMAND=$1
+    local DATA=$2
+    local TMP_FILE=$(mktemp) || return 1
+
+    cat > ${TMP_FILE}<< EOF
+${DATA}
+EOF
+
+    $COMMAND $TMP_FILE
+    RC=$?
+    rm ${TMP_FILE}
+    return ${RC}
+}
+
+update_datastores() {
+    TEMPLATE=$(cat << EOF
+<DATASTORE>
+  <SHARED><![CDATA[YES]]></SHARED>
+  <TM_MAD><![CDATA[qcow2]]></TM_MAD>
+</DATASTORE>
+EOF
+)
+
+    onecli_cmd_tmpl "onedatastore update 0" "${TEMPLATE}" >/dev/null ||return 1
+    onecli_cmd_tmpl "onedatastore update 1" "${TEMPLATE}" >/dev/null
+}
+
+next_ip(){
+    local IP=$1
+
+    IP_HEX=$(printf '%.2X%.2X%.2X%.2X\n' `echo $IP | sed -e 's/\./ /g'`)
+    NEXT_IP_HEX=$(printf %.8X `echo $(( 0x$IP_HEX + 1 ))`)
+    NEXT_IP=$(printf '%d.%d.%d.%d\n' `echo $NEXT_IP_HEX | sed -r 's/(..)/0x\1 /g'`)
+    echo "$NEXT_IP"
+}
+
+create_vnet() {
+    FIRST_IP=$(next_ip ${VNET_AR_IP_START})
+    SIZE=$((${VNET_AR_IP_COUNT} - 1))
+
+    TEMPLATE=$(cat << EOF
+NAME = "vnet"
+BRIDGE = "${BRIDGE_INTERFACE}"
+DNS = "${VNET_GATEWAY}"
+GATEWAY = "${VNET_GATEWAY}"
+PHYDEV = ""
+SECURITY_GROUPS = "0"
+VN_MAD = "fw"
+AR = [
+    IP = ${FIRST_IP},
+    SIZE = ${SIZE},
+    TYPE = IP4
+]
+EOF
+)
+    onecli_cmd_tmpl "onevnet create" "${TEMPLATE}"  >/dev/null 2>&1
+}
+
+poll_for_marketplace() {
+    APP_COUNT=$(onemarketapp list | wc -l)
+    for I in $(seq 30); do
+        sleep 5
+        NEW_APP_COUNT=$(onemarketapp list | wc -l)
+
+        if [[ "${NEW_APP_COUNT}" = "${APP_COUNT}" && "${APP_COUNT}" -gt 20 ]]; then
+            return 0
+        fi
+        APP_COUNT=${NEW_APP_COUNT}
+    done
+    return 1
+}
+
+export_marketapp() {
+    poll_for_marketplace
+
+    ID=$(onemarketapp list --filter NAME="${MARKET_APP_NAME}" \
+        --csv | tail -1 | awk -F, '{print $1}') || return 1
+
+    onemarketapp export ${ID} "${MARKET_APP_NAME}" --datastore 1 >/dev/null
+}
+
+update_template() {
+    local TMP_FILE=$(mktemp) 2>/dev/null || return 1
+
+    # Add root password setting to context
+    onetemplate show 0 | grep CONTEXT -A1000 \
+        | sed -e "s/CONTEXT=\[/CONTEXT=[ PASSWORD=\"${VM_PASSWORD}\",/" \
+        > ${TMP_FILE}
+
+    # Add network
+    echo 'NIC=[ NETWORK="vnet", NETWORK_UNAME="oneadmin", \
+        SECURITY_GROUPS="0" ]' >> ${TMP_FILE}
+
+    onetemplate update 0 ${TMP_FILE} >/dev/null
+    RC=$?
+    rm ${TMP_FILE}
+    return ${RC}
+}
+
+check "update_datastores" "Updating datastores, TM_MAD=qcow2, SHARED=yes"
+check "onehost create -i kvm -v kvm localhost >/dev/null 2>&1" "Creating host"
+check "create_vnet" "Creating virtual network"
+check "export_marketapp" \
+    "Exporting [${MARKET_APP_NAME}] from marketplace to local datastore"
+check "update_template" "Updating template"
+
+
+#-------------------------------------------------------------------------------
+# Report
+#-------------------------------------------------------------------------------
+title 'Report'
+echo "OpenNebula ${VERSION} was installed"
+echo "Sunstone (the webui) is runninng on:"
+echo "  http://$(get_my_ip):9869/"
+echo "Use following to login:"
+echo "  user: oneadmin"
+echo "  password: ${PASSWORD}"
