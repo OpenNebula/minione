@@ -104,6 +104,9 @@ while true ; do
     esac
 done
 
+# Don't ask if there is no TTY on stdin
+[[ ! -t 0 ]] && ASK='no'
+
 title() {
     echo ""
     echo "### $@"
