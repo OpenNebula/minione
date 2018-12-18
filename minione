@@ -479,7 +479,11 @@ EOT
 
 start_dnsmasq() {
     cp /etc/dnsmasq.conf /etc/dnsmasq.conf.bk 2>/dev/null || return 1
-    echo "interface=${BRIDGE_INTERFACE}" > /etc/dnsmasq.conf || return 1
+    cat << EOT > /etc/dnsmasq.conf || return 1
+interface=${BRIDGE_INTERFACE}
+except-interface=lo
+bind-interfaces
+EOT
     systemctl start dnsmasq
 }
 
