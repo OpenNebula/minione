@@ -80,6 +80,7 @@ APPS_URL='https://marketplace.opennebula.systems/appliance'
 JSON_HEADERS='Accept: application/json'
 FORWARD=$(sysctl -n net.ipv4.ip_forward 2>/dev/null)
 LIBVIRTD='libvirtd'
+ONE_WAIT_TIMEOUT=60
 
 while true ; do
     case "$1" in
@@ -622,6 +623,15 @@ set_init_password() {
     echo "oneadmin:$PASSWORD" > /var/lib/one/.one/one_auth
 }
 
+one_is_ready() {
+    for I in `seq $ONE_WAIT_TIMEOUT`; do
+        onehost list > /dev/null 2>&1 && return 0
+        sleep 1
+    done
+    echo "OpenNebula did not start within the timeout" >&2
+    return 1
+}
+
 deny_ssh_from_vnet() {
     STAR_NET=${VNET_ADDRESS}
     # 172.16.0.0 ~> 172.16.*.*, but  10.0.1.0~> 10.0.1.*
@@ -672,7 +682,7 @@ check "conf_change \"SCHED_INTERVAL = .*\" \"SCHED_INTERVAL = 10\" \"/etc/one/sc
 check "set_init_password" "Setting initial password for current user and oneadmin"
 check "systemctl start opennebula opennebula-sunstone  >/dev/null 2>&1"\
     "Starting opennebula services"
-check "onehost list >/dev/null 2>&1" "Checking OpenNebula is working"
+check "one_is_ready" "Checking OpenNebula is working"
 check "deny_ssh_from_vnet" "Disabling ssh from virtual network"
 check "add_keys_to_known_hosts" "Adding localhost ssh key to known_hosts"
 check "test_ssh_connection" "Testing ssh connection to localhost"
