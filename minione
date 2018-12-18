@@ -544,7 +544,7 @@ install_opennebula_pkgs() {
 
 install_ruby_gems() {
     centos? && ( yum --quiet -y install redhat-lsb >/dev/null 2>&1 || return 1 )
-    yes | /usr/share/one/install_gems >/dev/null 2>&1
+    /usr/share/one/install_gems --yes >/dev/null
 }
 
 install_opennebula_node_pkgs() {
