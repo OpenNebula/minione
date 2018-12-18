@@ -79,6 +79,7 @@ USE_QEMU='no'
 APPS_URL='https://marketplace.opennebula.systems/appliance'
 JSON_HEADERS='Accept: application/json'
 FORWARD=$(sysctl -n net.ipv4.ip_forward 2>/dev/null)
+LIBVIRTD='libvirtd'
 
 while true ; do
     case "$1" in
@@ -274,6 +275,7 @@ read -r DISTNAME DISTVER <<<$(get_distname_and_version)
 # some version fixes
 INSTALLVER=$DISTVER
 [[ "${DISTNAME}${DISTVER}" = 'Ubuntu18.10' ]] && INSTALLVER='18.04'
+[[ "${DISTNAME}${DISTVER}" =~ Ubuntu16.04|Ubuntu18.04 ]] && LIBVIRTD="libvirt-bin"
 
 check "[[ \"${VERSION} ${DISTNAME} ${DISTVER}\" =~ $SUPPORTED_MAP ]]" \
     "Checking distribution and version [${DISTNAME} ${DISTVER}]" \
@@ -544,7 +546,7 @@ install_ruby_gems() {
 install_opennebula_node_pkgs() {
     if centos?; then
         yum --quiet -y install opennebula-node-kvm >/dev/null || return 1
-        systemctl restart libvirtd || return 1
+        systemctl restart ${LIBVIRTD} || return 1
 
         if redhat?; then
             subscription-manager repos --enable \
@@ -557,7 +559,7 @@ install_opennebula_node_pkgs() {
         fi
     elif ubuntu?; then
         apt-get install -q -y opennebula-node >/dev/null || return 1
-        service libvirt-bin restart || return 1
+        service ${LIBVIRTD} restart || return 1
     fi
 }
 
