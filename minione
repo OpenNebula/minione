@@ -656,7 +656,7 @@ add_keys_to_known_hosts() {
 }
 
 test_ssh_connection() {
-    sudo -u oneadmin ssh localhost true >/dev/null || return 1
+    sudo -u oneadmin ssh localhost true </dev/null >/dev/null || return 1
 }
 
 add_ssh_keys_to_oneadmin() {
