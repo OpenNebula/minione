@@ -70,7 +70,7 @@ fi
 eval set -- "$OPTS"
 
 # global vars
-SUPPORTED_MAP='"5.6 CentOS 7"|"5.6 Ubuntu 16.04"|"5.6 Ubuntu 18.04"'
+SUPPORTED_MAP='"5.6 CentOS 7"|"5.6 Ubuntu 16.04"|"5.6 Ubuntu 18.04"|"5.6 Ubuntu 18.10"'
 PURGE='no'
 DISABLE_SELINUX='no'
 ENABLED_APPARMOR='no'
@@ -244,7 +244,7 @@ repo_exists() {
         echo "Currently only CentOS or Ubuntu are supported" >&2
         return 1
     else
-        curl -q -f -s https://downloads.opennebula.org/repo/${VERSION}/${DISTNAME}/${DISTVER} >/dev/null
+        curl -q -f -s https://downloads.opennebula.org/repo/${VERSION}/${DISTNAME}/${INSTALLVER} >/dev/null
     fi
 }
 
@@ -270,6 +270,11 @@ title "Checks & detection"
 
 # check distribution name and version
 read -r DISTNAME DISTVER <<<$(get_distname_and_version)
+
+# some version fixes
+INSTALLVER=$DISTVER
+[[ "${DISTNAME}${DISTVER}" = 'Ubuntu18.10' ]] && INSTALLVER='18.04'
+
 check "[[ \"${VERSION} ${DISTNAME} ${DISTVER}\" =~ $SUPPORTED_MAP ]]" \
     "Checking distribution and version [${DISTNAME} ${DISTVER}]" \
     "IGNORED Will try to install if repository exists"
@@ -492,7 +497,7 @@ configure_repos() {
         cat << EOT > /etc/yum.repos.d/opennebula.repo
 [opennebula]
 name=opennebula
-baseurl=https://downloads.opennebula.org/repo/${VERSION}/CentOS/${DISTVER}/x86_64
+baseurl=https://downloads.opennebula.org/repo/${VERSION}/CentOS/${INSTALLVER}/x86_64
 enabled=1
 gpgkey=https://downloads.opennebula.org/repo/repo.key
 gpgcheck=1
@@ -501,7 +506,7 @@ EOT
     elif ubuntu?; then
         ( wget -q -O- https://downloads.opennebula.org/repo/repo.key | \
             apt-key add - >/dev/null 2>&1 ) || return 1
-        echo "deb https://downloads.opennebula.org/repo/${VERSION}/Ubuntu/${DISTVER} stable opennebula" \
+        echo "deb https://downloads.opennebula.org/repo/${VERSION}/Ubuntu/${INSTALLVER} stable opennebula" \
             > /etc/apt/sources.list.d/opennebula.list  || return 1
     fi
 }
