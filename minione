@@ -239,9 +239,12 @@ ubuntu?() {
     [[ "$DISTNAME" =~ Ubuntu ]]
 }
 
-
 firewalld_running?() {
     systemctl -q is-active firewalld
+}
+
+netplan?() {
+    [[ ! -s /run/network/ifstate && $(type netplan 2>/dev/null) ]]
 }
 
 repo_exists() {
@@ -330,6 +333,13 @@ check "service sshd status >/dev/null" \
 # check if we have bridge-utils
 check "type brctl >/dev/null 2>&1" "Checking bridge-utils are installed" \
     "SKIP will try to install" || MISSING_PKGS='bridge-utils'
+
+if ubuntu?; then
+    check "dpkg -l iptables-persistent netfilter-persistent > /dev/null" \
+        "Check (iptables|netfilter)-persistent are installed" \
+        "SKIP will try to install" || \
+        MISSING_PKGS="${MISSING_PKGS} iptables-persistent netfilter-persistent"
+fi
 
 #check if birdge iface is not already present
 check "! interface_exists ${BRIDGE_INTERFACE}" \
@@ -424,7 +434,7 @@ install() {
     if centos?; then
         yum --quiet -y install $@ > /dev/null
     elif ubuntu?; then
-        apt-get -q -y install $@ >/dev/null
+        DEBIAN_FRONTEND=noninteractive apt-get -q -y install $@ >/dev/null
     fi
 }
 
@@ -442,13 +452,38 @@ IPV6_AUTOCONF=no
 NM_CONTROLLED=no
 EOF
     elif ubuntu?; then
-        brctl addbr ${BRIDGE_INTERFACE} || return 1
-        mkdir /etc/network/interfaces.d 2>/dev/null
-        cat > /etc/network/interfaces.d/tap.cfg<< EOF
+        if netplan?; then
+            if [[ $1 = purge ]]; then
+                rm -f /etc/systemd/network/minionebr-nic.netdev
+                rm -f /etc/netplan/minione.yaml
+                ip link delete minionebr-nic || true
+                ip link set down dev ${BRIDGE_INTERFACE} || true
+                brctl delbr ${BRIDGE_INTERFACE} || true
+            else
+                cat > /etc/systemd/network/minionebr-nic.netdev<< EOF
+[NetDev]
+Name=minionebr-nic
+Kind=dummy
+EOF
+                cat > /etc/netplan/minione.yaml<< EOF
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    minionebr-nic: {}
+  bridges:
+    minionebr:
+      addresses: [ ${VNET_AR_IP_START}/${NETMASK_BITS} ]
+      interfaces: [ minionebr-nic ]
+EOF
+        else
+            brctl addbr ${BRIDGE_INTERFACE} || return 1
+            mkdir /etc/network/interfaces.d 2>/dev/null
+            cat > /etc/network/interfaces.d/tap.cfg<< EOF
 iface tap0 inet manual
     pre-up ip tuntap add tap0 mode tap user root
 EOF
-        cat > /etc/network/interfaces.d/minionebr.cfg<< EOF
+            cat > /etc/network/interfaces.d/minionebr.cfg<< EOF
 auto minionebr
 iface minionebr inet static
   address ${VNET_AR_IP_START}
@@ -459,7 +494,26 @@ iface minionebr inet static
   bridge_maxwait 0
   bridge_ports tap
 EOF
+                ip link set up dev ${BRIDGE_INTERFACE}
+        fi
     fi
+}
+
+ping_from_bridge() {
+    sleep 3
+    ping -W 3 -c 1 -I ${VNET_AR_IP_START} 8.8.8.8 -q >/dev/null
+}
+
+restart_network() {
+	if centos?; then
+		service network restart >/dev/null 2>&1
+	else
+		if netplan?; then
+			netplan apply
+		else
+			service networking restart > /dev/null 2>&1
+        fi
+	fi
 }
 
 disable_firewalld() {
@@ -468,32 +522,13 @@ disable_firewalld() {
 }
 
 configure_nat() {
-    iptables --table nat -A POSTROUTING -s ${VNET_ADDRESS}/${NETMASK_BITS} ! \
-        -d ${VNET_ADDRESS}/${NETMASK_BITS} -j MASQUERADE || return 1
-
-    # verify nat by ping
-    sleep 1
-    ping -W 3 -c 1 -I ${VNET_AR_IP_START} 8.8.8.8 -q >/dev/null
-}
-
-iptables_persistent() {
-    cat << EOT > /etc/network/if-pre-up.d/iptablesload || return 1
-#!/bin/bash
-iptables-restore < /etc/iptables.rules
-exit 0
-EOT
-
-    cat << EOT > /etc/network/if-post-down.d/iptablessave || return 1
-#!/bin/bash
-iptables-save -c > /etc/iptables.rules
-if [ -f /etc/iptables.downrules ]; then
-   iptables-restore < /etc/iptables.downrules
-fi
-exit 0
-EOT
-
-    chmod 755 /etc/network/if-pre-up.d/iptablesload \
-        /etc/network/if-post-down.d/iptablessave || return 1
+    if [[ $1 = 'purge' ]]; then
+        iptables --table nat -D POSTROUTING -s ${VNET_ADDRESS}/${NETMASK_BITS} ! \
+            -d ${VNET_ADDRESS}/${NETMASK_BITS} -j MASQUERADE || true
+    else
+        iptables --table nat -A POSTROUTING -s ${VNET_ADDRESS}/${NETMASK_BITS} ! \
+            -d ${VNET_ADDRESS}/${NETMASK_BITS} -j MASQUERADE || return 1
+    fi
 }
 
 start_dnsmasq() {
@@ -585,13 +620,13 @@ ubuntu? && check "apt-get -q -y update >/dev/null" "Updating apt cache"
 [[ "${DISABLE_SELINUX}" = 'yes' ]] && check "disable_selinux" "Disabling SELinux"
 [[ -n "${MISSING_PKGS}" ]] && check "install ${MISSING_PKGS}" "Install ${MISSING_PKGS}"
 check "create_bridge" "Creating bridge interface ${BRIDGE_INTERFACE}"
-centos? && check "service network restart >/dev/null 2>&1" "Restarting network"
-ubuntu? && check "service networking restart >/dev/null 2>&1" "Restarting network"
+check "restart_network" "Restarting network"
 centos? && firewalld_running? && check "disable_firewalld" "Disabling firewalld"
 [[ "$FORWARD" = 0 ]] && check "sysctl -w net.ipv4.ip_forward=1 >/dev/null" "Enabling ipv4 forward"
 check "configure_nat" "Configuring nat using iptables"
+check "ping_from_bridge" "Verify bridge by ping from it"
 centos? && check "iptables-save > /etc/sysconfig/iptables" "Saving iptables changes"
-ubuntu? && check "iptables_persistent" "Saving iptables changes"
+ubuntu? && check "netfilter-persistent save" "Saving iptables changes"
 check "install dnsmasq" "Installing DNSMasq"
 check "start_dnsmasq" "Starting DNSMasq"
 check "configure_repos" "Configuring repositories"
