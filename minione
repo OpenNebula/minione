@@ -31,6 +31,7 @@ VNET_AR_IP_START='172.16.100.1'
 VNET_AR_IP_COUNT='100'
 MARKET_APP_NAME='CentOS 7 - KVM'
 VM_PASSWORD='opennebula'
+PURGE_ONLY='no'
 
 usage() {
     echo "-h --help                           List of supported arguments"
@@ -50,6 +51,7 @@ usage() {
     echo "--vnet-ar-ip-count [100]            Virtual Network AR size"
     echo "--marketapp-name [CentOS 7 - KVM]   Name of Marketplace appliance to import"
     echo "--vm-password [${VM_PASSWORD}]          Root password for virtual machine"
+    echo "--purge                             Only uninstall and exit"
 }
 
 #-------------------------------------------------------------------------------
@@ -59,7 +61,7 @@ usage() {
 PARAMETERS='help,version:,force,verbose,yes,password:,ssh-pubkey:,\
     bridge-interface:,nat-interface:,vnet-address:,vnet-netmask:,\
     vnet-gateway:,vnet-ar-ip-start:,vnet-ar-ip-count:,marketapp-name:,\
-    vm-password'
+    vm-password,purge'
 
 OPTS=`getopt -o "hvf" -l "$PARAMETERS" -n 'minione' -- "$@"`
 if [ $? != 0 ] ; then
@@ -100,6 +102,7 @@ while true ; do
         --vnet-ar-ip-count) VNET_AR_IP_COUNT="$2" ; shift 2;;
         --marketapp-name) MARKET_APP_NAME="$2" ; shift 2;;
         --vm-password-name) VM_PASSWORD="$2" ; shift 2;;
+        --purge) PURGE_ONLY="yes"; PURGE="yes"; shift;;
         --) shift ; break ;;
         *)  usage; exit 1 ;;
     esac
@@ -107,6 +110,11 @@ done
 
 # Don't ask if there is no TTY on stdin
 [[ ! -t 0 ]] && ASK='no'
+
+
+#-------------------------------------------------------------------------------
+# Helpers and detection functions
+#-------------------------------------------------------------------------------
 
 title() {
     echo ""
@@ -279,18 +287,295 @@ disk_free() {
 
 
 #-------------------------------------------------------------------------------
-# Checks & detection
+# Install functions
 #-------------------------------------------------------------------------------
-title "Checks & detection"
 
-# check distribution name and version
+disable_selinux() {
+   setenforce 0 >/dev/null || return 1
+   sed -ie 's/^SELINUX=.*$/SELINUX=disabled/' /etc/sysconfig/selinux >/dev/null 2>&1
+}
+
+modify_apparmor() {
+    if ! grep '/var/lib/one/datastores' /etc/apparmor.d/abstractions/libvirt-qemu >/dev/null 2>&1; then
+        echo '  /var/lib/one/datastores/** rwk,' >> /etc/apparmor.d/abstractions/libvirt-qemu
+        systemctl reload apparmor
+    else
+        if [[ "$1" = 'purge' ]]; then
+            sed -i '/\/var\/lib\/one\/datastores/d' /etc/apparmor.d/abstractions/libvirt-qemu > /dev/null 2>&1
+        fi
+    fi
+}
+
+install() {
+    if centos?; then
+        yum --quiet -y install $@ > /dev/null
+    elif ubuntu?; then
+        DEBIAN_FRONTEND=noninteractive apt-get -q -y install $@ >/dev/null
+    fi
+}
+
+create_bridge() {
+    if centos?; then
+        if [[ $1 = purge ]]; then
+            rm -f /etc/sysconfig/network-scripts/ifcfg-minionebr
+        else
+            cat > /etc/sysconfig/network-scripts/ifcfg-minionebr<< EOF
+DEVICE=${BRIDGE_INTERFACE}
+TYPE=Bridge
+IPADDR=${VNET_AR_IP_START}
+NETMASK=${VNET_NETMASK}
+ONBOOT=yes
+BOOTPROTO=none
+IPV6INIT=NO
+IPV6_AUTOCONF=no
+NM_CONTROLLED=no
+EOF
+        fi
+    elif ubuntu?; then
+        if netplan?; then
+            if [[ $1 = purge ]]; then
+                rm -f /etc/systemd/network/minionebr-nic.netdev
+                rm -f /etc/netplan/minione.yaml
+                ip link delete minionebr-nic || true
+                ip link set down dev ${BRIDGE_INTERFACE} || true
+                brctl delbr ${BRIDGE_INTERFACE} || true
+            else
+                cat > /etc/systemd/network/minionebr-nic.netdev<< EOF
+[NetDev]
+Name=minionebr-nic
+Kind=dummy
+EOF
+                cat > /etc/netplan/minione.yaml<< EOF
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    minionebr-nic: {}
+  bridges:
+    minionebr:
+      addresses: [ ${VNET_AR_IP_START}/${NETMASK_BITS} ]
+      interfaces: [ minionebr-nic ]
+EOF
+            fi
+        else
+            if [[ $1 = purge ]]; then
+                rm -f /etc/network/interfaces.d/tap.cfg
+                rm -f /etc/network/interfaces.d/minionebr.cfg
+                ip link set down dev ${BRIDGE_INTERFACE} || true
+                brctl delbr ${BRIDGE_INTERFACE} || true
+            else
+                brctl addbr ${BRIDGE_INTERFACE} || return 1
+                mkdir /etc/network/interfaces.d 2>/dev/null
+                cat > /etc/network/interfaces.d/tap.cfg<< EOF
+iface tap0 inet manual
+    pre-up ip tuntap add tap0 mode tap user root
+EOF
+                cat > /etc/network/interfaces.d/minionebr.cfg<< EOF
+auto minionebr
+iface minionebr inet static
+  address ${VNET_AR_IP_START}
+  network ${VNET_ADDRESS}
+  netmask ${VNET_NETMASK}
+  bridge_stp off
+  bridge_fd 0
+  bridge_maxwait 0
+  bridge_ports tap
+EOF
+                ip link set up dev ${BRIDGE_INTERFACE}
+            fi
+        fi
+    fi
+}
+
+ping_from_bridge() {
+    sleep 3
+    ping -W 3 -c 1 -I ${VNET_AR_IP_START} 8.8.8.8 -q >/dev/null
+}
+
+restart_network() {
+    if centos?; then
+        service network restart >/dev/null 2>&1
+    else
+        if netplan?; then
+            netplan apply
+        else
+            service networking restart > /dev/null 2>&1
+        fi
+    fi
+}
+
+disable_firewalld() {
+    systemctl stop firewalld >/dev/null && \
+        systemctl disable firewalld >/dev/null
+}
+
+configure_nat() {
+    if [[ $1 = 'purge' ]]; then
+        iptables --table nat -D POSTROUTING -s ${VNET_ADDRESS}/${NETMASK_BITS} ! \
+            -d ${VNET_ADDRESS}/${NETMASK_BITS} -j MASQUERADE || true
+    else
+        iptables --table nat -A POSTROUTING -s ${VNET_ADDRESS}/${NETMASK_BITS} ! \
+            -d ${VNET_ADDRESS}/${NETMASK_BITS} -j MASQUERADE || return 1
+    fi
+}
+
+start_dnsmasq() {
+    if [[ $1 = 'purge' ]]; then
+        if [[ -f /etc/dnsmasq.conf.bk ]]; then
+            mv /etc/dnsmasq.conf.bk /etc/dnsmasq.conf
+        else
+            rm -f /etc/dnsmasq.conf
+            systemct stop dnsmasq
+        fi
+    else
+        cp /etc/dnsmasq.conf /etc/dnsmasq.conf.bk 2>/dev/null || return 1
+        cat << EOT > /etc/dnsmasq.conf || return 1
+interface=${BRIDGE_INTERFACE}
+except-interface=lo
+bind-interfaces
+EOT
+        systemctl start dnsmasq
+    fi
+}
+
+configure_repos() {
+    if centos?; then
+        if [[ $1 = 'purge' ]]; then
+            rm -f /etc/yum.repos.d/opennebula.repo
+        else
+            cat << EOT > /etc/yum.repos.d/opennebula.repo
+[opennebula]
+name=opennebula
+baseurl=https://downloads.opennebula.org/repo/${VERSION}/CentOS/${INSTALLVER}/x86_64
+enabled=1
+gpgkey=https://downloads.opennebula.org/repo/repo.key
+gpgcheck=1
+EOT
+        fi
+    elif ubuntu?; then
+        if [[ $1 = 'purge' ]]; then
+            rm -f /etc/apt/sources.list.d/opennebula.list
+        else
+            ( wget -q -O- https://downloads.opennebula.org/repo/repo.key | \
+                apt-key add - >/dev/null 2>&1 ) || return 1
+            echo "deb https://downloads.opennebula.org/repo/${VERSION}/Ubuntu/${INSTALLVER} stable opennebula" \
+                > /etc/apt/sources.list.d/opennebula.list  || return 1
+        fi
+    fi
+}
+
+enable_rhel_extra_repos() {
+    subscription-manager repos --enable rhel-7-server-optional-rpms && \
+        subscription-manager repos --enable rhel-7-server-extras-rpms >/dev/null 2>&1
+}
+
+enable_epel() {
+    if redhat?; then
+        rpm -ivh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >/dev/null
+    elif centos? ; then
+        yum --quiet -y install epel-release >/dev/null
+    fi
+}
+
+install_opennebula_pkgs() {
+    if centos?; then
+        yum --quiet -y install opennebula-server opennebula-sunstone \
+            opennebula-ruby opennebula-gate opennebula-flow \
+            >/dev/null || return 1
+
+    elif ubuntu?; then
+        apt-get install -q -y opennebula opennebula-sunstone \
+            opennebula-gate opennebula-flow >/dev/null || return 1
+    fi
+    systemctl daemon-reload
+}
+
+install_ruby_gems() {
+    centos? && ( yum --quiet -y install redhat-lsb >/dev/null 2>&1 || return 1 )
+    centos? && ( gem install bundler --version '<2.0' >/dev/null 2>&1 || return 1 )
+    /usr/share/one/install_gems --yes >/dev/null
+}
+
+install_opennebula_node_pkgs() {
+    if centos?; then
+        yum --quiet -y install opennebula-node-kvm >/dev/null || return 1
+        systemctl restart ${LIBVIRTD} || return 1
+
+        if redhat?; then
+            subscription-manager repos --enable \
+                rhel-7-server-rhv-4-mgmt-agent-rpms || return 1
+            yum --quiet -y install qemu-kvm-rhev || return 1
+        else
+            yum --quiet -y update centos-release >/dev/null
+            yum --quiet -y install centos-release-qemu-ev >/dev/null || return 1
+            yum --quiet -y install qemu-kvm-ev >/dev/null || return 1
+        fi
+    elif ubuntu?; then
+        apt-get install -q -y opennebula-node >/dev/null || return 1
+        service ${LIBVIRTD} restart || return 1
+    fi
+}
+
+uninstall_opennebula_pkgs() {
+    if centos?; then
+        yum --quiet -y remove opennebula-node-kvm opennebula-server \
+            opennebula-sunstone  opennebula-ruby opennebula-gate \
+            opennebula-flow
+        systemctl restart ${LIBVIRTD} || true
+
+        if redhat?; then
+            yum --quiet -y install qemu-kvm-rhev || true
+        else
+            yum --quiet -y remove qemu-kvm-ev >/dev/null || true
+        fi
+    elif ubuntu?; then
+        apt-get purge -q -y opennebula-node opennebula \
+            opennebula-sunstone opennebula-gate opennebula-flow \
+            opennebula-common >/dev/null
+        service ${LIBVIRTD} restart || true
+    fi
+}
+
+# Initialize some usefull vars
+NETMASK_BITS=$(mask2cidr ${VNET_NETMASK})
 read -r DISTNAME DISTVER <<<$(get_distname_and_version)
-
 # some version fixes
 INSTALLVER=$DISTVER
 [[ "${DISTNAME}${DISTVER}" = 'Ubuntu18.10' ]] && INSTALLVER='18.04'
 [[ "${DISTNAME}${DISTVER}" =~ Ubuntu16.04|Ubuntu18.04 ]] && LIBVIRTD="libvirt-bin"
 
+
+#-------------------------------------------------------------------------------
+# Uninstall
+#-------------------------------------------------------------------------------
+
+purge() {
+    title "Uninstalling"
+    check "systemctl stop opennebula opennebula-sunstone" "Stopping OpenNebula" "SKIP"
+    [[ "${ENABLED_APPARMOR}" = 'yes' ]] && check "modify_apparmor" "Restoring AppArmor"
+    check "uninstall_opennebula_pkgs" "Uninstalling OpenNebula packages" "SKIP"
+    check "configure_repos purge" "Unconfiguring repositories"
+    check "configure_nat purge" "Unconfiguring nat using iptables" "SKIP"
+    check "create_bridge purge" "Deleting bridge interface ${BRIDGE_INTERFACE}"
+    check "restart_network" "Restarting network"
+    check "rm -rf /etc/one /var/lib/one $HOME/.one >/dev/null" "Deleting /etc/one /var/lib/one"
+    check "userdel -r -f oneadmin>/dev/null" "Deleting oneadmin user" "SKIP"
+}
+
+if [[  $PURGE_ONLY = 'yes' ]]; then
+    VERBOSE='yes'
+    purge
+    exit 0
+fi
+
+
+#-------------------------------------------------------------------------------
+# Checks & detection
+#-------------------------------------------------------------------------------
+
+title "Checks & detection"
+
+# check distribution name and version
 check "[[ \"${VERSION} ${DISTNAME} ${DISTVER}\" =~ $SUPPORTED_MAP ]]" \
     "Checking distribution and version [${DISTNAME} ${DISTVER}]" \
     "IGNORED Will try to install if repository exists"
@@ -304,7 +589,7 @@ check 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
     "SKIP QEMU will be used" || USE_QEMU='yes'
 
 # check available disk space on /var
-check 'disk_free 20 /var' 'Check free disk space' 'IGNORE'
+check 'disk_free 20 /var' 'Checking free disk space' 'IGNORE'
 
 # check if given interface exists
 if [[ -n "${NAT_INTERFACE}" ]]; then
@@ -313,7 +598,7 @@ if [[ -n "${NAT_INTERFACE}" ]]; then
 else
     NAT_INTERFACE=$(get_interface_name)
     check "[[ -n \"${NAT_INTERFACE}\" ]]" \
-        "Using local interface [${NAT_INTERFACE}]"
+        "Checking local interface [${NAT_INTERFACE}]"
 fi
 
 # check existing directories from previous installation
@@ -336,7 +621,7 @@ check "type brctl >/dev/null 2>&1" "Checking bridge-utils are installed" \
 
 if ubuntu?; then
     check "dpkg -l iptables-persistent netfilter-persistent > /dev/null" \
-        "Check (iptables|netfilter)-persistent are installed" \
+        "Checking (iptables|netfilter)-persistent are installed" \
         "SKIP will try to install" || \
         MISSING_PKGS="${MISSING_PKGS} iptables-persistent netfilter-persistent"
 fi
@@ -346,9 +631,8 @@ check "! interface_exists ${BRIDGE_INTERFACE}" \
     "Checking $BRIDGE_INTERFACE interface is not present" "IGNORED"
 
 # check if given virtual network is already in routing table
-NETMASK_BITS=$(mask2cidr ${VNET_NETMASK})
 check "! ip route show ${VNET_ADDRESS}/${NETMASK_BITS} | grep dev >/dev/null" \
-    "Check given VN ${VNET_ADDRESS}/${NETMASK_BITS} is not routed"
+    "Checking virtual network ${VNET_ADDRESS}/${NETMASK_BITS} is not routed"
 
 # Check SELunix or AppArmor
 SELINUX=$(getenforce 2>/dev/null)
@@ -360,7 +644,7 @@ ubuntu? && { check "! aa-status >/dev/null 2>&1" \
 # check for given ssh key
 if [[ -n "${SSH_PUBKEY}" ]]; then
      check "[[ -f \"${SSH_PUBKEY}\"  ]]" \
-         "Check given ssh pub key ${SSH_PUBKEY} exists"
+         "Checking ssh pub key ${SSH_PUBKEY} exists"
 #  or take the first founc, or generate
 else
     SSH_PUBKEY=$(get_first_ssh_key)
@@ -409,213 +693,11 @@ echo "Do you agree? [yes/no]:"
 [[ "${ASK}" = 'yes' ]] && yes_no
 
 
-#-------------------------------------------------------------------------------
-# Installation
-#-------------------------------------------------------------------------------
-purge() {
-    rm -rf /etc/one /var/lib/one >/dev/null 2>&1
-    userdel -r -f oneadmin >/dev/null 2>&1
-    return 0
-}
-
-disable_selinux() {
-   setenforce 0 >/dev/null || return 1
-   sed -ie 's/^SELINUX=.*$/SELINUX=disabled/' /etc/sysconfig/selinux >/dev/null 2>&1
-}
-
-modify_apparmor() {
-    if ! grep '/var/lib/one/datastores' /etc/apparmor.d/abstractions/libvirt-qemu >/dev/null 2>&1; then
-        echo '  /var/lib/one/datastores/** rwk,' >> /etc/apparmor.d/abstractions/libvirt-qemu
-        systemctl reload apparmor
-    fi
-}
-
-install() {
-    if centos?; then
-        yum --quiet -y install $@ > /dev/null
-    elif ubuntu?; then
-        DEBIAN_FRONTEND=noninteractive apt-get -q -y install $@ >/dev/null
-    fi
-}
-
-create_bridge() {
-    if centos?; then
-      cat > /etc/sysconfig/network-scripts/ifcfg-${BRIDGE_INTERFACE}<< EOF
-DEVICE=${BRIDGE_INTERFACE}
-TYPE=Bridge
-IPADDR=${VNET_AR_IP_START}
-NETMASK=${VNET_NETMASK}
-ONBOOT=yes
-BOOTPROTO=none
-IPV6INIT=NO
-IPV6_AUTOCONF=no
-NM_CONTROLLED=no
-EOF
-    elif ubuntu?; then
-        if netplan?; then
-            if [[ $1 = purge ]]; then
-                rm -f /etc/systemd/network/minionebr-nic.netdev
-                rm -f /etc/netplan/minione.yaml
-                ip link delete minionebr-nic || true
-                ip link set down dev ${BRIDGE_INTERFACE} || true
-                brctl delbr ${BRIDGE_INTERFACE} || true
-            else
-                cat > /etc/systemd/network/minionebr-nic.netdev<< EOF
-[NetDev]
-Name=minionebr-nic
-Kind=dummy
-EOF
-                cat > /etc/netplan/minione.yaml<< EOF
-network:
-  version: 2
-  renderer: networkd
-  ethernets:
-    minionebr-nic: {}
-  bridges:
-    minionebr:
-      addresses: [ ${VNET_AR_IP_START}/${NETMASK_BITS} ]
-      interfaces: [ minionebr-nic ]
-EOF
-        else
-            brctl addbr ${BRIDGE_INTERFACE} || return 1
-            mkdir /etc/network/interfaces.d 2>/dev/null
-            cat > /etc/network/interfaces.d/tap.cfg<< EOF
-iface tap0 inet manual
-    pre-up ip tuntap add tap0 mode tap user root
-EOF
-            cat > /etc/network/interfaces.d/minionebr.cfg<< EOF
-auto minionebr
-iface minionebr inet static
-  address ${VNET_AR_IP_START}
-  network ${VNET_ADDRESS}
-  netmask ${VNET_NETMASK}
-  bridge_stp off
-  bridge_fd 0
-  bridge_maxwait 0
-  bridge_ports tap
-EOF
-                ip link set up dev ${BRIDGE_INTERFACE}
-        fi
-    fi
-}
-
-ping_from_bridge() {
-    sleep 3
-    ping -W 3 -c 1 -I ${VNET_AR_IP_START} 8.8.8.8 -q >/dev/null
-}
-
-restart_network() {
-	if centos?; then
-		service network restart >/dev/null 2>&1
-	else
-		if netplan?; then
-			netplan apply
-		else
-			service networking restart > /dev/null 2>&1
-        fi
-	fi
-}
-
-disable_firewalld() {
-    systemctl stop firewalld >/dev/null && \
-        systemctl disable firewalld >/dev/null
-}
-
-configure_nat() {
-    if [[ $1 = 'purge' ]]; then
-        iptables --table nat -D POSTROUTING -s ${VNET_ADDRESS}/${NETMASK_BITS} ! \
-            -d ${VNET_ADDRESS}/${NETMASK_BITS} -j MASQUERADE || true
-    else
-        iptables --table nat -A POSTROUTING -s ${VNET_ADDRESS}/${NETMASK_BITS} ! \
-            -d ${VNET_ADDRESS}/${NETMASK_BITS} -j MASQUERADE || return 1
-    fi
-}
-
-start_dnsmasq() {
-    cp /etc/dnsmasq.conf /etc/dnsmasq.conf.bk 2>/dev/null || return 1
-    cat << EOT > /etc/dnsmasq.conf || return 1
-interface=${BRIDGE_INTERFACE}
-except-interface=lo
-bind-interfaces
-EOT
-    systemctl start dnsmasq
-}
-
-configure_repos() {
-    if centos?; then
-        cat << EOT > /etc/yum.repos.d/opennebula.repo
-[opennebula]
-name=opennebula
-baseurl=https://downloads.opennebula.org/repo/${VERSION}/CentOS/${INSTALLVER}/x86_64
-enabled=1
-gpgkey=https://downloads.opennebula.org/repo/repo.key
-gpgcheck=1
-EOT
-
-    elif ubuntu?; then
-        ( wget -q -O- https://downloads.opennebula.org/repo/repo.key | \
-            apt-key add - >/dev/null 2>&1 ) || return 1
-        echo "deb https://downloads.opennebula.org/repo/${VERSION}/Ubuntu/${INSTALLVER} stable opennebula" \
-            > /etc/apt/sources.list.d/opennebula.list  || return 1
-    fi
-}
-
-enable_rhel_extra_repos() {
-    subscription-manager repos --enable rhel-7-server-optional-rpms && \
-        subscription-manager repos --enable rhel-7-server-extras-rpms >/dev/null 2>&1
-}
-
-enable_epel() {
-    if redhat?; then
-        rpm -ivh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >/dev/null
-    elif centos? ; then
-        yum --quiet -y install epel-release >/dev/null
-    fi
-}
-
-install_opennebula_pkgs() {
-    if centos?; then
-        yum --quiet -y install opennebula-server opennebula-sunstone \
-            opennebula-ruby opennebula-gate opennebula-flow \
-            >/dev/null || return 1
-
-    elif ubuntu?; then
-        apt-get install -q -y opennebula opennebula-sunstone \
-            opennebula-gate opennebula-flow >/dev/null || return 1
-    fi
-}
-
-install_ruby_gems() {
-    centos? && ( yum --quiet -y install redhat-lsb >/dev/null 2>&1 || return 1 )
-    centos? && ( gem install bundler --version '<2.0' >/dev/null 2>&1 || return 1 )
-    /usr/share/one/install_gems --yes >/dev/null
-}
-
-install_opennebula_node_pkgs() {
-    if centos?; then
-        yum --quiet -y install opennebula-node-kvm >/dev/null || return 1
-        systemctl restart ${LIBVIRTD} || return 1
-
-        if redhat?; then
-            subscription-manager repos --enable \
-                rhel-7-server-rhv-4-mgmt-agent-rpms || return 1
-            yum --quiet -y install qemu-kvm-rhev || return 1
-        else
-            yum --quiet -y update centos-release >/dev/null
-            yum --quiet -y install centos-release-qemu-ev >/dev/null || return 1
-            yum --quiet -y install qemu-kvm-ev >/dev/null || return 1
-        fi
-    elif ubuntu?; then
-        apt-get install -q -y opennebula-node >/dev/null || return 1
-        service ${LIBVIRTD} restart || return 1
-    fi
-}
-
 title "Installation"
 VERBOSE='yes'
 
-[[ "${PURGE}" = yes ]] &&  check "purge" \
-    "Deleting traces from previous OpenNebula installaton"
+[[ "${PURGE}" = yes ]] && purge
+
 ubuntu? && check "apt-get -q -y update >/dev/null" "Updating apt cache"
 [[ "${DISABLE_SELINUX}" = 'yes' ]] && check "disable_selinux" "Disabling SELinux"
 [[ -n "${MISSING_PKGS}" ]] && check "install ${MISSING_PKGS}" "Install ${MISSING_PKGS}"
