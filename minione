@@ -544,6 +544,7 @@ install_opennebula_pkgs() {
 
 install_ruby_gems() {
     centos? && ( yum --quiet -y install redhat-lsb >/dev/null 2>&1 || return 1 )
+    centos? && ( gem install bundler --version '<2.0' >/dev/null 2>&1 || return 1 )
     /usr/share/one/install_gems --yes >/dev/null
 }
 
