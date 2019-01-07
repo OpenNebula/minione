@@ -249,7 +249,14 @@ repo_exists() {
         echo "Currently only CentOS or Ubuntu are supported" >&2
         return 1
     else
-        curl -q -f -s https://downloads.opennebula.org/repo/${VERSION}/${DISTNAME}/${INSTALLVER} >/dev/null
+        if type curl >/dev/null 2>&1; then
+            curl -q -f -s https://downloads.opennebula.org/repo/${VERSION}/${DISTNAME}/${INSTALLVER} >/dev/null
+        elif type wget >/dev/null 2>&1; then
+            wget --quiet -O /dev/null https://downloads.opennebula.org/repo/${VERSION}/${DISTNAME}/${INSTALLVER}
+        else
+            echo "Missing curl/wget to check repository" >&2
+            return 2
+        fi
     fi
 }
 
@@ -359,17 +366,18 @@ else
 fi
 
 # check if the requested app name exists on market place
-if type jq >/dev/null 2>&1; then
-    JQ='.appliances[].name'
-    check "curl -s -H \"${JSON_HEADERS}\" ${APPS_URL} | jq "${JQ}" \
-        | grep \"${MARKET_APP_NAME}\" >/dev/null" \
-        "Checking presence of the market app: \"$MARKET_APP_NAME\"" "Not found"
-else
+if type curl >/dev/null 2>&1; then
     check "curl -s -H \"${JSON_HEADERS}\" ${APPS_URL} \
         | grep '\"name\":\"${MARKET_APP_NAME}\"' >/dev/null" \
         "Checking presence of the market app: \"$MARKET_APP_NAME\"" "Not found"
+elif type wget > /dev/null 2>&1; then
+    check "wget --quiet -O - --header \"${JSON_HEADERS}\" ${APPS_URL} \
+        | grep '\"name\":\"${MARKET_APP_NAME}\"' >/dev/null" \
+        "Checking presence of the market app: \"$MARKET_APP_NAME\"" "Not found"
+else
+    # Always fail, but continue with info when --force was given
+    check "false" "Missing curl/wget to check market app" "IGNORE Can't check"
 fi
-
 
 #-------------------------------------------------------------------------------
 # Pre-installation report
