@@ -72,7 +72,7 @@ fi
 eval set -- "$OPTS"
 
 # global vars
-SUPPORTED_MAP='"5.6 CentOS 7"|"5.6 Ubuntu 16.04"|"5.6 Ubuntu 18.04"|"5.6 Ubuntu 18.10"'
+SUPPORTED_MAP='"5.6 CentOS 7"|"5.6 Debian 9"|"5.6 Ubuntu 16.04"|"5.6 Ubuntu 18.04"|"5.6 Ubuntu 18.10"'
 PURGE='no'
 DISABLE_SELINUX='no'
 ENABLED_APPARMOR='no'
@@ -163,7 +163,7 @@ get_distname_and_version() {
     elif [ -f /etc/SuSe-release ]; then
         DIST='SuSe'
     fi
-    [[ "${DIST}" =~ CentOS|RedHat ]] && VER=$(echo $VER | cut -c1)
+    [[ "${DIST}" =~ CentOS|RedHat|Debian ]] && VER=$(echo $VER | cut -c1)
 
     echo "${DIST} ${VER}"
 }
@@ -243,9 +243,10 @@ redhat?() {
     [[ "$DISTNAME" =~ RedHat ]]
 }
 
-ubuntu?() {
-    [[ "$DISTNAME" =~ Ubuntu ]]
+debian?() {
+    [[ "$DISTNAME" =~ Ubuntu|Debian ]]
 }
+
 
 firewalld_running?() {
     systemctl -q is-active firewalld
@@ -256,7 +257,7 @@ netplan?() {
 }
 
 repo_exists() {
-    if [[ ! "$DISTNAME" =~ CentOS|Ubuntu ]]; then
+    if [[ ! "$DISTNAME" =~ CentOS|Ubuntu|Debian ]]; then
         echo "Currently only CentOS or Ubuntu are supported" >&2
         return 1
     else
@@ -309,7 +310,7 @@ modify_apparmor() {
 install() {
     if centos?; then
         yum --quiet -y install $@ > /dev/null
-    elif ubuntu?; then
+    elif debian?; then
         DEBIAN_FRONTEND=noninteractive apt-get -q -y install $@ >/dev/null
     fi
 }
@@ -331,7 +332,7 @@ IPV6_AUTOCONF=no
 NM_CONTROLLED=no
 EOF
         fi
-    elif ubuntu?; then
+    elif debian?; then
         if netplan?; then
             if [[ $1 = purge ]]; then
                 rm -f /etc/systemd/network/minionebr-nic.netdev
@@ -446,19 +447,19 @@ configure_repos() {
             cat << EOT > /etc/yum.repos.d/opennebula.repo
 [opennebula]
 name=opennebula
-baseurl=https://downloads.opennebula.org/repo/${VERSION}/CentOS/${INSTALLVER}/x86_64
+baseurl=https://downloads.opennebula.org/repo/${VERSION}/${DISTNAME}/${INSTALLVER}/x86_64
 enabled=1
 gpgkey=https://downloads.opennebula.org/repo/repo.key
 gpgcheck=1
 EOT
         fi
-    elif ubuntu?; then
+    elif debian?; then
         if [[ $1 = 'purge' ]]; then
             rm -f /etc/apt/sources.list.d/opennebula.list
         else
             ( wget -q -O- https://downloads.opennebula.org/repo/repo.key | \
                 apt-key add - >/dev/null 2>&1 ) || return 1
-            echo "deb https://downloads.opennebula.org/repo/${VERSION}/Ubuntu/${INSTALLVER} stable opennebula" \
+            echo "deb https://downloads.opennebula.org/repo/${VERSION}/${DISTNAME}/${INSTALLVER} stable opennebula" \
                 > /etc/apt/sources.list.d/opennebula.list  || return 1
         fi
     fi
@@ -483,7 +484,7 @@ install_opennebula_pkgs() {
             opennebula-ruby opennebula-gate opennebula-flow \
             >/dev/null || return 1
 
-    elif ubuntu?; then
+    elif debian?; then
         apt-get install -q -y opennebula opennebula-sunstone \
             opennebula-gate opennebula-flow >/dev/null || return 1
     fi
@@ -510,7 +511,7 @@ install_opennebula_node_pkgs() {
             yum --quiet -y install centos-release-qemu-ev >/dev/null || return 1
             yum --quiet -y install qemu-kvm-ev >/dev/null || return 1
         fi
-    elif ubuntu?; then
+    elif debian?; then
         apt-get install -q -y opennebula-node >/dev/null || return 1
         service ${LIBVIRTD} restart || return 1
     fi
@@ -528,7 +529,7 @@ uninstall_opennebula_pkgs() {
         else
             yum --quiet -y remove qemu-kvm-ev >/dev/null || true
         fi
-    elif ubuntu?; then
+    elif debian?; then
         apt-get purge -q -y opennebula-node opennebula \
             opennebula-sunstone opennebula-gate opennebula-flow \
             opennebula-common >/dev/null
@@ -619,7 +620,16 @@ check "service sshd status >/dev/null" \
 check "type brctl >/dev/null 2>&1" "Checking bridge-utils are installed" \
     "SKIP will try to install" || MISSING_PKGS='bridge-utils'
 
-if ubuntu?; then
+# check if we have apt-transport-https
+if debian?; then
+    check "dpkg -L apt-transport-https >/dev/null 2>&1" \
+        "Checking apt-transport-https is installed" \
+        "SKIP will try to install" || \
+        MISSING_PKGS="${MISSING_PKGS} apt-transport-https"
+fi
+
+# check if we have iptables-persistent netfilter-persistent
+if debian?; then
     check "dpkg -l iptables-persistent netfilter-persistent > /dev/null" \
         "Checking (iptables|netfilter)-persistent are installed" \
         "SKIP will try to install" || \
@@ -638,7 +648,7 @@ check "! ip route show ${VNET_ADDRESS}/${NETMASK_BITS} | grep dev >/dev/null" \
 SELINUX=$(getenforce 2>/dev/null)
 centos? && { check "[[ ! \"${SELINUX}\" = 'Enforcing' ]]" \
     "Checking SELinux" "SKIP will try to disable" || DISABLE_SELINUX='yes'; }
-ubuntu? && { check "! aa-status >/dev/null 2>&1" \
+debian? && { check "! aa-status >/dev/null 2>&1" \
     "Checking AppArmor" "SKIP will try to modify" || ENABLED_APPARMOR='yes'; }
 
 # check for given ssh key
@@ -698,7 +708,7 @@ VERBOSE='yes'
 
 [[ "${PURGE}" = yes ]] && purge
 
-ubuntu? && check "apt-get -q -y update >/dev/null" "Updating apt cache"
+debian? && check "apt-get -q -y update >/dev/null" "Updating apt cache"
 [[ "${DISABLE_SELINUX}" = 'yes' ]] && check "disable_selinux" "Disabling SELinux"
 [[ -n "${MISSING_PKGS}" ]] && check "install ${MISSING_PKGS}" "Install ${MISSING_PKGS}"
 check "create_bridge" "Creating bridge interface ${BRIDGE_INTERFACE}"
@@ -708,11 +718,11 @@ centos? && firewalld_running? && check "disable_firewalld" "Disabling firewalld"
 check "configure_nat" "Configuring nat using iptables"
 check "ping_from_bridge" "Verify bridge by ping from it"
 centos? && check "iptables-save > /etc/sysconfig/iptables" "Saving iptables changes"
-ubuntu? && check "netfilter-persistent save" "Saving iptables changes"
+debian? && check "netfilter-persistent save" "Saving iptables changes"
 check "install dnsmasq" "Installing DNSMasq"
 check "start_dnsmasq" "Starting DNSMasq"
 check "configure_repos" "Configuring repositories"
-ubuntu? && check "apt-get -q -y update >/dev/null" "Updating apt cache"
+debian? && check "apt-get -q -y update >/dev/null" "Updating apt cache"
 redhat? && check "enable_rhel_extra_repos" "Enabling RHEL 7 extra & opt repositories"
 centos? && check "enable_epel" "Installing epel"
 check "install_opennebula_pkgs" "Installing OpenNebula packages"
