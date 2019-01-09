@@ -7,7 +7,7 @@ MiniONE is an easy to use deployment tool for the OpenNebula KVM evaluation envi
 - dedicated physical host supporting hardware virtualization
 - min.  2 GiB RAM
 - min. 20 GiB free space on disk
-- operating system **CentOS 7, Ubuntu 16.04, or Ubuntu 18.04**
+- operating system **CentOS 7, Ubuntu 16.04, Ubuntu 18.04, Ubuntu 18.10 or Debian 9**
 - fresh default install of the operating system with the latest updates
 - privileged user access (`root`)
 
