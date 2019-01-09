@@ -13,7 +13,7 @@ MiniONE is an easy to use deployment tool for the OpenNebula KVM evaluation envi
 
 ## Quickstart
 
-Download the tool, run it and follow the instructions from the terminal:
+Download the [latest release](https://github.com/OpenNebula/minione/releases/latest) of the `minione` script, run it and follow the instructions from the terminal:
 
 ```
 sudo bash minione
@@ -55,7 +55,7 @@ sudo bash minione --vnet-address 192.168.100.0 --vnet-gateway 192.168.100.1 --vn
 
 ## License
 
-Copyright 2002-2018, OpenNebula Project, OpenNebula Systems (formerly C12G Labs)
+Copyright 2002-2019, OpenNebula Project, OpenNebula Systems (formerly C12G Labs)
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License. You may obtain
