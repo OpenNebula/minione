@@ -32,6 +32,7 @@ VNET_AR_IP_START='172.16.100.1'
 VNET_AR_IP_COUNT='100'
 MARKET_APP_NAME='CentOS 7 - KVM'
 VM_PASSWORD='opennebula'
+LXD='no'
 PURGE_ONLY='no'
 
 usage() {
@@ -52,6 +53,7 @@ usage() {
     echo "--vnet-ar-ip-count [100]            Virtual Network AR size"
     echo "--marketapp-name [CentOS 7 - KVM]   Name of Marketplace appliance to import"
     echo "--vm-password [${VM_PASSWORD}]          Root password for virtual machine"
+    echo "--lxd                               Setup host to run LXD containers"
     echo "--purge                             Only uninstall and exit"
 }
 
@@ -62,7 +64,7 @@ usage() {
 PARAMETERS='help,version:,force,verbose,yes,password:,ssh-pubkey:,\
     bridge-interface:,nat-interface:,vnet-address:,vnet-netmask:,\
     vnet-gateway:,vnet-ar-ip-start:,vnet-ar-ip-count:,marketapp-name:,\
-    vm-password,purge'
+    vm-password,lxd,purge'
 
 OPTS=`getopt -o "hvf" -l "$PARAMETERS" -n 'minione' -- "$@"`
 if [ $? != 0 ] ; then
@@ -73,7 +75,10 @@ fi
 eval set -- "$OPTS"
 
 # global vars
-SUPPORTED_MAP='"5.6 CentOS 7"|"5.6 Debian 9"|"5.6 Ubuntu 16.04"|"5.6 Ubuntu 18.04"|"5.6 Ubuntu 18.10"'
+SUPPORTED_VER='5.6'
+SUPPORTED_LXD_VER='5.7'
+SUPPORTED_MAP='"CentOS7"|"Debian9"|"Ubuntu16.04"|"Ubuntu18.04"|"Ubuntu18.10"'
+SUPPORTED_LXD_MAP='"Ubuntu16.04"|"Ubuntu18.04"|"Ubuntu18.10"'
 PURGE='no'
 DISABLE_SELINUX='no'
 ENABLED_APPARMOR='no'
@@ -103,6 +108,7 @@ while true ; do
         --vnet-ar-ip-count) VNET_AR_IP_COUNT="$2" ; shift 2;;
         --marketapp-name) MARKET_APP_NAME="$2" ; shift 2;;
         --vm-password-name) VM_PASSWORD="$2" ; shift 2;;
+        --lxd) LXD="yes"; shift;;
         --purge) PURGE_ONLY="yes"; PURGE="yes"; shift;;
         --) shift ; break ;;
         *)  usage; exit 1 ;;
@@ -225,7 +231,7 @@ check() {
             ERROR=$(cat ${TMP_FILE})
             if [[ -n "${ERROR}" ]]; then
                 echo "STDERR:"
-                echo ${ERROR}
+                echo "${ERROR}"
             fi
             if [[ -n "${ON_FAIL}" &&  ! "${ON_FAIL}" =~ "IGNORE" ]]; then
                 echo "${ON_FAIL}"
@@ -257,9 +263,37 @@ netplan?() {
     [[ ! -s /run/network/ifstate && $(type netplan 2>/dev/null) ]]
 }
 
+kvm?() {
+    [[ $LXD == no ]]
+}
+
+lxd?() {
+    [[ $LXD == yes ]]
+}
+
+opennebula_ver() {
+    local SUPPORTED=$1
+    local FORCE=${2:-false}
+
+    if [[ $VERSION != "$SUPPORTED" ]]; then
+        $FORCE && echo "Only $SUPPORTED_VER is supported, try --force" >&2
+        return 2
+    fi
+}
+
+supported_dist_ver() {
+    local DIST_VER_MATCH=$1
+    local FORCE=${2:-false}
+
+    if [[ ! "${DISTNAME}${DISTVER}" =~ $DIST_VER_MATCH ]]; then
+        $FORCE && echo "${DISTNAME}${DISTVER} not in $DIST_VER_MATCH, try --force" >&2
+        return 2
+    fi
+}
+
 repo_exists() {
     if [[ ! "$DISTNAME" =~ CentOS|Ubuntu|Debian ]]; then
-        echo "Currently only CentOS or Ubuntu are supported" >&2
+        echo "Currently only CentOS, Ubuntu or Debian are supported" >&2
         return 1
     else
         if type curl >/dev/null 2>&1; then
@@ -272,6 +306,7 @@ repo_exists() {
         fi
     fi
 }
+
 
 disk_free() {
     local LIMIT=$1
@@ -498,7 +533,7 @@ install_ruby_gems() {
     /usr/share/one/install_gems --yes >/dev/null
 }
 
-install_opennebula_node_pkgs() {
+install_opennebula_kvm_pkgs() {
     if centos?; then
         yum --quiet -y install opennebula-node-kvm >/dev/null || return 1
         systemctl restart ${LIBVIRTD} || return 1
@@ -516,6 +551,10 @@ install_opennebula_node_pkgs() {
         apt-get install -q -y opennebula-node >/dev/null || return 1
         service ${LIBVIRTD} restart || return 1
     fi
+}
+
+install_opennebula_lxd_pkgs() {
+    apt-get install -q -y opennebula-node-lxd >/dev/null || return 1
 }
 
 uninstall_opennebula_pkgs() {
@@ -577,18 +616,30 @@ fi
 
 title "Checks & detection"
 
+# check if required version is supported
+check "opennebula_ver $SUPPORTED_VER true" "Checking required OpenNebula version" \
+    "IGNORED Will try to install if repository exists"
+
+# check if required version support LXD
+lxd? && check "opennebula_ver $SUPPORTED_LXD_VER" \
+    "Checking required OpenNebula version for LXD support" \
+
 # check distribution name and version
-check "[[ \"${VERSION} ${DISTNAME} ${DISTVER}\" =~ $SUPPORTED_MAP ]]" \
+check "supported_dist_ver \"$SUPPORTED_MAP\" true" \
     "Checking distribution and version [${DISTNAME} ${DISTVER}]" \
     "IGNORED Will try to install if repository exists"
-if [[ "$?" = 2 ]]; then
-    check "repo_exists" "Checking if OpenNebula repository exists"
-fi
+
+# check if repository exists
+check "repo_exists" "Checking if OpenNebula repository exists"
+
+# check if lxd is available for given distribution and version
+lxd? && check "supported_dist_ver \"$SUPPORTED_LXD_MAP\"" \
+    "Checking LXD support for given version"
 
 # check cpu flgas for virtualizaton capabilities
-check 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
+kvm? && { check 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
     "Checking cpu virtualization capabilities" \
-    "SKIP QEMU will be used" || USE_QEMU='yes'
+    "SKIP QEMU will be used" || USE_QEMU='yes'; }
 
 # check available disk space on /var
 check 'disk_free 20 /var' 'Checking free disk space' 'IGNORE'
@@ -728,7 +779,8 @@ redhat? && check "enable_rhel_extra_repos" "Enabling RHEL 7 extra & opt reposito
 centos? && check "enable_epel" "Installing epel"
 check "install_opennebula_pkgs" "Installing OpenNebula packages"
 check "install_ruby_gems" "Installing ruby gems"
-check "install_opennebula_node_pkgs" "Installing OpenNebula node packages"
+kvm? && check "install_opennebula_kvm_pkgs" "Installing OpenNebula node packages"
+lxd? && check "install_opennebula_lxd_pkgs" "Installing OpenNebula node packages"
 [[ "${ENABLED_APPARMOR}" = 'yes' ]] && check "modify_apparmor" "Updating AppArmor"
 
 
@@ -923,6 +975,9 @@ update_template() {
     echo 'NIC=[ NETWORK="vnet", NETWORK_UNAME="oneadmin", \
         SECURITY_GROUPS="0" ]' >> ${TMP_FILE}
 
+    # Add LXD_SECURITY_PRIVILEGED="true"
+    lxd? && echo 'LXD_SECURITY_PRIVILEGED="true"' >> ${TMP_FILE}
+
     onetemplate update 0 ${TMP_FILE} >/dev/null
     RC=$?
     rm ${TMP_FILE}
@@ -930,7 +985,10 @@ update_template() {
 }
 
 check "update_datastores" "Updating datastores, TM_MAD=qcow2, SHARED=yes"
-check "onehost create -i kvm -v kvm localhost >/dev/null 2>&1" "Creating host"
+kvm? && check "onehost create -i kvm -v kvm localhost >/dev/null 2>&1" \
+    "Creating kvm host"
+lxd? && check "onehost create -i lxd -v lxd localhost >/dev/null 2>&1" \
+    "Creating lxd host"
 check "create_vnet" "Creating virtual network"
 check "export_marketapp" \
     "Exporting [${MARKET_APP_NAME}] from marketplace to local datastore"
