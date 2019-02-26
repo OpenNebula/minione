@@ -75,8 +75,8 @@ fi
 eval set -- "$OPTS"
 
 # global vars
-SUPPORTED_VER='5.6'
-SUPPORTED_LXD_VER='5.7'
+SUPPORTED_VER='^(5.6|5.7|5.8)$'
+SUPPORTED_LXD_VER='^(5.7|5.8)$'
 SUPPORTED_MAP='"CentOS7"|"Debian9"|"Ubuntu16.04"|"Ubuntu18.04"|"Ubuntu18.10"'
 SUPPORTED_LXD_MAP='"Ubuntu16.04"|"Ubuntu18.04"|"Ubuntu18.10"'
 PURGE='no'
@@ -273,20 +273,18 @@ lxd?() {
 
 opennebula_ver() {
     local SUPPORTED=$1
-    local FORCE=${2:-false}
 
-    if [[ $VERSION != "$SUPPORTED" ]]; then
-        $FORCE && echo "Only $SUPPORTED_VER is supported, try --force" >&2
+    if [[ ! $VERSION =~ $SUPPORTED ]]; then
+        echo "Only ${SUPPORTED_VER:2:-2} is supported" >&2
         return 2
     fi
 }
 
 supported_dist_ver() {
     local DIST_VER_MATCH=$1
-    local FORCE=${2:-false}
 
     if [[ ! "${DISTNAME}${DISTVER}" =~ $DIST_VER_MATCH ]]; then
-        $FORCE && echo "${DISTNAME}${DISTVER} not in $DIST_VER_MATCH, try --force" >&2
+        echo "${DISTNAME}${DISTVER} not in $DIST_VER_MATCH" >&2
         return 2
     fi
 }
@@ -617,15 +615,15 @@ fi
 title "Checks & detection"
 
 # check if required version is supported
-check "opennebula_ver $SUPPORTED_VER true" "Checking required OpenNebula version" \
+check "opennebula_ver \"$SUPPORTED_VER\" true" "Checking required OpenNebula version" \
     "IGNORED Will try to install if repository exists"
 
 # check if required version support LXD
-lxd? && check "opennebula_ver $SUPPORTED_LXD_VER" \
+lxd? && check "opennebula_ver \"$SUPPORTED_LXD_VER\"" \
     "Checking required OpenNebula version for LXD support" \
 
 # check distribution name and version
-check "supported_dist_ver \"$SUPPORTED_MAP\" true" \
+check "supported_dist_ver \"$SUPPORTED_MAP\"" \
     "Checking distribution and version [${DISTNAME} ${DISTVER}]" \
     "IGNORED Will try to install if repository exists"
 
