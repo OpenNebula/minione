@@ -17,7 +17,7 @@
 #--------------------------------------------------------------------------- #
 
 # default parameters values
-VERSION='5.6'
+VERSION='5.8'
 FORCE='no'
 VERBOSE='no'
 ASK='yes'
