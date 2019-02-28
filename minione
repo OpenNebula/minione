@@ -552,7 +552,8 @@ install_opennebula_kvm_pkgs() {
 }
 
 install_opennebula_lxd_pkgs() {
-    apt-get install -q -y opennebula-node-lxd >/dev/null || return 1
+    DEBIAN_FRONTEND=noninteractive \
+        apt-get install -q -y opennebula-node-lxd >/dev/null || return 1
 }
 
 uninstall_opennebula_pkgs() {
