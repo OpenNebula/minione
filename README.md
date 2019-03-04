@@ -1,26 +1,35 @@
 # MiniONE
 
-MiniONE is an easy to use deployment tool for the OpenNebula which setup either **KVM** based or **LXD** (Linux containers) evaluation environment. All necessary components to manage and run the virtual machines or containers  are installed and configured on your dedicated physical host with just a single command run.
+MiniONE is an easy to use deployment tool for the OpenNebula which setup either **KVM** or **LXD** (Linux containers) based evaluation environment. All necessary components to manage and run the virtual machines or containers are installed and configured on your dedicated machine with just a single command run.
 
 ## Requirements
 
-- dedicated physical host
+- for **KVM** evaluation:
+  - dedicated physical host
+  - operating system: **CentOS 7, Ubuntu 16.04, Ubuntu 18.04, Ubuntu 18.10 or Debian 9**
+- for **LXD** evaluation:
+  - dedicated virtual machine or physical host
+  - operating system: **Ubuntu 18.04, Ubuntu 18.10**
 - min.  2 GiB RAM
 - min. 20 GiB free space on disk
-- for **KVM** operating system **CentOS 7, Ubuntu 16.04, Ubuntu 18.04, Ubuntu 18.10 or Debian 9**
-- for **LXD** operating system **Ubuntu 18.04, Ubuntu 18.10**
-- fresh default install of the operating system with the latest updates
+- fresh default installation of the operating system with the latest updates
 - privileged user access (`root`)
 
 ## Quickstart
 
-Download the [latest release](https://github.com/OpenNebula/minione/releases/latest) of the `minione` script, run it and follow the instructions from the terminal:
+Download the [latest release](https://github.com/OpenNebula/minione/releases/latest) of the `minione` script, run it and follow the instructions on the terminal.
+
+### KVM evaluation
+
+Run:
 
 ```
 sudo bash minione
 ```
 
-OR
+### LXD evaluation
+
+Run:
 
 ```
 sudo bash minione --lxd
