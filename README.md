@@ -1,13 +1,14 @@
 # MiniONE
 
-MiniONE is an easy to use deployment tool for the OpenNebula KVM evaluation environment. All necessary components to manage and (locally) run the virtual machines are installed and configured on your dedicated physical host with just a single command run.
+MiniONE is an easy to use deployment tool for the OpenNebula which setup either **KVM** based or **LXD** (Linux containers) evaluation environment. All necessary components to manage and run the virtual machines or containers  are installed and configured on your dedicated physical host with just a single command run.
 
 ## Requirements
 
-- dedicated physical host supporting hardware virtualization
+- dedicated physical host
 - min.  2 GiB RAM
 - min. 20 GiB free space on disk
-- operating system **CentOS 7, Ubuntu 16.04, Ubuntu 18.04, Ubuntu 18.10 or Debian 9**
+- for **KVM** operating system **CentOS 7, Ubuntu 16.04, Ubuntu 18.04, Ubuntu 18.10 or Debian 9**
+- for **LXD** operating system **Ubuntu 18.04, Ubuntu 18.10**
 - fresh default install of the operating system with the latest updates
 - privileged user access (`root`)
 
@@ -19,12 +20,18 @@ Download the [latest release](https://github.com/OpenNebula/minione/releases/lat
 sudo bash minione
 ```
 
+OR
+
+```
+sudo bash minione --lxd
+```
+
 If the deployment ends succesfully, you now have your OpenNebula all-in-one evaluation environment ready to use! On the terminal, you'll see a deployment report with login information.
 
 ### Deployment Steps
 
 - enable OpenNebula repository
-- install OpenNebula frontend and KVM hypervisor
+- install OpenNebula frontend and KVM or LXD hypervisor
 - prepare networking for virt. machines (bridge `minionebr`)
 - configure firewall to provide NAT for virt. machines
 - run private DNS server for virt. machines (`dnsmasq`)
@@ -41,11 +48,17 @@ sudo bash minione --help
 
 ### Examples
 
+Start a verbose deployment and setup LXD envirnoment instead of KVM:
+```
+sudo bash minione --verbose --lxd
+```
+
 Start a verbose deployment and set own password for the default OpenNebula user:
 
 ```
 sudo bash minione --verbose --password MySecretPassword
 ```
+
 
 Specify OpenNebula virtual private network IP range for new deployment:
 
@@ -53,14 +66,24 @@ Specify OpenNebula virtual private network IP range for new deployment:
 sudo bash minione --vnet-address 192.168.100.0 --vnet-gateway 192.168.100.1 --vnet-ar-ip-start 192.168.100.2
 ```
 
-
 ## Try Out
+
+### Report
+Once the minione is done, you will get an overview how to connect to the web interface similar to following:
+
+```
+### Report
+OpenNebula 5.8 was installed
+Sunstone (the webui) is runninng on:
+  http://192.168.100.101:9869/
+Use following to login:
+  user: oneadmin
+  password: o6ARsMAdGe
+```
 
 ### Try the Admin View in the Sunstone GUI
 
 After the minione finishes, the first thing we are going to do is to log in as oneadmin to take a look at the Admin View of Sunstone, which has more options than the other Sunstone views for a regular users.
-
-To login to Sunstone open your browser at `http://[ ip ]:9869`. You should receive the login information from the minione report.
 
 Take a look at all the already bootstrapped resources in the Sandbox.
 
