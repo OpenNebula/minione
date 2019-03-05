@@ -284,9 +284,9 @@ repo_exists() {
         return 1
     else
         if type curl >/dev/null 2>&1; then
-            curl -q -f -s https://downloads.opennebula.org/repo/${VERSION}/${DISTNAME}/${INSTALLVER} >/dev/null
+            curl -q -f -s https://downloads.opennebula.org/repo/${VERSION}/${DISTNAME}/${DISTVER} >/dev/null
         elif type wget >/dev/null 2>&1; then
-            wget --quiet -O /dev/null https://downloads.opennebula.org/repo/${VERSION}/${DISTNAME}/${INSTALLVER}
+            wget --quiet -O /dev/null https://downloads.opennebula.org/repo/${VERSION}/${DISTNAME}/${DISTVER}
         else
             echo "Missing curl/wget to check repository" >&2
             return 2
@@ -470,7 +470,7 @@ configure_repos() {
             cat << EOT > /etc/yum.repos.d/opennebula.repo
 [opennebula]
 name=opennebula
-baseurl=https://downloads.opennebula.org/repo/${VERSION}/${DISTNAME}/${INSTALLVER}/x86_64
+baseurl=https://downloads.opennebula.org/repo/${VERSION}/${DISTNAME}/${DISTVER}/x86_64
 enabled=1
 gpgkey=https://downloads.opennebula.org/repo/repo.key
 gpgcheck=1
@@ -482,7 +482,7 @@ EOT
         else
             ( wget -q -O- https://downloads.opennebula.org/repo/repo.key | \
                 apt-key add - >/dev/null 2>&1 ) || return 1
-            echo "deb https://downloads.opennebula.org/repo/${VERSION}/${DISTNAME}/${INSTALLVER} stable opennebula" \
+            echo "deb https://downloads.opennebula.org/repo/${VERSION}/${DISTNAME}/${DISTVER} stable opennebula" \
                 > /etc/apt/sources.list.d/opennebula.list  || return 1
         fi
     fi
@@ -568,9 +568,7 @@ uninstall_opennebula_pkgs() {
 # Initialize some usefull vars
 NETMASK_BITS=$(mask2cidr ${VNET_NETMASK})
 read -r DISTNAME DISTVER <<<$(get_distname_and_version)
-# some version fixes
-INSTALLVER=$DISTVER
-[[ "${DISTNAME}${DISTVER}" = 'Ubuntu18.10' ]] && INSTALLVER='18.04'
+
 [[ "${DISTNAME}${DISTVER}" =~ Ubuntu16.04|Ubuntu18.04 ]] && LIBVIRTD="libvirt-bin"
 
 
