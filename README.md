@@ -8,12 +8,14 @@ MiniONE is an easy to use deployment tool for the OpenNebula which setup either 
   - dedicated physical host
   - operating system: **CentOS 7, Ubuntu 16.04, Ubuntu 18.04, Ubuntu 18.10 or Debian 9**
 - for **LXD** evaluation:
-  - dedicated virtual machine or physical host
+  - dedicated virtual machine (*) or physical host
   - operating system: **Ubuntu 18.04, Ubuntu 18.10**
 - min.  2 GiB RAM
 - min. 20 GiB free space on disk
 - fresh default installation of the operating system with the latest updates
 - privileged user access (`root`)
+
+(*) For example MiniONE allows to easily build a LXD/OpenNebula environment on a AWS V. The minimal recommended size is perhaps t2.medium.  Just give it at least 25GB disk space and allow access to the 9689 TCP where the WebUI is running.
 
 ## Quickstart
 
@@ -37,7 +39,6 @@ sudo bash minione --lxd
 
 If the deployment ends succesfully, you now have your OpenNebula all-in-one evaluation environment ready to use! On the terminal, you'll see a deployment report with login information.
 
-You can easily deploy a LXD/OpenNebula environment of a VM running on AWS. The minimal recommended instance type is perhaps t2.medium. Just give it at least 25GB disk space and allow access to the 9869 TCP where the WebUI is running.
 
 ### Deployment Steps
 
