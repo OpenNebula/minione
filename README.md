@@ -15,7 +15,7 @@ MiniONE is an easy to use deployment tool for the OpenNebula which setup either 
 - fresh default installation of the operating system with the latest updates
 - privileged user access (`root`)
 
-(*) For example MiniONE allows to easily build a LXD/OpenNebula environment on a AWS V. The minimal recommended size is perhaps t2.medium.  Just give it at least 25GB disk space and allow access to the 9689 TCP where the WebUI is running.
+(*) For example MiniONE allows to easily build a LXD/OpenNebula environment on an Amazon VM. The minimal recommended size is perhaps t2.medium. Just give it at least 25GB disk space and allow access to the 9869 TCP where the WebUI is running.
 
 ## Quickstart
 
