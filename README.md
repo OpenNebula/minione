@@ -1,6 +1,6 @@
 # MiniONE
 
-MiniONE is an easy to use deployment tool for the OpenNebula which setup either **KVM** or **LXD** (Linux containers) based evaluation environment. All necessary components to manage and run the virtual machines or containers are installed and configured on your dedicated machine with just a single command run.
+MiniONE is an easy to use deployment tool to build an evaluation OpenNebula cloud based on either **KVM** or **LXD** (Linux containers). All necessary components to manage and run the virtual machines or containers are installed and configured on your dedicated system with just a single command run.
 
 ## Requirements
 
