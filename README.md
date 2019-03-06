@@ -37,6 +37,8 @@ sudo bash minione --lxd
 
 If the deployment ends succesfully, you now have your OpenNebula all-in-one evaluation environment ready to use! On the terminal, you'll see a deployment report with login information.
 
+You can easily deploy a LXD/OpenNebula environment of a VM running on AWS. The minimal recommended instance type is perhaps t2.medium. Just give it at least 25GB disk space and allow access to the 9869 TCP where the WebUI is running.
+
 ### Deployment Steps
 
 - enable OpenNebula repository
