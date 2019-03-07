@@ -165,6 +165,9 @@ You can see the template configuration if further detail
 ```
 $ onetemplate show 0
 ```
+### Access to MarketPlace
+
+TBD
 
 ### Further Exploration
 This is just a quick overview to get you started with OpenNebula. If you liked it, you may want to check the OpenNebula documentation for more information on how to deploy OpenNebula in your infrastructure and a detailed version of the OpenNebula features.
