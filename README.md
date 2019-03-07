@@ -97,7 +97,7 @@ Use following to login:
 
 After the minione finishes, the first thing we are going to do is to log in as oneadmin to take a look at the Admin View of Sunstone, which has more options than the other Sunstone views for a regular users.
 
-Take a look at all the already bootstrapped resources in the Sandbox.
+Take a look at all the already bootstrapped resources in the cloud.
 
 ![dashboard](https://raw.githubusercontent.com/OpenNebula/minione/master/screenshots/dashboard.png)
 
@@ -130,7 +130,7 @@ With the oneadmin role you can customize what your cloud users can do and see.
 
 ### Quick Overview of the CLI Interface
 
-You need to connect to the sever either using the web console or using ssh. OpenNebula runs as the oneadmin user, and the main administrator should run commands as that user, therefore the first thing you need to do is to switch to oneadmin:
+You need to connect to the server either using the web console or using ssh. OpenNebula runs as the oneadmin user, and the main administrator should run commands as that user, therefore the first thing you need to do is to switch to oneadmin:
 
 ```
 su - oneadmin
