@@ -165,9 +165,33 @@ You can see the template configuration if further detail
 ```
 $ onetemplate show 0
 ```
-### Access to MarketPlace
 
-TBD
+### Access to MarketPlace
+OpenNebula comes with predefined MarketPlace where you can get a lot of prepared images (Apps).
+
+![vm_info](https://raw.githubusercontent.com/OpenNebula/minione/master/screenshots/market_place1.png)
+
+There are various Linux distributions: Alpine, Centos, Debian etc and also some service images with preconfigured applications, like WordPress or GitLab.
+
+![vm_info](https://raw.githubusercontent.com/OpenNebula/minione/master/screenshots/market_place2.png)
+
+You can also create additional MarketPlace, here in the example we create a MarketPlace with backend `LinuxContainers.org`.
+
+![vm_info](https://raw.githubusercontent.com/OpenNebula/minione/master/screenshots/add_linux_containers_marketplace.png)
+
+Then get back to the `Apps` and try to search for `LXD`. `LinuxContainers.org` provides plenty of LXD containers which you can download to the datastore and try it.
+
+![vm_info](https://raw.githubusercontent.com/OpenNebula/minione/master/screenshots/containers_app_list.png)
+
+We can try some quite fresh Ubuntu.
+
+![vm_info](https://raw.githubusercontent.com/OpenNebula/minione/master/screenshots/choose_image.png)
+
+And Download it to the datastore.
+
+![vm_info](https://raw.githubusercontent.com/OpenNebula/minione/master/screenshots/download_image.png)
+
+Now when you go to the `Template -> VMs` section you can instantiate it.
 
 ### Further Exploration
 This is just a quick overview to get you started with OpenNebula. If you liked it, you may want to check the OpenNebula documentation for more information on how to deploy OpenNebula in your infrastructure and a detailed version of the OpenNebula features.
