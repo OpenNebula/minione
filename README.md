@@ -175,7 +175,7 @@ There are various Linux distributions: Alpine, Centos, Debian etc and also some 
 
 ![vm_info](https://raw.githubusercontent.com/OpenNebula/minione/master/screenshots/market_place2.png)
 
-You can also create additional MarketPlace, here in the example we create a MarketPlace with backend `LinuxContainers.org`.
+You can also check `LinuxContainers.org`, the LXD marketplace, backed by the [public LXD image server](https://us.images.linuxcontainers.org).
 
 ![vm_info](https://raw.githubusercontent.com/OpenNebula/minione/master/screenshots/add_linux_containers_marketplace.png)
 
