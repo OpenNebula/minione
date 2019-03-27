@@ -202,6 +202,10 @@ yes_no() {
     [[ $ANS = no ]] && exit 0
 }
 
+red()    { echo -e "\e[31m${1}\e[0m"; }
+green()  { echo -e "\e[32m${1}\e[0m"; }
+orange() { echo -e "\e[33m${1}\e[0m"; }
+
 check() {
     local COMMAND=$1
     local TEXT=$2
@@ -214,21 +218,21 @@ check() {
     RC=$?
 
     if [[ ${RC} = '0' ]]; then
-        [[ ${VERBOSE} = 'yes' ]] && echo -e "\e[32mOK\e[0m"
+        [[ ${VERBOSE} = 'yes' ]] && green "OK"
         return ${RC}
     else
         [[ ${VERBOSE} = 'no' ]] && echo -ne "${TEXT}  "
         if [[ "$ON_FAIL" =~ "SKIP" ]]; then
-            echo -e "\e[33m${ON_FAIL}\e[0m"
+            orange "${ON_FAIL}"
             unlink ${TMP_FILE}
             return ${RC}
 
         elif [[ ${FORCE} = 'yes' && "${ON_FAIL}" =~ "IGNORE" ]]; then
-            echo -e "\e[33m${ON_FAIL}\e[0m"
+            orange "${ON_FAIL}"
             unlink ${TMP_FILE}
             return 2
         else
-            echo -e "\e[31mFAILED\e[0m"
+            red "FAILED"
             ERROR=$(cat ${TMP_FILE})
             if [[ -n "${ERROR}" ]]; then
                 echo "STDERR:"

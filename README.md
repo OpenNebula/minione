@@ -39,6 +39,11 @@ sudo bash minione --lxd
 
 If the deployment ends succesfully, you now have your OpenNebula all-in-one evaluation environment ready to use! On the terminal, you'll see a deployment report with login information.
 
+Or you can use following one-liner for download and run the MiniONE at once (add `--lxd` at your convenience):
+
+```
+wget https://github.com/OpenNebula/minione/releases/download/v5.8.0/minione && yes | bash minione
+```
 
 ### Deployment Steps
 
