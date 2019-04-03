@@ -55,7 +55,7 @@ usage() {
     echo "--marketapp-name [CentOS 7 - KVM]   Name of Marketplace appliance to import"
     echo "--vm-password [${VM_PASSWORD}]          Root password for virtual machine"
     echo "--lxd                               Setup host to run LXD containers"
-    echo "--sunstone-port [${SUNSTONE_PORT}]  Setup sunstone port"
+    echo "--sunstone-port [${SUNSTONE_PORT}]                Setup sunstone port"
     echo "--purge                             Only uninstall and exit"
 }
 
