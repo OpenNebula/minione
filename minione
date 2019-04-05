@@ -665,6 +665,14 @@ if debian?; then
         MISSING_PKGS="${MISSING_PKGS} apt-transport-https"
 fi
 
+# check if gnupg is installed (required for apt-key add)
+if debian?; then
+    check "dpkg -L gnupg >/dev/null 2>&1" \
+        "Checking if gnupg is installed" \
+        "SKIP will try to install" || \
+        MISSING_PKGS="${MISSING_PKGS} gnupg"
+fi
+
 # check if we have iptables-persistent netfilter-persistent
 if debian?; then
     check "dpkg -l iptables-persistent netfilter-persistent > /dev/null" \
