@@ -85,6 +85,7 @@ ENABLED_APPARMOR='no'
 MISSING_PKGS=''
 USE_QEMU='no'
 APPS_URL='https://marketplace.opennebula.systems/appliance'
+REPO_URL='https://downloads.opennebula.org/repo'
 JSON_HEADERS='Accept: application/json'
 FORWARD=$(sysctl -n net.ipv4.ip_forward 2>/dev/null)
 LIBVIRTD='libvirtd'
@@ -210,12 +211,17 @@ check() {
     local COMMAND=$1
     local TEXT=$2
     local ON_FAIL=$3
-    local TMP_FILE=$(mktemp)
+    local STDERR_TMP_FILE=$(mktemp)
+    local STDOUT_TMP_FILE=$(mktemp)
 
     [[ ${VERBOSE} = 'yes' ]] && echo -ne "${TEXT}  "
 
-    eval "${COMMAND}" 2>${TMP_FILE}
+    eval "${COMMAND}" 2>${STDERR_TMP_FILE} >${STDOUT_TMP_FILE}
     RC=$?
+    STDERR=$(cat $STDERR_TMP_FILE)
+    STDOUT=$(cat $STDOUT_TMP_FILE)
+    unlink ${STDERR_TMP_FILE}
+    unlink ${STDOUT_TMP_FILE}
 
     if [[ ${RC} = '0' ]]; then
         [[ ${VERBOSE} = 'yes' ]] && green "OK"
@@ -224,27 +230,39 @@ check() {
         [[ ${VERBOSE} = 'no' ]] && echo -ne "${TEXT}  "
         if [[ "$ON_FAIL" =~ "SKIP" ]]; then
             orange "${ON_FAIL}"
-            unlink ${TMP_FILE}
             return ${RC}
 
         elif [[ ${FORCE} = 'yes' && "${ON_FAIL}" =~ "IGNORE" ]]; then
             orange "${ON_FAIL}"
-            unlink ${TMP_FILE}
-            return 2
+            echo "${STDOUT}"
+            echo "--- STDERR ---"
+            echo "${STDERR}"
+            echo "--------------"
+            return ${RC}
         else
             red "FAILED"
-            ERROR=$(cat ${TMP_FILE})
-            if [[ -n "${ERROR}" ]]; then
-                echo "STDERR:"
-                echo "${ERROR}"
-            fi
             if [[ -n "${ON_FAIL}" &&  ! "${ON_FAIL}" =~ "IGNORE" ]]; then
                 echo "${ON_FAIL}"
             fi
-            unlink ${TMP_FILE}
+            echo "${STDOUT}"
+            if [[ -n "${STDERR}" ]]; then
+                echo "--- STDERR ---"
+                echo "${STDERR}"
+                echo "--------------"
+            fi
             exit 1
         fi
     fi
+}
+
+run_and_print_if_failed() {
+    $@ >/dev/null
+    local RC=$?
+    local MSG=$@
+
+    [ ! $RC -eq 0 ] && echo "$MSG"
+
+    return $RC
 }
 
 centos?() {
@@ -290,17 +308,17 @@ repo_exists() {
         echo "Currently only CentOS, Ubuntu or Debian are supported" >&2
         return 1
     else
+        URL="${REPO_URL}/${VERSION}/${DISTNAME}/${DISTVER}"
         if type curl >/dev/null 2>&1; then
-            curl -q -f -s https://downloads.opennebula.org/repo/${VERSION}/${DISTNAME}/${DISTVER} >/dev/null
+            run_and_print_if_failed "curl -f -s -S $URL"
         elif type wget >/dev/null 2>&1; then
-            wget --quiet -O /dev/null https://downloads.opennebula.org/repo/${VERSION}/${DISTNAME}/${DISTVER}
+             wget $URL
         else
             echo "Missing curl/wget to check repository" >&2
             return 2
         fi
     fi
 }
-
 
 disk_free() {
     local LIMIT=$1
@@ -311,7 +329,7 @@ disk_free() {
 
     if [[ "${AVAIL}" -lt "${LIMIT}" ]]; then
         echo "Insufficient disk space, expected at least ${LIMIT}G on" \
-            "\"${TARGET}\" filesystem" >&2
+            "\"${TARGET}\" filesystem"
         return 1
     fi
 }
@@ -339,11 +357,14 @@ modify_apparmor() {
 
 install() {
     if centos?; then
-        yum --quiet -y install $@ > /dev/null
+        run_and_print_if_failed "yum -y install $@"
     elif debian?; then
-        DEBIAN_FRONTEND=noninteractive apt-get -q -y install $@ >/dev/null
+        export DEBIAN_FRONTEND=noninteractive
+        run_and_print_if_failed "apt-get -q -y install $@"
+        unset DEBIAN_FRONTEND
     fi
 }
+
 
 create_bridge() {
     if centos?; then
@@ -420,17 +441,17 @@ EOF
 
 ping_from_bridge() {
     sleep 3
-    ping -W 3 -c 1 -I ${VNET_AR_IP_START} 8.8.8.8 -q >/dev/null
+    run_and_print_if_failed "ping -W 3 -c 1 -I ${VNET_AR_IP_START} 8.8.8.8 -q"
 }
 
 restart_network() {
     if centos?; then
-        service network restart >/dev/null 2>&1
+        service network restart >/dev/null
     else
         if netplan?; then
             netplan apply
         else
-            service networking restart > /dev/null 2>&1
+            service networking restart > /dev/null
         fi
     fi
 }
@@ -440,14 +461,19 @@ disable_firewalld() {
         systemctl disable firewalld >/dev/null
 }
 
+
 configure_nat() {
-    if [[ $1 = 'purge' ]]; then
-        iptables --table nat -D POSTROUTING -s ${VNET_ADDRESS}/${NETMASK_BITS} ! \
-            -d ${VNET_ADDRESS}/${NETMASK_BITS} -j MASQUERADE || true
-    else
-        iptables --table nat -A POSTROUTING -s ${VNET_ADDRESS}/${NETMASK_BITS} ! \
-            -d ${VNET_ADDRESS}/${NETMASK_BITS} -j MASQUERADE || return 1
-    fi
+    ACTION='-A'
+    [[ $1 = 'purge' ]] && ACTION='-D'
+
+    IPTABLES_COMMAND=$(cat << EOF
+iptables --table nat $ACTION POSTROUTING \
+-s ${VNET_ADDRESS}/${NETMASK_BITS} \
+! -d ${VNET_ADDRESS}/${NETMASK_BITS} -j MASQUERADE
+EOF
+)
+
+    run_and_print_if_failed "$IPTABLES_COMMAND"
 }
 
 start_dnsmasq() {
@@ -459,7 +485,7 @@ start_dnsmasq() {
             systemct stop dnsmasq
         fi
     else
-        cp /etc/dnsmasq.conf /etc/dnsmasq.conf.bk 2>/dev/null || return 1
+        cp /etc/dnsmasq.conf /etc/dnsmasq.conf.bk 2>/dev/null
         cat << EOT > /etc/dnsmasq.conf || return 1
 interface=${BRIDGE_INTERFACE}
 except-interface=lo
@@ -488,7 +514,7 @@ EOT
             rm -f /etc/apt/sources.list.d/opennebula.list
         else
             ( wget -q -O- https://downloads.opennebula.org/repo/repo.key | \
-                apt-key add - >/dev/null 2>&1 ) || return 1
+                apt-key add - >/dev/null ) || return 1
             echo "deb https://downloads.opennebula.org/repo/${VERSION}/${DISTNAME}/${DISTVER} stable opennebula" \
                 > /etc/apt/sources.list.d/opennebula.list  || return 1
         fi
@@ -497,59 +523,64 @@ EOT
 
 enable_rhel_extra_repos() {
     subscription-manager repos --enable rhel-7-server-optional-rpms && \
-        subscription-manager repos --enable rhel-7-server-extras-rpms >/dev/null 2>&1
+        subscription-manager repos --enable rhel-7-server-extras-rpms >/dev/null
 }
 
 enable_epel() {
     if redhat?; then
-        rpm -ivh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm >/dev/null
+        rpm -ivh 'https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm'
     elif centos? ; then
-        yum --quiet -y install epel-release >/dev/null
+        install "epel-release"
     fi
 }
 
 install_opennebula_pkgs() {
     if centos?; then
-        yum --quiet -y install opennebula-server opennebula-sunstone \
-            opennebula-ruby opennebula-gate opennebula-flow \
-            >/dev/null || return 1
+        install "opennebula-server opennebula-sunstone opennebula-ruby "\
+            "opennebula-gate opennebula-flow" || return 1
 
     elif debian?; then
-        apt-get install -q -y opennebula opennebula-sunstone \
-            opennebula-gate opennebula-flow >/dev/null || return 1
+        install "opennebula opennebula-sunstone opennebula-gate "\
+            "opennebula-flow" || return 1
     fi
     systemctl daemon-reload
 }
 
 install_ruby_gems() {
-    centos? && ( yum --quiet -y install redhat-lsb >/dev/null 2>&1 || return 1 )
-    centos? && ( gem install bundler --version '<2.0' >/dev/null 2>&1 || return 1 )
-    /usr/share/one/install_gems --yes >/dev/null
+    centos? && {
+        install redhat-lsb || return 1
+        gem install bundler --version '<2.0' >/dev/null || return 1
+    }
+    OUT=(mktemp)
+    /usr/share/one/install_gems --yes > $OUT
+    RC=$?
+    cat $OUT | grep 'Could not' >&2
+    return $RC
 }
 
 install_opennebula_kvm_pkgs() {
     if centos?; then
-        yum --quiet -y install opennebula-node-kvm >/dev/null || return 1
+        install opennebula-node-kvm || return 1
         systemctl restart ${LIBVIRTD} || return 1
 
         if redhat?; then
             subscription-manager repos --enable \
                 rhel-7-server-rhv-4-mgmt-agent-rpms || return 1
-            yum --quiet -y install qemu-kvm-rhev || return 1
+            install qemu-kvm-rhev || return 1
         else
-            yum --quiet -y update centos-release >/dev/null
-            yum --quiet -y install centos-release-qemu-ev >/dev/null || return 1
-            yum --quiet -y install qemu-kvm-ev >/dev/null || return 1
+            run_and_print_if_failed \
+                "yum --quiet -y update centos-release"
+            install centos-release-qemu-ev qemu-kvm-ev || return 1
         fi
     elif debian?; then
-        apt-get install -q -y opennebula-node >/dev/null || return 1
+        run_and_print_if_failed \
+            "apt-get install -y opennebula-node" || return 1
         service ${LIBVIRTD} restart || return 1
     fi
 }
 
 install_opennebula_lxd_pkgs() {
-    DEBIAN_FRONTEND=noninteractive \
-        apt-get install -q -y opennebula-node-lxd >/dev/null || return 1
+    install opennebula-node-lxd return 1
 }
 
 uninstall_opennebula_pkgs() {
@@ -560,7 +591,7 @@ uninstall_opennebula_pkgs() {
         systemctl restart ${LIBVIRTD} || true
 
         if redhat?; then
-            yum --quiet -y install qemu-kvm-rhev || true
+            yum --quiet -y remove qemu-kvm-rhev || true
         else
             yum --quiet -y remove qemu-kvm-ev >/dev/null || true
         fi
@@ -584,10 +615,15 @@ read -r DISTNAME DISTVER <<<$(get_distname_and_version)
 #-------------------------------------------------------------------------------
 
 purge() {
+    echo "Really uninstall? [yes/no]:"
+    [[ "${ASK}" = 'yes' ]] && yes_no
+    FORCE='yes'
+
     title "Uninstalling"
     check "systemctl stop opennebula opennebula-sunstone" "Stopping OpenNebula" "SKIP"
     [[ "${ENABLED_APPARMOR}" = 'yes' ]] && check "modify_apparmor" "Restoring AppArmor"
     check "uninstall_opennebula_pkgs" "Uninstalling OpenNebula packages" "SKIP"
+    check "start_dnsmasq purge" "Stopping DNSMasq" "SKIP"
     check "configure_repos purge" "Unconfiguring repositories"
     check "configure_nat purge" "Unconfiguring nat using iptables" "SKIP"
     check "create_bridge purge" "Deleting bridge interface ${BRIDGE_INTERFACE}"
@@ -689,7 +725,7 @@ check "! interface_exists ${BRIDGE_INTERFACE}" \
 check "! ip route show ${VNET_ADDRESS}/${NETMASK_BITS} | grep dev >/dev/null" \
     "Checking virtual network ${VNET_ADDRESS}/${NETMASK_BITS} is not routed"
 
-# Check SELunix or AppArmor
+# Check SELinux or AppArmor
 SELINUX=$(getenforce 2>/dev/null)
 centos? && { check "[[ ! \"${SELINUX}\" = 'Enforcing' ]]" \
     "Checking SELinux" "SKIP will try to disable" || DISABLE_SELINUX='yes'; }
