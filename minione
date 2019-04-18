@@ -370,6 +370,8 @@ create_bridge() {
     if centos?; then
         if [[ $1 = purge ]]; then
             rm -f /etc/sysconfig/network-scripts/ifcfg-minionebr
+            ip link set down dev ${BRIDGE_INTERFACE} || true
+            brctl delbr ${BRIDGE_INTERFACE} || true
         else
             cat > /etc/sysconfig/network-scripts/ifcfg-minionebr<< EOF
 DEVICE=${BRIDGE_INTERFACE}
