@@ -447,6 +447,29 @@ ping_from_bridge() {
     run_and_print_if_failed "ping -W 3 -c 1 -I ${VNET_AR_IP_START} 8.8.8.8 -q"
 }
 
+disable_invalid_net_cfg() {
+    # This is mainly to hack-around packet vanila Centos images
+    # containig ifcfg- file for non-existing device
+
+    cd /etc/sysconfig/network-scripts || return 1
+    ip link >/dev/null || return 1
+    for FILE in ifcfg-*; do
+        # skip interfaces disabled "on boot"
+        if grep -q -i '^ONBOOT=["'\'']no' $FILE; then
+            continue
+        fi
+
+        # get interface name from configuration or filename
+        IFACE=$(awk -F= 'toupper($1) ~ /(DEVICE|NAME)/ { gsub("['\''\"]", "", $2); print $2; exit }' ${FILE})
+        IFACE=${IFACE:-${FILE##ifcfg-}}
+        # if interface does not exist, disable configuration
+        if ! ip link show ${IFACE} >/dev/null 2>&1; then
+            mv ${FILE} disabled-${FILE}
+        fi
+    done
+    cd -
+}
+
 restart_network() {
     if centos?; then
         service network restart >/dev/null
@@ -797,6 +820,7 @@ debian? && check "apt-get -q -y update >/dev/null" "Updating apt cache"
 [[ -n "${MISSING_PKGS}" ]] && check "install ${MISSING_PKGS}" "Install ${MISSING_PKGS}"
 check "create_bridge" "Creating bridge interface ${BRIDGE_INTERFACE}"
 check "restart_network" "Restarting network"
+centos? && check "disable_invalid_net_cfg" "Rename invalid network configs"
 centos? && firewalld_running? && check "disable_firewalld" "Disabling firewalld"
 [[ "$FORWARD" = 0 ]] && check "sysctl -w net.ipv4.ip_forward=1 >/dev/null" "Enabling ipv4 forward"
 check "configure_nat" "Configuring nat using iptables"
