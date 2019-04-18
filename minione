@@ -90,6 +90,7 @@ JSON_HEADERS='Accept: application/json'
 FORWARD=$(sysctl -n net.ipv4.ip_forward 2>/dev/null)
 LIBVIRTD='libvirtd'
 ONE_WAIT_TIMEOUT=60
+STAR_NET=''
 
 while true ; do
     case "$1" in
@@ -904,6 +905,30 @@ EOF
     rm ${TMP_FILE}
 }
 
+update_ssh_configs() {
+    # allow VM addresses to be re-used
+    touch /var/lib/one/.ssh/config || return 1
+    grep -q "Host ${STAR_NET}" /var/lib/one/.ssh/config || {
+        cat >> /var/lib/one/.ssh/config << EOF || return 1
+Host ${STAR_NET}
+   StrictHostKeyChecking no
+   UserKnownHostsFile=/dev/null
+EOF
+        chown oneadmin:oneadmin /var/lib/one/.ssh/config || return 1
+        chmod 0600 /var/lib/one/.ssh/config || return 1
+    }
+
+    touch ~/.ssh/config || return 1
+    grep -q "Host ${STAR_NET}" ~/.ssh/config || {
+        cat >> ~/.ssh/config << EOF || return 1
+Host ${STAR_NET}
+   StrictHostKeyChecking no
+   UserKnownHostsFile=/dev/null
+EOF
+        chmod 0600 ~/.ssh/config
+    }
+}
+
 title "Configuration"
 check "conf_change \"\#ONEGATE_ENDPOINT = .*\" \"ONEGATE_ENDPOINT = 'http:\/\/${VNET_AR_IP_START}:5030'\""\
         "Switching onegate endpoint in oned.conf"
@@ -924,6 +949,7 @@ check "deny_ssh_from_vnet" "Disabling ssh from virtual network"
 check "add_keys_to_known_hosts" "Adding localhost ssh key to known_hosts"
 check "test_ssh_connection" "Testing ssh connection to localhost"
 check "add_ssh_keys_to_oneadmin" "Add ssh key to oneadmin user"
+check "update_ssh_configs" "Update ssh configs to allow VM addresses reusig"
 
 
 #-------------------------------------------------------------------------------
