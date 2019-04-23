@@ -35,6 +35,8 @@ VM_PASSWORD='opennebula'
 LXD='no'
 SUNSTONE_PORT='80'
 PURGE_ONLY='no'
+NODE='yes'
+NETWORKING='yes'
 
 usage() {
     echo "-h --help                           List of supported arguments"
@@ -43,6 +45,8 @@ usage() {
     echo "                                    (e.g., traces of existing inst.)"
     echo "-v --verbose                        Be verbose"
     echo "--yes                               Don't ask"
+    echo "--frontend                          Install only frontend, skip node setup"
+    echo "                                    no networking configuration"
     echo "--password [random generated]       Initial password for oneadmin"
     echo "--ssh-pubkey [~/.ssh/id_rsa.pub]    User ssh public key"
     echo "--bridge-interface [${BRIDGE_INTERFACE}]      Bridge interface for private networking"
@@ -63,7 +67,7 @@ usage() {
 # COMMAND LINE PARSING
 #-------------------------------------------------------------------------------
 
-PARAMETERS='help,version:,force,verbose,yes,password:,ssh-pubkey:,\
+PARAMETERS='help,version:,force,verbose,yes,frontend,password:,ssh-pubkey:,\
     bridge-interface:,nat-interface:,vnet-address:,vnet-netmask:,\
     vnet-gateway:,vnet-ar-ip-start:,vnet-ar-ip-count:,marketapp-name:,\
     vm-password,lxd,sunstone-port:,purge'
@@ -98,6 +102,7 @@ while true ; do
         -f|--force) FORCE="yes"; shift;;
         --help) usage; exit 0;;
         --yes) ASK="no"; shift;;
+        --frontend) NODE="no"; NETWORKING="no"; shift;;
         --version) VERSION="$2" ; shift 2;;
         --ssh-pubkey) SSH_PUBKEY="$2" ; shift 2;;
         --password) PASSWORD="$2" ; shift 2;;
@@ -278,7 +283,6 @@ debian?() {
     [[ "$DISTNAME" =~ Ubuntu|Debian ]]
 }
 
-
 firewalld_running?() {
     systemctl -q is-active firewalld
 }
@@ -288,11 +292,19 @@ netplan?() {
 }
 
 kvm?() {
-    [[ $LXD == no ]]
+    [[ $NODE == yes && $LXD == no ]]
 }
 
 lxd?() {
-    [[ $LXD == yes ]]
+    [[ $NODE == yes && $LXD == yes ]]
+}
+
+node?() {
+    [[ $NODE == yes ]]
+}
+
+networking?() {
+    [[ $NETWORKING == yes ]]
 }
 
 supported_dist_ver() {
@@ -692,14 +704,16 @@ kvm? && { check 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
 check 'disk_free 20 /var' 'Checking free disk space' 'IGNORE'
 
 # check if given interface exists
-if [[ -n "${NAT_INTERFACE}" ]]; then
-    check "interface_exists ${NAT_INTERFACE}" \
-    "Checking [${NAT_INTERFACE}] net device exists"
-else
-    NAT_INTERFACE=$(get_interface_name)
-    check "[[ -n \"${NAT_INTERFACE}\" ]]" \
-        "Checking local interface [${NAT_INTERFACE}]"
-fi
+networking? && {
+    if [[ -n "${NAT_INTERFACE}" ]]; then
+        check "interface_exists ${NAT_INTERFACE}" \
+        "Checking [${NAT_INTERFACE}] net device exists"
+    else
+        NAT_INTERFACE=$(get_interface_name)
+        check "[[ -n \"${NAT_INTERFACE}\" ]]" \
+            "Checking local interface [${NAT_INTERFACE}]"
+    fi
+}
 
 # check existing directories from previous installation
 check "[[ ! -e /etc/one && ! -e /var/lib/one ]]" \
@@ -716,8 +730,10 @@ check "service sshd status >/dev/null" \
      "Checking sshd service is running"
 
 # check if we have bridge-utils
-check "type brctl >/dev/null 2>&1" "Checking bridge-utils are installed" \
-    "SKIP will try to install" || MISSING_PKGS='bridge-utils'
+networking? && {
+    check "type brctl >/dev/null 2>&1" "Checking bridge-utils are installed" \
+        "SKIP will try to install" || MISSING_PKGS='bridge-utils'
+}
 
 # check if we have apt-transport-https
 if debian?; then
@@ -735,21 +751,23 @@ if debian?; then
         MISSING_PKGS="${MISSING_PKGS} gnupg"
 fi
 
-# check if we have iptables-persistent netfilter-persistent
-if debian?; then
-    check "dpkg -l iptables-persistent netfilter-persistent > /dev/null" \
-        "Checking (iptables|netfilter)-persistent are installed" \
-        "SKIP will try to install" || \
-        MISSING_PKGS="${MISSING_PKGS} iptables-persistent netfilter-persistent"
-fi
+networking? && {
+    # check if we have iptables-persistent netfilter-persistent
+    if debian?; then
+        check "dpkg -l iptables-persistent netfilter-persistent > /dev/null" \
+            "Checking (iptables|netfilter)-persistent are installed" \
+            "SKIP will try to install" || \
+            MISSING_PKGS="${MISSING_PKGS} iptables-persistent netfilter-persistent"
+    fi
 
-#check if birdge iface is not already present
-check "! interface_exists ${BRIDGE_INTERFACE}" \
-    "Checking $BRIDGE_INTERFACE interface is not present" "IGNORED"
+    #check if birdge iface is not already present
+    check "! interface_exists ${BRIDGE_INTERFACE}" \
+        "Checking $BRIDGE_INTERFACE interface is not present" "IGNORED"
 
-# check if given virtual network is already in routing table
-check "! ip route show ${VNET_ADDRESS}/${NETMASK_BITS} | grep dev >/dev/null" \
-    "Checking virtual network ${VNET_ADDRESS}/${NETMASK_BITS} is not routed"
+    # check if given virtual network is already in routing table
+    check "! ip route show ${VNET_ADDRESS}/${NETMASK_BITS} | grep dev >/dev/null" \
+        "Checking virtual network ${VNET_ADDRESS}/${NETMASK_BITS} is not routed"
+}
 
 # Check SELinux or AppArmor
 SELINUX=$(getenforce 2>/dev/null)
@@ -776,19 +794,21 @@ else
     fi
 fi
 
-# check if the requested app name exists on market place
-if type curl >/dev/null 2>&1; then
-    check "curl -s -H \"${JSON_HEADERS}\" ${APPS_URL} \
-        | grep '\"name\":\"${MARKET_APP_NAME}\"' >/dev/null" \
-        "Checking presence of the market app: \"$MARKET_APP_NAME\"" "Not found"
-elif type wget > /dev/null 2>&1; then
-    check "wget --quiet -O - --header \"${JSON_HEADERS}\" ${APPS_URL} \
-        | grep '\"name\":\"${MARKET_APP_NAME}\"' >/dev/null" \
-        "Checking presence of the market app: \"$MARKET_APP_NAME\"" "Not found"
-else
-    # Always fail, but continue with info when --force was given
-    check "false" "Missing curl/wget to check market app" "IGNORE Can't check"
-fi
+node? && {
+    # check if the requested app name exists on market place
+    if type curl >/dev/null 2>&1; then
+        check "curl -s -H \"${JSON_HEADERS}\" ${APPS_URL} \
+            | grep '\"name\":\"${MARKET_APP_NAME}\"' >/dev/null" \
+            "Checking presence of the market app: \"$MARKET_APP_NAME\"" "Not found"
+    elif type wget > /dev/null 2>&1; then
+        check "wget --quiet -O - --header \"${JSON_HEADERS}\" ${APPS_URL} \
+            | grep '\"name\":\"${MARKET_APP_NAME}\"' >/dev/null" \
+            "Checking presence of the market app: \"$MARKET_APP_NAME\"" "Not found"
+    else
+        # Always fail, but continue with info when --force was given
+        check "false" "Missing curl/wget to check market app" "IGNORE Can't check"
+    fi
+}
 
 #-------------------------------------------------------------------------------
 # Pre-installation report
@@ -798,12 +818,15 @@ title "Main deployment steps:"
 [[ "${PURGE}" = yes ]]            && echo "Purge previous installation"
 [[ "${DISABLE_SELINUX}" = yes ]]  && echo "Disable SELinux"
 [[ -n "${MISSING_PKGS}" ]]        && echo "Install ${MISSING_PKGS}"
-centos? && firewalld_running?     && echo "Disable_firewalld"
-echo "Configure bridge ${BRIDGE_INTERFACE} with IP ${VNET_GATEWAY}/${NETMASK_BITS}"
-echo "Enable NAT over ${NAT_INTERFACE}"
+node? && {
+    centos? && firewalld_running?     && echo "Disable_firewalld"
+    echo "Configure bridge ${BRIDGE_INTERFACE} with IP ${VNET_GATEWAY}/${NETMASK_BITS}"
+    echo "Enable NAT over ${NAT_INTERFACE}"
+    [[ "${ENABLED_APPARMOR}" = yes ]] && echo "Modify AppArmor"
+    echo "Install OpenNebula node version ${VERSION}"
+}
 echo "Using ssh public key ${SSH_PUBKEY}"
-echo "Install OpenNebula version ${VERSION}"
-[[ "${ENABLED_APPARMOR}" = yes ]] && echo "Modify AppArmor"
+echo "Install OpenNebula frontend version ${VERSION}"
 
 echo ""
 echo "Do you agree? [yes/no]:"
@@ -818,27 +841,30 @@ VERBOSE='yes'
 debian? && check "apt-get -q -y update >/dev/null" "Updating apt cache"
 [[ "${DISABLE_SELINUX}" = 'yes' ]] && check "disable_selinux" "Disabling SELinux"
 [[ -n "${MISSING_PKGS}" ]] && check "install ${MISSING_PKGS}" "Install ${MISSING_PKGS}"
-check "create_bridge" "Creating bridge interface ${BRIDGE_INTERFACE}"
-check "restart_network" "Restarting network"
-centos? && check "disable_invalid_net_cfg" "Rename invalid network configs"
-centos? && firewalld_running? && check "disable_firewalld" "Disabling firewalld"
-[[ "$FORWARD" = 0 ]] && check "sysctl -w net.ipv4.ip_forward=1 >/dev/null" "Enabling ipv4 forward"
-check "configure_nat" "Configuring nat using iptables"
-check "ping_from_bridge" "Verify bridge by ping from it"
-centos? && check "iptables-save > /etc/sysconfig/iptables" "Saving iptables changes"
-debian? && check "netfilter-persistent save" "Saving iptables changes"
-check "install dnsmasq" "Installing DNSMasq"
-check "start_dnsmasq" "Starting DNSMasq"
+networking? && {
+    check "create_bridge" "Creating bridge interface ${BRIDGE_INTERFACE}"
+    check "restart_network" "Restarting network"
+    centos? && check "disable_invalid_net_cfg" "Rename invalid network configs"
+    centos? && firewalld_running? && check "disable_firewalld" "Disabling firewalld"
+    [[ "$FORWARD" = 0 ]] && check "sysctl -w net.ipv4.ip_forward=1 >/dev/null" "Enabling ipv4 forward"
+    check "configure_nat" "Configuring nat using iptables"
+    check "ping_from_bridge" "Verify bridge by ping from it"
+    centos? && check "iptables-save > /etc/sysconfig/iptables" "Saving iptables changes"
+    debian? && check "netfilter-persistent save" "Saving iptables changes"
+    check "install dnsmasq" "Installing DNSMasq"
+    check "start_dnsmasq" "Starting DNSMasq"
+}
 check "configure_repos" "Configuring repositories"
 debian? && check "apt-get -q -y update >/dev/null" "Updating apt cache"
 redhat? && check "enable_rhel_extra_repos" "Enabling RHEL 7 extra & opt repositories"
 centos? && check "enable_epel" "Installing epel"
 check "install_opennebula_pkgs" "Installing OpenNebula packages"
 check "install_ruby_gems" "Installing ruby gems"
-kvm? && check "install_opennebula_kvm_pkgs" "Installing OpenNebula node packages"
-lxd? && check "install_opennebula_lxd_pkgs" "Installing OpenNebula node packages"
-[[ "${ENABLED_APPARMOR}" = 'yes' ]] && check "modify_apparmor" "Updating AppArmor"
-
+node? && {
+    kvm? && check "install_opennebula_kvm_pkgs" "Installing OpenNebula node packages"
+    lxd? && check "install_opennebula_lxd_pkgs" "Installing OpenNebula node packages"
+    [[ "${ENABLED_APPARMOR}" = 'yes' ]] && check "modify_apparmor" "Updating AppArmor"
+}
 
 #-------------------------------------------------------------------------------
 # Configuration
