@@ -38,29 +38,34 @@ PURGE_ONLY='no'
 NODE='yes'
 NETWORKING='yes'
 
+e() {
+  let SPACE_NUM=35+${#2}-${#1}
+  printf "%s %${SPACE_NUM}s\n" "$1" "$2"
+}
+
 usage() {
-    echo "-h --help                           List of supported arguments"
-    echo "--version [$VERSION]                     Specify OpenNebula version"
-    echo "-f --force                          Skip non-fatal validation errors"
-    echo "                                    (e.g., traces of existing inst.)"
-    echo "-v --verbose                        Be verbose"
-    echo "--yes                               Don't ask"
-    echo "--frontend                          Install only frontend, skip node setup"
-    echo "                                    no networking configuration"
-    echo "--password [random generated]       Initial password for oneadmin"
-    echo "--ssh-pubkey [~/.ssh/id_rsa.pub]    User ssh public key"
-    echo "--bridge-interface [${BRIDGE_INTERFACE}]      Bridge interface for private networking"
-    echo "--nat-interface [first net device]  Interface to configure for NAT"
-    echo "--vnet-address [${VNET_ADDRESS}]       Virtual Network address"
-    echo "--vnet-netmask [${VNET_NETMASK}]      Virtual Network netmask"
-    echo "--vnet-gateway [${VNET_GATEWAY}]       Virtual Network gateway (i.e. bridge IP)"
-    echo "--vnet-ar-ip-start [${VNET_AR_IP_START}]   Virtual Network AR start IP"
-    echo "--vnet-ar-ip-count [100]            Virtual Network AR size"
-    echo "--marketapp-name [CentOS 7 - KVM]   Name of Marketplace appliance to import"
-    echo "--vm-password [${VM_PASSWORD}]          Root password for virtual machine"
-    echo "--lxd                               Setup host to run LXD containers"
-    echo "--sunstone-port [${SUNSTONE_PORT}]                Setup sunstone port"
-    echo "--purge                             Only uninstall and exit"
+    e "-h --help"                                 "List of supported arguments"
+    e "--version [$VERSION]"                      "Specify OpenNebula version"
+    e "-f --force"                                "Skip non-fatal validation errors"
+    e ""                                          "(e.g., traces of existing inst.)"
+    e "-v --verbose"                              "Be verbose"
+    e "--yes"                                     "Don't ask"
+    e "--frontend"                                "Install only frontend, skip node setup"
+    e ""                                          "no networking configuration"
+    e "--password [random generated]"             "Initial password for oneadmin"
+    e "--ssh-pubkey [~/.ssh/id_rsa.pub]"          "User ssh public key"
+    e "--bridge-interface [${BRIDGE_INTERFACE}]"  "Bridge interface for private networking"
+    e "--nat-interface [first net device]"        "Interface to configure for NAT"
+    e "--vnet-address [${VNET_ADDRESS}]"          "Virtual Network address"
+    e "--vnet-netmask [${VNET_NETMASK}]"          "Virtual Network netmask"
+    e "--vnet-gateway [${VNET_GATEWAY}]"          "Virtual Network gateway (i.e. bridge IP)"
+    e "--vnet-ar-ip-start [${VNET_AR_IP_START}]"  "Virtual Network AR start IP"
+    e "--vnet-ar-ip-count [100]"                  "Virtual Network AR size"
+    e "--marketapp-name [CentOS 7 - KVM]"         "Name of Marketplace appliance to import"
+    e "--vm-password [${VM_PASSWORD}]"            "Root password for virtual machine"
+    e "--lxd"                                     "Setup host to run LXD containers"
+    e "--sunstone-port [${SUNSTONE_PORT}]"        "Setup sunstone port"
+    e "--purge"                                   "Only uninstall and exit"
 }
 
 #-------------------------------------------------------------------------------
