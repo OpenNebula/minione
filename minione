@@ -470,6 +470,7 @@ disable_invalid_net_cfg() {
 
     cd /etc/sysconfig/network-scripts || return 1
     ip link >/dev/null || return 1
+    CHANGED=''
     for FILE in ifcfg-*; do
         # skip interfaces disabled "on boot"
         if grep -q -i '^ONBOOT=["'\'']no' $FILE; then
@@ -481,9 +482,15 @@ disable_invalid_net_cfg() {
         IFACE=${IFACE:-${FILE##ifcfg-}}
         # if interface does not exist, disable configuration
         if ! ip link show ${IFACE} >/dev/null 2>&1; then
+            CHANGED=yes
             mv ${FILE} disabled-${FILE}
         fi
     done
+    if [ -n "${CHANGED}" ] && systemctl is-failed network.service >/dev/null 2>&1; then
+      ifdown ifcfg-* || :
+      systemctl restart network.service || return 1
+    fi
+
     cd -
 }
 
@@ -847,9 +854,9 @@ debian? && check "apt-get -q -y update >/dev/null" "Updating apt cache"
 [[ "${DISABLE_SELINUX}" = 'yes' ]] && check "disable_selinux" "Disabling SELinux"
 [[ -n "${MISSING_PKGS}" ]] && check "install ${MISSING_PKGS}" "Install ${MISSING_PKGS}"
 networking? && {
+    centos? && check "disable_invalid_net_cfg" "Rename invalid network configs"
     check "create_bridge" "Creating bridge interface ${BRIDGE_INTERFACE}"
     check "restart_network" "Restarting network"
-    centos? && check "disable_invalid_net_cfg" "Rename invalid network configs"
     centos? && firewalld_running? && check "disable_firewalld" "Disabling firewalld"
     [[ "$FORWARD" = 0 ]] && check "sysctl -w net.ipv4.ip_forward=1 >/dev/null" "Enabling ipv4 forward"
     check "configure_nat" "Configuring nat using iptables"
