@@ -675,7 +675,7 @@ purge() {
     check "uninstall_opennebula_pkgs" "Uninstalling OpenNebula packages" "SKIP"
     check "start_dnsmasq purge" "Stopping DNSMasq" "SKIP"
     check "configure_repos purge" "Unconfiguring repositories"
-    check "configure_nat purge" "Unconfiguring nat using iptables" "SKIP"
+    check "configure_nat purge" "Unconfiguring NAT using iptables" "SKIP"
     check "create_bridge purge" "Deleting bridge interface ${BRIDGE_INTERFACE}"
     check "restart_network" "Restarting network"
     check "rm -rf /etc/one /var/lib/one $HOME/.one >/dev/null" "Deleting /etc/one /var/lib/one"
@@ -850,7 +850,7 @@ VERBOSE='yes'
 
 [[ "${PURGE}" = yes ]] && purge
 
-debian? && check "apt-get -q -y update >/dev/null" "Updating apt cache"
+debian? && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 [[ "${DISABLE_SELINUX}" = 'yes' ]] && check "disable_selinux" "Disabling SELinux"
 [[ -n "${MISSING_PKGS}" ]] && check "install ${MISSING_PKGS}" "Install ${MISSING_PKGS}"
 networking? && {
@@ -858,8 +858,8 @@ networking? && {
     check "create_bridge" "Creating bridge interface ${BRIDGE_INTERFACE}"
     check "restart_network" "Restarting network"
     centos? && firewalld_running? && check "disable_firewalld" "Disabling firewalld"
-    [[ "$FORWARD" = 0 ]] && check "sysctl -w net.ipv4.ip_forward=1 >/dev/null" "Enabling ipv4 forward"
-    check "configure_nat" "Configuring nat using iptables"
+    [[ "$FORWARD" = 0 ]] && check "sysctl -w net.ipv4.ip_forward=1 >/dev/null" "Enabling IPv4 forward"
+    check "configure_nat" "Configuring NAT using iptables"
     check "ping_from_bridge" "Verify bridge by ping from it"
     centos? && check "iptables-save > /etc/sysconfig/iptables" "Saving iptables changes"
     debian? && check "netfilter-persistent save" "Saving iptables changes"
@@ -867,11 +867,11 @@ networking? && {
     check "start_dnsmasq" "Starting DNSMasq"
 }
 check "configure_repos" "Configuring repositories"
-debian? && check "apt-get -q -y update >/dev/null" "Updating apt cache"
+debian? && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 redhat? && check "enable_rhel_extra_repos" "Enabling RHEL 7 extra & opt repositories"
-centos? && check "enable_epel" "Installing epel"
+centos? && check "enable_epel" "Installing EPEL"
 check "install_opennebula_pkgs" "Installing OpenNebula packages"
-check "install_ruby_gems" "Installing ruby gems"
+check "install_ruby_gems" "Installing Ruby gems"
 node? && {
     kvm? && check "install_opennebula_kvm_pkgs" "Installing OpenNebula node packages"
     lxd? && check "install_opennebula_lxd_pkgs" "Installing OpenNebula node packages"
@@ -993,19 +993,19 @@ EOF
 
 title "Configuration"
 check "conf_change \"\#ONEGATE_ENDPOINT = .*\" \"ONEGATE_ENDPOINT = 'http:\/\/${VNET_AR_IP_START}:5030'\""\
-        "Switching onegate endpoint in oned.conf"
+        "Switching OneGate endpoint in oned.conf"
 check "conf_change \"SCHED_INTERVAL = .*\" \"SCHED_INTERVAL = 10\" \"/etc/one/sched.conf\""\
     "Switching scheduler interval to 10sec"
 lxd? && check "conf_change \"\s*:command: \\/bin\\/login\" \"  :command: \\/bin\\/bash\" \"/var/lib/one/remotes/etc/vmm/lxd/lxdrc\""\
-    "Switching vnc command to /bin/bash in lxdrc"
+    "Switching VNC command to /bin/bash in lxdrc"
 lxd? && check "conf_change \"\s*:command => '\\/bin\\/login'\" \"            :command => '\\/bin\\/bash'\" \"/var/lib/one/remotes/vmm/lxd/opennebula_vm.rb\""\
-    "Switching vnc command to /bin/bash in opennebula_vm.rb"
+    "Switching VNC command to /bin/bash in opennebula_vm.rb"
 [[ ${USE_QEMU} = 'yes' ]] && check "switch_to_qemu"  "Switching to QEMU emulation"
 check "set_init_password" "Setting initial password for current user and oneadmin"
 [[ ${SUNSTONE_PORT} != 9869 ]] && check "set_sunstone_port ${SUNSTONE_PORT}"\
     "Changing WebUI to listen on port ${SUNSTONE_PORT}"
 check "systemctl start opennebula opennebula-sunstone  >/dev/null 2>&1"\
-    "Starting opennebula services"
+    "Starting OpenNebula services"
 check "one_is_ready" "Checking OpenNebula is working"
 check "deny_ssh_from_vnet" "Disabling ssh from virtual network"
 check "add_keys_to_known_hosts" "Adding localhost ssh key to known_hosts"
@@ -1122,12 +1122,12 @@ update_template() {
 
 check "update_datastores" "Updating datastores, TM_MAD=qcow2, SHARED=yes"
 kvm? && check "onehost create -i kvm -v kvm localhost >/dev/null 2>&1" \
-    "Creating kvm host"
+    "Creating KVM host"
 lxd? && check "onehost create -i lxd -v lxd localhost >/dev/null 2>&1" \
-    "Creating lxd host"
+    "Creating LXD host"
 check "create_vnet" "Creating virtual network"
 check "export_marketapp" \
-    "Exporting [${MARKET_APP_NAME}] from marketplace to local datastore"
+    "Exporting [${MARKET_APP_NAME}] from Marketplace to local datastore"
 check "update_template" "Updating template"
 
 
