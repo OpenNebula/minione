@@ -245,10 +245,6 @@ check() {
 
         elif [[ ${FORCE} = 'yes' && "${ON_FAIL}" =~ "IGNORE" ]]; then
             orange "${ON_FAIL}"
-            echo "${STDOUT}"
-            echo "--- STDERR ---"
-            echo "${STDERR}"
-            echo "--------------"
             return ${RC}
         else
             red "FAILED"
