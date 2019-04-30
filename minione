@@ -1092,7 +1092,15 @@ export_marketapp() {
     ID=$(onemarketapp list --filter NAME="${MARKET_APP_NAME}" \
         --csv | tail -1 | awk -F, '{print $1}') || return 1
 
-    onemarketapp export ${ID} "${MARKET_APP_NAME}" --datastore 1 >/dev/null
+    # onemarketapp always return 0 and prints to STDOUT
+    OUT=$(mktemp)
+    onemarketapp export ${ID} "${MARKET_APP_NAME}" --datastore 1 > $OUT
+
+    IMG_LIST=$(oneimage list --csv)
+    if [ "$IMG_LIST" = "" ]; then
+        cat $OUT >&2
+        return 1
+    fi
 }
 
 update_template() {
