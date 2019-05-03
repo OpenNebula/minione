@@ -626,7 +626,7 @@ install_opennebula_kvm_pkgs() {
 }
 
 install_opennebula_lxd_pkgs() {
-    install opennebula-node-lxd return 1
+    install opennebula-node-lxd || return 1
 }
 
 uninstall_opennebula_pkgs() {
