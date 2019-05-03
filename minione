@@ -375,7 +375,9 @@ install() {
     elif debian?; then
         export DEBIAN_FRONTEND=noninteractive
         run_and_print_if_failed "apt-get -q -y install $@"
+        RC=$?
         unset DEBIAN_FRONTEND
+        return $RC
     fi
 }
 
