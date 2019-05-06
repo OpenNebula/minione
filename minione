@@ -609,7 +609,6 @@ install_ruby_gems() {
 install_opennebula_kvm_pkgs() {
     if centos?; then
         install opennebula-node-kvm || return 1
-        systemctl restart ${LIBVIRTD} || return 1
 
         if redhat?; then
             subscription-manager repos --enable \
@@ -623,8 +622,12 @@ install_opennebula_kvm_pkgs() {
     elif debian?; then
         run_and_print_if_failed \
             "apt-get install -y opennebula-node" || return 1
-        service ${LIBVIRTD} restart || return 1
     fi
+}
+
+install_snap_lxd_30() {
+    [ -n "$LXD_VER" ] && snap remove lxd  || return 1
+    snap install lxd --channel="3.0/stable" > /dev/null
 }
 
 install_opennebula_lxd_pkgs() {
@@ -870,11 +873,15 @@ redhat? && check "enable_rhel_extra_repos" "Enabling RHEL 7 extra & opt reposito
 centos? && check "enable_epel" "Installing EPEL"
 check "install_opennebula_pkgs" "Installing OpenNebula packages"
 check "install_ruby_gems" "Installing Ruby gems"
-node? && {
-    kvm? && check "install_opennebula_kvm_pkgs" "Installing OpenNebula node packages"
-    lxd? && check "install_opennebula_lxd_pkgs" "Installing OpenNebula node packages"
+if kvm?; then
+    check "install_opennebula_kvm_pkgs" "Installing OpenNebula node packages"
+elif lxd?; then
+    LXD_VER=$(snap list lxd 2>/dev/null | awk '/^lxd/ {print $2}')
+    [[ "$LXD_VER" != 3.0* ]] && check install_snap_lxd_30 "Install lxd 3.0 snap"
+    check "install_opennebula_lxd_pkgs" "Installing OpenNebula node packages"
     [[ "${ENABLED_APPARMOR}" = 'yes' ]] && check "modify_apparmor" "Updating AppArmor"
-}
+fi
+node? && check "service ${LIBVIRTD} restart" "Restart libvirtd"
 
 #-------------------------------------------------------------------------------
 # Configuration
