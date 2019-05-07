@@ -626,7 +626,7 @@ install_opennebula_kvm_pkgs() {
 }
 
 install_snap_lxd_30() {
-    [ -n "$LXD_VER" ] && snap remove lxd  || return 1
+    [ -n "$LXD_VER" ] && ( snap remove lxd  || return 1 )
     snap install lxd --channel="3.0/stable" > /dev/null
 }
 
@@ -764,6 +764,12 @@ if debian?; then
         MISSING_PKGS="${MISSING_PKGS} gnupg"
 fi
 
+# check if snad is installed
+if lxd?; then
+    check "type snap >/dev/null 2>&1" "Checking snapd is installed" \
+        "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} snapd"
+fi
+
 networking? && {
     # check if we have iptables-persistent netfilter-persistent
     if debian?; then
@@ -873,6 +879,7 @@ redhat? && check "enable_rhel_extra_repos" "Enabling RHEL 7 extra & opt reposito
 centos? && check "enable_epel" "Installing EPEL"
 check "install_opennebula_pkgs" "Installing OpenNebula packages"
 check "install_ruby_gems" "Installing Ruby gems"
+
 if kvm?; then
     check "install_opennebula_kvm_pkgs" "Installing OpenNebula node packages"
 elif lxd?; then
@@ -881,6 +888,7 @@ elif lxd?; then
     check "install_opennebula_lxd_pkgs" "Installing OpenNebula node packages"
     [[ "${ENABLED_APPARMOR}" = 'yes' ]] && check "modify_apparmor" "Updating AppArmor"
 fi
+
 node? && check "service ${LIBVIRTD} restart" "Restart libvirtd"
 
 #-------------------------------------------------------------------------------
