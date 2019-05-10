@@ -886,10 +886,12 @@ elif lxd?; then
     LXD_VER=$(snap list lxd 2>/dev/null | awk '/^lxd/ {print $2}')
     [[ "$LXD_VER" != 3.0* ]] && check install_snap_lxd_30 "Install lxd 3.0 snap"
     check "install_opennebula_lxd_pkgs" "Installing OpenNebula node packages"
-    [[ "${ENABLED_APPARMOR}" = 'yes' ]] && check "modify_apparmor" "Updating AppArmor"
 fi
 
-node? && check "service ${LIBVIRTD} restart" "Restart libvirtd"
+if node?; then
+    [[ "${ENABLED_APPARMOR}" = 'yes' ]] && check "modify_apparmor" "Updating AppArmor"
+    check "service ${LIBVIRTD} restart" "Restart libvirtd"
+fi
 
 #-------------------------------------------------------------------------------
 # Configuration
