@@ -1019,8 +1019,10 @@ lxd? && check "conf_change \"\s*:command => '\\/bin\\/login'\" \"            :co
 check "set_init_password" "Setting initial password for current user and oneadmin"
 [[ ${SUNSTONE_PORT} != 9869 ]] && check "set_sunstone_port ${SUNSTONE_PORT}"\
     "Changing WebUI to listen on port ${SUNSTONE_PORT}"
-check "systemctl start opennebula opennebula-sunstone  >/dev/null 2>&1"\
+check "systemctl start opennebula opennebula-sunstone" \
     "Starting OpenNebula services"
+check "systemctl enable opennebula opennebula-sunstone" \
+    "Enabling OpenNebula servcies"
 check "one_is_ready" "Checking OpenNebula is working"
 check "deny_ssh_from_vnet" "Disabling ssh from virtual network"
 check "add_keys_to_known_hosts" "Adding localhost ssh key to known_hosts"
