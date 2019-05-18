@@ -77,7 +77,7 @@ PARAMETERS='help,version:,force,verbose,yes,frontend,password:,ssh-pubkey:,\
     vnet-gateway:,vnet-ar-ip-start:,vnet-ar-ip-count:,marketapp-name:,\
     vm-password,lxd,sunstone-port:,purge'
 
-OPTS=`getopt -o "hvf" -l "$PARAMETERS" -n 'minione' -- "$@"`
+OPTS=$(getopt -o "hvf" -l "$PARAMETERS" -n 'minione' -- "$@")
 if [ $? != 0 ] ; then
     usage
     exit 1
@@ -143,7 +143,7 @@ title() {
 
 interface_exists() {
     local DEV=$1
-    ip link show dev $DEV >/dev/null
+    ip link show dev "$DEV" >/dev/null
 }
 
 get_interface_name() {
@@ -156,8 +156,8 @@ get_interface_name() {
 
 get_my_ip() {
     DEV=$(get_interface_name)
-    IP=$(ip addr show dev ${DEV} | grep inet | head -1 | awk '{print $2}')
-    echo ${IP//\/[0-9]*/}
+    IP=$(ip addr show dev "${DEV}" | grep inet | head -1 | awk '{print $2}')
+    echo "${IP//\/[0-9]*/}"
 }
 
 get_distname_and_version() {
@@ -183,7 +183,7 @@ get_distname_and_version() {
     elif [ -f /etc/SuSe-release ]; then
         DIST='SuSe'
     fi
-    [[ "${DIST}" =~ CentOS|RedHat|Debian ]] && VER=$(echo $VER | cut -c1)
+    [[ "${DIST}" =~ CentOS|RedHat|Debian ]] && VER=$(echo "$VER" | cut -c1)
 
     echo "${DIST} ${VER}"
 }
@@ -191,7 +191,7 @@ get_distname_and_version() {
 get_first_ssh_key() {
     shopt -s nullglob
     for K in $HOME/.ssh/*.pub; do
-        echo $K
+        echo "$K"
         return 0
     done
     shopt -u nullglob
@@ -200,7 +200,7 @@ get_first_ssh_key() {
 
 mask2cidr() {
    local X=${1##*255.}
-   set -- 0^^^128^192^224^240^248^252^254^ $(( (${#1} - ${#X})*2 )) ${X%%.*}
+   set -- 0^^^128^192^224^240^248^252^254^ $(( (${#1} - ${#X})*2 )) "${X%%.*}"
    X=${1%%$3*}
    echo $(( $2 + (${#X}/4) ))
 }
@@ -227,12 +227,12 @@ check() {
 
     [[ ${VERBOSE} = 'yes' ]] && echo -ne "${TEXT}  "
 
-    eval "${COMMAND}" 2>${STDERR_TMP_FILE} >${STDOUT_TMP_FILE}
+    eval "${COMMAND}" 2>"${STDERR_TMP_FILE}" >"${STDOUT_TMP_FILE}"
     RC=$?
-    STDERR=$(cat $STDERR_TMP_FILE)
-    STDOUT=$(cat $STDOUT_TMP_FILE)
-    unlink ${STDERR_TMP_FILE}
-    unlink ${STDOUT_TMP_FILE}
+    STDERR=$(cat "$STDERR_TMP_FILE")
+    STDOUT=$(cat "$STDOUT_TMP_FILE")
+    unlink "${STDERR_TMP_FILE}"
+    unlink "${STDOUT_TMP_FILE}"
 
     if [[ ${RC} = '0' ]]; then
         [[ ${VERBOSE} = 'yes' ]] && green "OK"
@@ -326,7 +326,7 @@ repo_exists() {
         if type curl >/dev/null 2>&1; then
             run_and_print_if_failed "curl -f -s -S $URL"
         elif type wget >/dev/null 2>&1; then
-             wget $URL
+             wget "$URL"
         else
             echo "Missing curl/wget to check repository" >&2
             return 2
@@ -338,7 +338,7 @@ disk_free() {
     local LIMIT=$1
     local WHERE=$2
 
-    read -r AVAIL TARGET <<<$(df -BG --output=avail,target $WHERE | tail -1)
+    read -r AVAIL TARGET <<<$(df -BG --output=avail,target "$WHERE" | tail -1)
     AVAIL=${AVAIL%G}
 
     if [[ "${AVAIL}" -lt "${LIMIT}" ]]; then
@@ -386,8 +386,8 @@ create_bridge() {
     if centos?; then
         if [[ $1 = purge ]]; then
             rm -f /etc/sysconfig/network-scripts/ifcfg-minionebr
-            ip link set down dev ${BRIDGE_INTERFACE} || true
-            brctl delbr ${BRIDGE_INTERFACE} || true
+            ip link set down dev "${BRIDGE_INTERFACE}" || true
+            brctl delbr "${BRIDGE_INTERFACE}" || true
         else
             cat > /etc/sysconfig/network-scripts/ifcfg-minionebr<< EOF
 DEVICE=${BRIDGE_INTERFACE}
@@ -407,8 +407,8 @@ EOF
                 rm -f /etc/systemd/network/minionebr-nic.netdev
                 rm -f /etc/netplan/minione.yaml
                 ip link delete minionebr-nic || true
-                ip link set down dev ${BRIDGE_INTERFACE} || true
-                brctl delbr ${BRIDGE_INTERFACE} || true
+                ip link set down dev "${BRIDGE_INTERFACE}" || true
+                brctl delbr "${BRIDGE_INTERFACE}" || true
             else
                 cat > /etc/systemd/network/minionebr-nic.netdev<< EOF
 [NetDev]
@@ -431,10 +431,10 @@ EOF
             if [[ $1 = purge ]]; then
                 rm -f /etc/network/interfaces.d/tap.cfg
                 rm -f /etc/network/interfaces.d/minionebr.cfg
-                ip link set down dev ${BRIDGE_INTERFACE} || true
-                brctl delbr ${BRIDGE_INTERFACE} || true
+                ip link set down dev "${BRIDGE_INTERFACE}" || true
+                brctl delbr "${BRIDGE_INTERFACE}" || true
             else
-                brctl addbr ${BRIDGE_INTERFACE} || return 1
+                brctl addbr "${BRIDGE_INTERFACE}" || return 1
                 mkdir /etc/network/interfaces.d 2>/dev/null
                 cat > /etc/network/interfaces.d/tap.cfg<< EOF
 iface tap0 inet manual
@@ -451,7 +451,7 @@ iface minionebr inet static
   bridge_maxwait 0
   bridge_ports tap
 EOF
-                ip link set up dev ${BRIDGE_INTERFACE}
+                ip link set up dev "${BRIDGE_INTERFACE}"
             fi
         fi
     fi
@@ -471,17 +471,17 @@ disable_invalid_net_cfg() {
     CHANGED=''
     for FILE in ifcfg-*; do
         # skip interfaces disabled "on boot"
-        if grep -q -i '^ONBOOT=["'\'']no' $FILE; then
+        if grep -q -i '^ONBOOT=["'\'']no' "$FILE"; then
             continue
         fi
 
         # get interface name from configuration or filename
-        IFACE=$(awk -F= 'toupper($1) ~ /(DEVICE|NAME)/ { gsub("['\''\"]", "", $2); print $2; exit }' ${FILE})
+        IFACE=$(awk -F= 'toupper($1) ~ /(DEVICE|NAME)/ { gsub("['\''\"]", "", $2); print $2; exit }' "${FILE}")
         IFACE=${IFACE:-${FILE##ifcfg-}}
         # if interface does not exist, disable configuration
-        if ! ip link show ${IFACE} >/dev/null 2>&1; then
+        if ! ip link show "${IFACE}" >/dev/null 2>&1; then
             CHANGED=yes
-            mv ${FILE} disabled-${FILE}
+            mv "${FILE}" disabled-"${FILE}"
         fi
     done
     if [ -n "${CHANGED}" ] && systemctl is-failed network.service >/dev/null 2>&1; then
@@ -600,9 +600,9 @@ install_ruby_gems() {
         gem install bundler --version '<2.0' >/dev/null || return 1
     }
     OUT=(mktemp)
-    /usr/share/one/install_gems --yes > $OUT
+    /usr/share/one/install_gems --yes > "$OUT"
     RC=$?
-    cat $OUT | grep 'Could not' >&2
+    cat "$OUT" | grep 'Could not' >&2
     return $RC
 }
 
@@ -655,7 +655,7 @@ uninstall_opennebula_pkgs() {
 }
 
 # Initialize some usefull vars
-NETMASK_BITS=$(mask2cidr ${VNET_NETMASK})
+NETMASK_BITS=$(mask2cidr "${VNET_NETMASK}")
 read -r DISTNAME DISTVER <<<$(get_distname_and_version)
 
 [[ "${DISTNAME}${DISTVER}" =~ Ubuntu16.04|Ubuntu18.04 ]] && LIBVIRTD="libvirt-bin"
@@ -906,7 +906,7 @@ conf_change() {
     else
         local CONF=$3
     fi
-    sed -i -e "s/^${KEY}/${VALUE}/" ${CONF}  >/dev/null
+    sed -i -e "s/^${KEY}/${VALUE}/" "${CONF}"  >/dev/null
 }
 
 switch_to_qemu() {
@@ -916,8 +916,8 @@ switch_to_qemu() {
 }
 
 set_init_password() {
-    [[ ! -d $HOME/.one ]] && mkdir $HOME/.one || return 1
-    echo "oneadmin:$PASSWORD" > $HOME/.one/one_auth || return 1
+    [[ ! -d $HOME/.one ]] && mkdir "$HOME"/.one || return 1
+    echo "oneadmin:$PASSWORD" > "$HOME"/.one/one_auth || return 1
     echo "oneadmin:$PASSWORD" > /var/lib/one/.one/one_auth
 }
 
@@ -928,12 +928,12 @@ set_sunstone_port() {
 
     if [[ $PORT -lt 1024 ]]; then
         RUBY=$(readlink -f /usr/bin/ruby)
-        setcap 'cap_net_bind_service=+ep' $RUBY
+        setcap 'cap_net_bind_service=+ep' "$RUBY"
     fi
 }
 
 one_is_ready() {
-    for I in `seq $ONE_WAIT_TIMEOUT`; do
+    for I in $(seq $ONE_WAIT_TIMEOUT); do
         onehost list > /dev/null 2>&1 && return 0
         sleep 1
     done
@@ -945,7 +945,7 @@ deny_ssh_from_vnet() {
     STAR_NET=${VNET_ADDRESS}
     # 172.16.0.0 ~> 172.16.*.*, but  10.0.1.0~> 10.0.1.*
     for I in 1 2 3 4; do
-        STAR_NET=$(echo ${STAR_NET} |sed -e 's/\(.*\)\.0\([0\.\*]*\)$/\1.*\2/')
+        STAR_NET=$(echo "${STAR_NET}" |sed -e 's/\(.*\)\.0\([0\.\*]*\)$/\1.*\2/')
     done
 
     if grep -v "DenyUsers ${STAR_NET}" /etc/ssh/sshd_config >/dev/null; then
@@ -971,15 +971,15 @@ test_ssh_connection() {
 add_ssh_keys_to_oneadmin() {
     local TMP_FILE=$(mktemp) || return 1
     ONEADMIN_OS_USER_KEY=$(cat /var/lib/one/.ssh/id*pub 2>/dev/null)
-    SSH_PUBKEY_CONTENT=$(cat ${SSH_PUBKEY}  2>/dev/null)
+    SSH_PUBKEY_CONTENT=$(cat "${SSH_PUBKEY}"  2>/dev/null)
 
-    cat > ${TMP_FILE}<< EOF
+    cat > "${TMP_FILE}"<< EOF
 SSH_PUBLIC_KEY="${ONEADMIN_OS_USER_KEY}
 ${SSH_PUBKEY_CONTENT}"
 EOF
 
-    oneuser update 0 ${TMP_FILE} || return 1
-    rm ${TMP_FILE}
+    oneuser update 0 "${TMP_FILE}" || return 1
+    rm "${TMP_FILE}"
 }
 
 update_ssh_configs() {
@@ -1039,13 +1039,13 @@ onecli_cmd_tmpl() {
     local DATA=$2
     local TMP_FILE=$(mktemp) || return 1
 
-    cat > ${TMP_FILE}<< EOF
+    cat > "${TMP_FILE}"<< EOF
 ${DATA}
 EOF
 
-    $COMMAND $TMP_FILE
+    $COMMAND "$TMP_FILE"
     RC=$?
-    rm ${TMP_FILE}
+    rm "${TMP_FILE}"
     return ${RC}
 }
 
@@ -1065,14 +1065,14 @@ EOF
 next_ip(){
     local IP=$1
 
-    IP_HEX=$(printf '%.2X%.2X%.2X%.2X\n' `echo $IP | sed -e 's/\./ /g'`)
-    NEXT_IP_HEX=$(printf %.8X `echo $(( 0x$IP_HEX + 1 ))`)
-    NEXT_IP=$(printf '%d.%d.%d.%d\n' `echo $NEXT_IP_HEX | sed -r 's/(..)/0x\1 /g'`)
+    IP_HEX=$(printf '%.2X%.2X%.2X%.2X\n' $(echo "$IP" | sed -e 's/\./ /g'))
+    NEXT_IP_HEX=$(printf %.8X $(echo $(( 0x$IP_HEX + 1 ))))
+    NEXT_IP=$(printf '%d.%d.%d.%d\n' $(echo "$NEXT_IP_HEX" | sed -r 's/(..)/0x\1 /g'))
     echo "$NEXT_IP"
 }
 
 create_vnet() {
-    FIRST_IP=$(next_ip ${VNET_AR_IP_START})
+    FIRST_IP=$(next_ip "${VNET_AR_IP_START}")
     SIZE=$((${VNET_AR_IP_COUNT} - 1))
 
     TEMPLATE=$(cat << EOF
@@ -1115,11 +1115,11 @@ export_marketapp() {
 
     # onemarketapp always return 0 and prints to STDOUT
     OUT=$(mktemp)
-    onemarketapp export ${ID} "${MARKET_APP_NAME}" --datastore 1 > $OUT
+    onemarketapp export "${ID}" "${MARKET_APP_NAME}" --datastore 1 > "$OUT"
 
     IMG_LIST=$(oneimage list --csv)
     if [ "$IMG_LIST" = "" ]; then
-        cat $OUT >&2
+        cat "$OUT" >&2
         return 1
     fi
 }
@@ -1130,18 +1130,18 @@ update_template() {
     # Add root password setting to context
     onetemplate show 0 | grep CONTEXT -A1000 \
         | sed -e "s/CONTEXT=\[/CONTEXT=[ PASSWORD=\"${VM_PASSWORD}\",/" \
-        > ${TMP_FILE}
+        > "${TMP_FILE}"
 
     # Add network
     echo 'NIC=[ NETWORK="vnet", NETWORK_UNAME="oneadmin", \
-        SECURITY_GROUPS="0" ]' >> ${TMP_FILE}
+        SECURITY_GROUPS="0" ]' >> "${TMP_FILE}"
 
     # Add LXD_SECURITY_PRIVILEGED="true"
-    lxd? && echo 'LXD_SECURITY_PRIVILEGED="true"' >> ${TMP_FILE}
+    lxd? && echo 'LXD_SECURITY_PRIVILEGED="true"' >> "${TMP_FILE}"
 
-    onetemplate update 0 ${TMP_FILE} >/dev/null
+    onetemplate update 0 "${TMP_FILE}" >/dev/null
     RC=$?
-    rm ${TMP_FILE}
+    rm "${TMP_FILE}"
     return ${RC}
 }
 
