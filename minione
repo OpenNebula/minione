@@ -28,7 +28,7 @@ NAT_INTERFACE=''
 VNET_ADDRESS='172.16.100.0'
 VNET_NETMASK='255.255.255.0'
 VNET_GATEWAY='172.16.100.1'
-VNET_AR_IP_START='172.16.100.1'
+VNET_AR_IP_START='172.16.100.2'
 VNET_AR_IP_COUNT='100'
 MARKET_APP_NAME='CentOS 7 - KVM'
 VM_PASSWORD='opennebula'
@@ -403,7 +403,7 @@ create_bridge() {
             cat > /etc/sysconfig/network-scripts/ifcfg-minionebr<< EOF
 DEVICE=${BRIDGE_INTERFACE}
 TYPE=Bridge
-IPADDR=${VNET_AR_IP_START}
+IPADDR=${VNET_GATEWAY}
 NETMASK=${VNET_NETMASK}
 ONBOOT=yes
 BOOTPROTO=none
@@ -434,7 +434,7 @@ network:
     minionebr-nic: {}
   bridges:
     minionebr:
-      addresses: [ ${VNET_AR_IP_START}/${NETMASK_BITS} ]
+      addresses: [ ${VNET_GATEWAY}/${NETMASK_BITS} ]
       interfaces: [ minionebr-nic ]
 EOF
             fi
@@ -454,7 +454,7 @@ EOF
                 cat > /etc/network/interfaces.d/minionebr.cfg<< EOF
 auto minionebr
 iface minionebr inet static
-  address ${VNET_AR_IP_START}
+  address ${VNET_GATEWAY}
   network ${VNET_ADDRESS}
   netmask ${VNET_NETMASK}
   bridge_stp off
@@ -470,7 +470,7 @@ EOF
 
 ping_from_bridge() {
     sleep 3
-    run_and_print_if_failed "ping -W 3 -c 1 -I ${VNET_AR_IP_START} 8.8.8.8 -q"
+    run_and_print_if_failed "ping -W 3 -c 1 -I ${VNET_GATEWAY} 8.8.8.8 -q"
 }
 
 disable_invalid_net_cfg() {
@@ -1019,7 +1019,7 @@ EOF
 }
 
 title "Configuration"
-check "conf_change \"\#ONEGATE_ENDPOINT = .*\" \"ONEGATE_ENDPOINT = 'http:\/\/${VNET_AR_IP_START}:5030'\""\
+check "conf_change \"\#ONEGATE_ENDPOINT = .*\" \"ONEGATE_ENDPOINT = 'http:\/\/${VNET_GATEWAY}:5030'\""\
         "Switching OneGate endpoint in oned.conf"
 check "conf_change \"SCHED_INTERVAL = .*\" \"SCHED_INTERVAL = 10\" \"/etc/one/sched.conf\""\
     "Switching scheduler interval to 10sec"
@@ -1074,17 +1074,7 @@ EOF
     onecli_cmd_tmpl "onedatastore update 1" "${TEMPLATE}" >/dev/null
 }
 
-next_ip(){
-    local IP=$1
-
-    IP_HEX=$(printf '%.2X%.2X%.2X%.2X\n' $(echo "$IP" | sed -e 's/\./ /g'))
-    NEXT_IP_HEX=$(printf %.8X $(echo $(( 0x$IP_HEX + 1 ))))
-    NEXT_IP=$(printf '%d.%d.%d.%d\n' $(echo "$NEXT_IP_HEX" | sed -r 's/(..)/0x\1 /g'))
-    echo "$NEXT_IP"
-}
-
 create_vnet() {
-    FIRST_IP=$(next_ip "${VNET_AR_IP_START}")
     SIZE=$((${VNET_AR_IP_COUNT} - 1))
 
     TEMPLATE=$(cat << EOF
@@ -1096,7 +1086,7 @@ PHYDEV = ""
 SECURITY_GROUPS = "0"
 VN_MAD = "fw"
 AR = [
-    IP = ${FIRST_IP},
+    IP = ${VNET_AR_IP_START},
     SIZE = ${SIZE},
     TYPE = IP4
 ]
