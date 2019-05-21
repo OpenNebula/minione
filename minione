@@ -638,7 +638,7 @@ uninstall_opennebula_pkgs() {
     if centos?; then
         yum --quiet -y remove opennebula-node-kvm opennebula-server \
             opennebula-sunstone  opennebula-ruby opennebula-gate \
-            opennebula-flow
+            opennebula-flow opennebula-common
         systemctl restart ${LIBVIRTD} || true
 
         if redhat?; then
