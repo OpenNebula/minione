@@ -221,18 +221,29 @@ orange() { echo -e "\e[33m${1}\e[0m"; }
 check() {
     local COMMAND=$1
     local TEXT=$2
-    local ON_FAIL=$3
+    local TRIES=${3:-1}
+    local ON_FAIL=$4
     local STDERR_TMP_FILE=$(mktemp)
     local STDOUT_TMP_FILE=$(mktemp)
+    local RC=1
 
     [[ ${VERBOSE} = 'yes' ]] && echo -ne "${TEXT}  "
 
-    eval "${COMMAND}" 2>"${STDERR_TMP_FILE}" >"${STDOUT_TMP_FILE}"
-    RC=$?
-    STDERR=$(cat "$STDERR_TMP_FILE")
-    STDOUT=$(cat "$STDOUT_TMP_FILE")
-    unlink "${STDERR_TMP_FILE}"
-    unlink "${STDOUT_TMP_FILE}"
+    I=1
+    while [[ $I -le $TRIES && $RC -gt 0 ]]; do
+        eval "${COMMAND}" 2>${STDERR_TMP_FILE} >${STDOUT_TMP_FILE}
+        RC=$?
+        if [ $RC -gt 0 ]; then
+            [ "$ON_FAIL" = "" ] &&  echo -ne "retry $I "
+            sleep 1
+        fi
+        I=$(($I + 1))
+    done
+
+    STDERR=$(cat $STDERR_TMP_FILE)
+    STDOUT=$(cat $STDOUT_TMP_FILE)
+    unlink ${STDERR_TMP_FILE}
+    unlink ${STDOUT_TMP_FILE}
 
     if [[ ${RC} = '0' ]]; then
         [[ ${VERBOSE} = 'yes' ]] && green "OK"
@@ -671,16 +682,16 @@ purge() {
     FORCE='yes'
 
     title "Uninstalling"
-    check "systemctl stop opennebula opennebula-sunstone" "Stopping OpenNebula" "SKIP"
+    check "systemctl stop opennebula opennebula-sunstone" "Stopping OpenNebula" 1 "SKIP"
     [[ "${ENABLED_APPARMOR}" = 'yes' ]] && check "modify_apparmor" "Restoring AppArmor"
-    check "uninstall_opennebula_pkgs" "Uninstalling OpenNebula packages" "SKIP"
-    check "start_dnsmasq purge" "Stopping DNSMasq" "SKIP"
+    check "uninstall_opennebula_pkgs" "Uninstalling OpenNebula packages" 1 "SKIP"
+    check "start_dnsmasq purge" "Stopping DNSMasq" 1 "SKIP"
     check "configure_repos purge" "Unconfiguring repositories"
-    check "configure_nat purge" "Unconfiguring NAT using iptables" "SKIP"
+    check "configure_nat purge" "Unconfiguring NAT using iptables" 1 "SKIP"
     check "create_bridge purge" "Deleting bridge interface ${BRIDGE_INTERFACE}"
     check "restart_network" "Restarting network"
     check "rm -rf /etc/one /var/lib/one $HOME/.one >/dev/null" "Deleting /etc/one /var/lib/one"
-    check "userdel -r -f oneadmin>/dev/null" "Deleting oneadmin user" "SKIP"
+    check "userdel -r -f oneadmin>/dev/null" "Deleting oneadmin user" 1 "SKIP"
 }
 
 if [[  $PURGE_ONLY = 'yes' ]]; then
@@ -699,10 +710,10 @@ title "Checks & detection"
 # check Opennebula veriosn & distribution & version
 check "supported_dist_ver \"$SUPPORTED_MAP\"" \
     "Checking distribution and version [${DISTNAME} ${DISTVER} ${VERSION}]" \
-    "IGNORED Will try to install if repository exists"
+    1 "IGNORED Will try to install if repository exists"
 
 # check if repository exists
-check "repo_exists" "Checking if OpenNebula repository exists"
+check "repo_exists" "Checking if OpenNebula repository exists" 3
 
 # check if lxd is available for given distribution and version
 lxd? && check "supported_dist_ver \"$SUPPORTED_LXD_MAP\"" \
@@ -710,11 +721,11 @@ lxd? && check "supported_dist_ver \"$SUPPORTED_LXD_MAP\"" \
 
 # check cpu flgas for virtualizaton capabilities
 kvm? && { check 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
-    "Checking cpu virtualization capabilities" \
+    "Checking cpu virtualization capabilities" 1 \
     "SKIP QEMU will be used" || USE_QEMU='yes'; }
 
 # check available disk space on /var
-check 'disk_free 20 /var' 'Checking free disk space' 'IGNORE'
+check 'disk_free 20 /var' 'Checking free disk space' 1 'IGNORE'
 
 # check if given interface exists
 networking? && {
@@ -730,12 +741,12 @@ networking? && {
 
 # check existing directories from previous installation
 check "[[ ! -e /etc/one && ! -e /var/lib/one ]]" \
-     "Checking directories from previous installation" \
+     "Checking directories from previous installation" 1 \
      "IGNORED will be deleted" || PURGE='yes'
 
 # check existing user from previous installation
 check "! id oneadmin  >/dev/null" \
-     "Checking user from previous installation" \
+     "Checking user from previous installation" 1 \
      "IGNORED will be deleted" || PURGE='yes'
 
 # check if sshd service is running
@@ -744,14 +755,14 @@ check "service sshd status >/dev/null" \
 
 # check if we have bridge-utils
 networking? && {
-    check "type brctl >/dev/null 2>&1" "Checking bridge-utils are installed" \
+    check "type brctl >/dev/null 2>&1" "Checking bridge-utils are installed" 1 \
         "SKIP will try to install" || MISSING_PKGS='bridge-utils'
 }
 
 # check if we have apt-transport-https
 if debian?; then
     check "dpkg -L apt-transport-https >/dev/null 2>&1" \
-        "Checking apt-transport-https is installed" \
+        "Checking apt-transport-https is installed" 1 \
         "SKIP will try to install" || \
         MISSING_PKGS="${MISSING_PKGS} apt-transport-https"
 fi
@@ -759,14 +770,14 @@ fi
 # check if gnupg is installed (required for apt-key add)
 if debian?; then
     check "dpkg -L gnupg >/dev/null 2>&1" \
-        "Checking if gnupg is installed" \
+        "Checking if gnupg is installed" 1 \
         "SKIP will try to install" || \
         MISSING_PKGS="${MISSING_PKGS} gnupg"
 fi
 
 # check if snad is installed
 if lxd?; then
-    check "type snap >/dev/null 2>&1" "Checking snapd is installed" \
+    check "type snap >/dev/null 2>&1" "Checking snapd is installed" 1 \
         "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} snapd"
 fi
 
@@ -774,14 +785,14 @@ networking? && {
     # check if we have iptables-persistent netfilter-persistent
     if debian?; then
         check "dpkg -l iptables-persistent netfilter-persistent > /dev/null" \
-            "Checking (iptables|netfilter)-persistent are installed" \
+            "Checking (iptables|netfilter)-persistent are installed" 1 \
             "SKIP will try to install" || \
             MISSING_PKGS="${MISSING_PKGS} iptables-persistent netfilter-persistent"
     fi
 
     #check if birdge iface is not already present
     check "! interface_exists ${BRIDGE_INTERFACE}" \
-        "Checking $BRIDGE_INTERFACE interface is not present" "IGNORED"
+        "Checking $BRIDGE_INTERFACE interface is not present" 1 "IGNORED"
 
     # check if given virtual network is already in routing table
     check "! ip route show ${VNET_ADDRESS}/${NETMASK_BITS} | grep dev >/dev/null" \
@@ -791,9 +802,9 @@ networking? && {
 # Check SELinux or AppArmor
 SELINUX=$(getenforce 2>/dev/null)
 centos? && { check "[[ ! \"${SELINUX}\" = 'Enforcing' ]]" \
-    "Checking SELinux" "SKIP will try to disable" || DISABLE_SELINUX='yes'; }
+    "Checking SELinux" 1 "SKIP will try to disable" || DISABLE_SELINUX='yes'; }
 debian? && { check "! aa-status >/dev/null 2>&1" \
-    "Checking AppArmor" "SKIP will try to modify" || ENABLED_APPARMOR='yes'; }
+    "Checking AppArmor" 1 "SKIP will try to modify" || ENABLED_APPARMOR='yes'; }
 
 # check for given ssh key
 if [[ -n "${SSH_PUBKEY}" ]]; then
@@ -802,7 +813,8 @@ if [[ -n "${SSH_PUBKEY}" ]]; then
 #  or take the first founc, or generate
 else
     SSH_PUBKEY=$(get_first_ssh_key)
-    if ! check "[[ -f \"${SSH_PUBKEY}\" ]]" "Checking for present ssh key" "SKIP" ; then
+    if ! check "[[ -f \"${SSH_PUBKEY}\" ]]" "Checking for present ssh key" 1 \
+        "SKIP" ; then
         if [[ ! -d "$HOME/.ssh" ]]; then
             mkdir "$HOME/.ssh/";
             chmod 0700 "$HOME/.ssh/";
@@ -818,14 +830,14 @@ node? && {
     if type curl >/dev/null 2>&1; then
         check "curl -s -H \"${JSON_HEADERS}\" ${APPS_URL} \
             | grep '\"name\":\"${MARKET_APP_NAME}\"' >/dev/null" \
-            "Checking presence of the market app: \"$MARKET_APP_NAME\"" "Not found"
+            "Checking presence of the market app: \"$MARKET_APP_NAME\"" 3 "Not found"
     elif type wget > /dev/null 2>&1; then
         check "wget --quiet -O - --header \"${JSON_HEADERS}\" ${APPS_URL} \
             | grep '\"name\":\"${MARKET_APP_NAME}\"' >/dev/null" \
-            "Checking presence of the market app: \"$MARKET_APP_NAME\"" "Not found"
+            "Checking presence of the market app: \"$MARKET_APP_NAME\"" 3 "Not found"
     else
         # Always fail, but continue with info when --force was given
-        check "false" "Missing curl/wget to check market app" "IGNORE Can't check"
+        check "false" "Missing curl/wget to check market app" 1 "IGNORE Can't check"
     fi
 }
 
@@ -859,7 +871,7 @@ VERBOSE='yes'
 
 debian? && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 [[ "${DISABLE_SELINUX}" = 'yes' ]] && check "disable_selinux" "Disabling SELinux"
-[[ -n "${MISSING_PKGS}" ]] && check "install ${MISSING_PKGS}" "Install ${MISSING_PKGS}"
+[[ -n "${MISSING_PKGS}" ]] && check "install ${MISSING_PKGS}" "Install ${MISSING_PKGS}" 3
 networking? && {
     centos? && check "disable_invalid_net_cfg" "Rename invalid network configs"
     check "create_bridge" "Creating bridge interface ${BRIDGE_INTERFACE}"
@@ -870,22 +882,22 @@ networking? && {
     check "ping_from_bridge" "Verify bridge by ping from it"
     centos? && check "iptables-save > /etc/sysconfig/iptables" "Saving iptables changes"
     debian? && check "netfilter-persistent save" "Saving iptables changes"
-    check "install dnsmasq" "Installing DNSMasq"
+    check "install dnsmasq" "Installing DNSMasq" 3
     check "start_dnsmasq" "Starting DNSMasq"
 }
 check "configure_repos" "Configuring repositories"
 debian? && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 redhat? && check "enable_rhel_extra_repos" "Enabling RHEL 7 extra & opt repositories"
 centos? && check "enable_epel" "Installing EPEL"
-check "install_opennebula_pkgs" "Installing OpenNebula packages"
-check "install_ruby_gems" "Installing Ruby gems"
+check "install_opennebula_pkgs" "Installing OpenNebula packages" 3
+check "install_ruby_gems" "Installing Ruby gems" 3
 
 if kvm?; then
-    check "install_opennebula_kvm_pkgs" "Installing OpenNebula node packages"
+    check "install_opennebula_kvm_pkgs" "Installing OpenNebula node packages" 3
 elif lxd?; then
     LXD_VER=$(snap list lxd 2>/dev/null | awk '/^lxd/ {print $2}')
-    [[ "$LXD_VER" != 3.0* ]] && check install_snap_lxd_30 "Install lxd 3.0 snap"
-    check "install_opennebula_lxd_pkgs" "Installing OpenNebula node packages"
+    [[ "$LXD_VER" != 3.0* ]] && check install_snap_lxd_30 "Install lxd 3.0 snap" 3
+    check "install_opennebula_lxd_pkgs" "Installing OpenNebula node packages" 3
 fi
 
 if node?; then
