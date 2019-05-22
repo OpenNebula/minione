@@ -610,7 +610,7 @@ install_ruby_gems() {
         install redhat-lsb || return 1
         gem install bundler --version '<2.0' >/dev/null || return 1
     }
-    OUT=(mktemp)
+    OUT=$(mktemp)
     /usr/share/one/install_gems --yes > "$OUT"
     RC=$?
     cat "$OUT" | grep 'Could not' >&2
