@@ -34,7 +34,6 @@ MARKET_APP_NAME='CentOS 7 - KVM'
 VM_PASSWORD='opennebula'
 LXD='no'
 SUNSTONE_PORT='80'
-PURGE_ONLY='no'
 NODE='yes'
 NETWORKING='yes'
 DELETE_ONEADMIN='yes'
@@ -97,6 +96,7 @@ DISABLE_SELINUX='no'
 ENABLED_APPARMOR='no'
 MISSING_PKGS=''
 USE_QEMU='no'
+CLEAN='no'
 APPS_URL='https://marketplace.opennebula.systems/appliance'
 REPO_URL='https://downloads.opennebula.org/repo'
 JSON_HEADERS='Accept: application/json'
@@ -127,7 +127,7 @@ while true ; do
         --vm-password-name) VM_PASSWORD="$2" ; shift 2;;
         --lxd) LXD="yes"; shift;;
         --sunstone-port) SUNSTONE_PORT="$2"; shift 2;;
-        --purge) PURGE_ONLY="yes"; PURGE="yes"; shift;;
+        --purge) PURGE="yes"; shift;;
         --preserve-user) DELETE_ONEADMIN="no"; shift;;
         --) shift ; break ;;
         *)  usage; exit 1 ;;
@@ -259,7 +259,10 @@ check() {
         if [[ "$ON_FAIL" =~ "SKIP" ]]; then
             orange "${ON_FAIL}"
             return ${RC}
-
+        elif [[ ${FORCE} = 'no' && -n "${ON_FAIL}" ]]; then
+            red "FAILED"
+            echo 'Consider running with "--force" to override'
+            exit 1
         elif [[ ${FORCE} = 'yes' && "${ON_FAIL}" =~ "IGNORE" ]]; then
             orange "${ON_FAIL}"
             return ${RC}
@@ -698,17 +701,28 @@ purge() {
     check "create_bridge purge" "Deleting bridge interface ${BRIDGE_INTERFACE}"
     check "restart_network" "Restarting network"
     check "rm -rf /etc/one $HOME/.one >/dev/null" "Deleting /etc/one"
-    [[ "${DELETE_ONEADMIN}" = 'yes' ]] &&  {\
+
+    if [[ "${DELETE_ONEADMIN}" = 'yes' ]]; then
         check "userdel -r -f oneadmin>/dev/null" "Deleting oneadmin user" 1 "SKIP"
         check "rm -rf /var/lib/one >/dev/null" "Deleting /var/lib/one"
-    }
+    fi
 }
 
-if [[  $PURGE_ONLY = 'yes' ]]; then
+if [[  $PURGE = 'yes' ]]; then
     VERBOSE='yes'
     purge
     exit 0
 fi
+
+clean() {
+    [[ -d /var/lib/one/.one ]] && check \
+        'rm -rf /var/lib/one/.one.old; mv /var/lib/one/.one /var/lib/one/.one.old' \
+        'Move old oneadmin auth-dir away'
+
+    [[ -f /var/lib/one/one.db ]] && check \
+        'mv /var/lib/one/one.db /var/lib/one/one.db.old' \
+        "Move old db away"
+}
 
 
 #-------------------------------------------------------------------------------
@@ -752,12 +766,11 @@ networking? && {
 # check existing directories from previous installation
 check "[[ ! -e /etc/one && ! -e /var/lib/one ]]" \
     "Checking directories from previous installation" 1 \
-    "IGNORED will be deleted" || PURGE='yes'
+    "IGNORED will be cleaned" || CLEAN='yes'
 
 # check existing user from previous installation
 check "! id oneadmin  >/dev/null" \
-    "Checking user from previous installation" 1 \
-    "IGNORED will be deleted" || PURGE='yes'
+    "Checking user from previous installation" 1 "IGNORE"
 
 # check if sshd service is running
 check "service sshd status >/dev/null" \
@@ -859,7 +872,7 @@ node? && {
 #-------------------------------------------------------------------------------
 
 title "Main deployment steps:"
-[[ "${PURGE}" = yes ]]            && echo "Purge previous installation"
+[[ "${CLEAN}" = yes ]]            && echo "Clean oneadmin home"
 [[ "${DISABLE_SELINUX}" = yes ]]  && echo "Disable SELinux"
 [[ -n "${MISSING_PKGS}" ]]        && echo "Install ${MISSING_PKGS}"
 node? && {
@@ -880,8 +893,7 @@ echo "Do you agree? [yes/no]:"
 title "Installation"
 VERBOSE='yes'
 
-[[ "${PURGE}" = yes ]] && purge
-
+[[ "${CLEAN}" = yes ]] && clean
 debian? && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 [[ "${DISABLE_SELINUX}" = 'yes' ]] && check "disable_selinux" "Disabling SELinux"
 [[ -n "${MISSING_PKGS}" ]] && check "install ${MISSING_PKGS}" "Install ${MISSING_PKGS}" 3
