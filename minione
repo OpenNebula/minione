@@ -953,7 +953,7 @@ switch_to_qemu() {
 }
 
 set_init_password() {
-    [[ ! -d $HOME/.one ]] && mkdir "$HOME"/.one || return 1
+    [[ ! -d $HOME/.one ]] && { mkdir "$HOME"/.one || return 1; }
     echo "oneadmin:$PASSWORD" > "$HOME"/.one/one_auth || return 1
     echo "oneadmin:$PASSWORD" > /var/lib/one/.one/one_auth
 }
