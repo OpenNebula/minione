@@ -104,7 +104,6 @@ FORWARD=$(sysctl -n net.ipv4.ip_forward 2>/dev/null)
 LIBVIRTD='libvirtd'
 ONE_WAIT_TIMEOUT=60
 STAR_NET=''
-PING_PKG='iputils'
 ONE_SERVICES='opennebula opennebula-sunstone opennebula-flow opennebula-gate'
 
 while true ; do
@@ -470,17 +469,24 @@ iface minionebr inet static
   bridge_stp off
   bridge_fd 0
   bridge_maxwait 0
-  bridge_ports tap
+  bridge_ports tap0
 EOF
-                ip link set up dev "${BRIDGE_INTERFACE}"
+                # add source for interfaces.d/*.cfg if missing
+                FILE='/etc/network/interfaces'
+                if egrep -q -e "^ *source */etc/network/interfaces.d/\*\.cfg" -e "^ *source-directory /etc/network/interfaces.d" $FILE ; then
+                    true # already present
+                else
+                    echo 'source /etc/network/interfaces.d/*.cfg' >> $FILE
+                fi
             fi
         fi
     fi
 }
 
-ping_from_bridge() {
-    sleep 3
-    run_and_print_if_failed "ping -W 3 -c 1 -I ${VNET_GATEWAY} 8.8.8.8 -q"
+ifup_bridge() {
+    debian && ifup tap0
+    ifup ${BRIDGE_INTERFACE}
+
 }
 
 disable_invalid_net_cfg() {
@@ -511,18 +517,6 @@ disable_invalid_net_cfg() {
     fi
 
     cd - ||:
-}
-
-restart_network() {
-    if centos?; then
-        service network restart >/dev/null
-    else
-        if netplan?; then
-            netplan apply
-        else
-            service networking restart > /dev/null
-        fi
-    fi
 }
 
 disable_firewalld() {
@@ -680,7 +674,6 @@ NETMASK_BITS=$(mask2cidr "${VNET_NETMASK}")
 read -r DISTNAME DISTVER <<<$(get_distname_and_version)
 
 [[ "${DISTNAME}${DISTVER}" =~ Ubuntu16.04|Ubuntu18.04 ]] && LIBVIRTD="libvirt-bin"
-debian? && PING_PKG='iputils-ping'
 
 
 #-------------------------------------------------------------------------------
@@ -700,7 +693,6 @@ purge() {
     check "configure_repos purge" "Unconfiguring repositories"
     check "configure_nat purge" "Unconfiguring NAT using iptables" 1 "SKIP"
     check "create_bridge purge" "Deleting bridge interface ${BRIDGE_INTERFACE}"
-    check "restart_network" "Restarting network"
     check "rm -rf /etc/one $HOME/.one >/dev/null" "Deleting /etc/one"
 
     if [[ "${DELETE_ONEADMIN}" = 'yes' ]]; then
@@ -777,13 +769,10 @@ check "! id oneadmin  >/dev/null" \
 check "service sshd status >/dev/null" \
     "Checking sshd service is running"
 
-# check if we have bridge-utils & ping
+# check if we have bridge-utils
 networking? && {
     check "type brctl >/dev/null 2>&1" "Checking bridge-utils are installed" 1 \
         "SKIP will try to install" || MISSING_PKGS='bridge-utils'
-    check "type ping >/dev/null 2>&1" "Checking $PING_PKG is installed" 1 \
-        "SKIP will try to install" || \
-        MISSING_PKGS="${MISSING_PKGS} ${PING_PKG}"
 }
 
 # check if we have apt-transport-https
@@ -901,11 +890,10 @@ debian? && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 networking? && {
     centos? && check "disable_invalid_net_cfg" "Rename invalid network configs"
     check "create_bridge" "Creating bridge interface ${BRIDGE_INTERFACE}"
-    check "restart_network" "Restarting network"
+    check "ifup_bridge" "Bring bridge interfaces up"
     centos? && firewalld_running? && check "disable_firewalld" "Disabling firewalld"
     [[ "$FORWARD" = 0 ]] && check "sysctl -w net.ipv4.ip_forward=1 >/dev/null" "Enabling IPv4 forward"
     check "configure_nat" "Configuring NAT using iptables"
-    check "ping_from_bridge" "Verify bridge by ping from it"
     centos? && check "iptables-save > /etc/sysconfig/iptables" "Saving iptables changes"
     debian? && check "netfilter-persistent save" "Saving iptables changes"
     check "install dnsmasq" "Installing DNSMasq" 3
