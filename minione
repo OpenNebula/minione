@@ -106,6 +106,7 @@ ONE_WAIT_TIMEOUT=60
 STAR_NET=''
 PING_PKG='iputils'
 ONE_SERVICES='opennebula opennebula-sunstone opennebula-flow opennebula-gate'
+SKIP_PING=0
 
 while true ; do
     case "$1" in
@@ -476,6 +477,12 @@ EOF
             fi
         fi
     fi
+}
+
+setup_network_minimal() {
+    ip link add name ${BRIDGE_INTERFACE} type bridge
+    ip addr add dev ${BRIDGE_INTERFACE} ${VNET_GATEWAY}/${NETMASK_BITS}
+    ip link set up dev ${BRIDGE_INTERFACE}
 }
 
 ping_from_bridge() {
@@ -901,11 +908,15 @@ debian? && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 networking? && {
     centos? && check "disable_invalid_net_cfg" "Rename invalid network configs"
     check "create_bridge" "Creating bridge interface ${BRIDGE_INTERFACE}"
-    check "restart_network" "Restarting network"
+    check "restart_network" "Restarting network" 1 "SKIP"
+    if [[ $? != 0 ]] ; then
+        check "setup_network_minimal" "Persisten network stup failed, fallback to minimal"
+        SKIP_PING=1
+    fi
     centos? && firewalld_running? && check "disable_firewalld" "Disabling firewalld"
     [[ "$FORWARD" = 0 ]] && check "sysctl -w net.ipv4.ip_forward=1 >/dev/null" "Enabling IPv4 forward"
     check "configure_nat" "Configuring NAT using iptables"
-    check "ping_from_bridge" "Verify bridge by ping from it"
+    [[ "$SKIP_PING" = 0 ]] && check "ping_from_bridge" "Verify bridge by ping from it"
     centos? && check "iptables-save > /etc/sysconfig/iptables" "Saving iptables changes"
     debian? && check "netfilter-persistent save" "Saving iptables changes"
     check "install dnsmasq" "Installing DNSMasq" 3
