@@ -977,6 +977,7 @@ deny_ssh_from_vnet() {
     done
 
     if grep -v "DenyUsers ${STAR_NET}" /etc/ssh/sshd_config >/dev/null; then
+        echo "" >> /etc/ssh/sshd_config
         echo "DenyUsers ${STAR_NET}" >> /etc/ssh/sshd_config
     fi
     systemctl restart sshd
