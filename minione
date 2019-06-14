@@ -621,7 +621,9 @@ install_ruby_gems() {
         gem install bundler --version '<2.0' >/dev/null || return 1
     }
     OUT=$(mktemp)
+    export DEBIAN_FRONTEND=noninteractive
     /usr/share/one/install_gems --yes > "$OUT"
+    unset DEBIAN_FRONTEND
     RC=$?
     cat "$OUT" | grep 'Could not' >&2
     return $RC
