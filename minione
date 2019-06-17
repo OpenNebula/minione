@@ -90,7 +90,7 @@ eval set -- "$OPTS"
 
 # global vars
 SUPPORTED_MAP='^(CentOS7 5.6|CentOS7 5.8|Debian9 5.8|Ubuntu16.04 5.8|Ubuntu18.04 5.8|Ubuntu18.10 5.8)$'
-SUPPORTED_LXD_MAP='^(Ubuntu18.04 5.8|Ubuntu18.10 5.8)$'
+SUPPORTED_LXD_MAP='^(Ubuntu18.04 5.8)$'
 PURGE='no'
 DISABLE_SELINUX='no'
 ENABLED_APPARMOR='no'
@@ -641,11 +641,6 @@ install_opennebula_kvm_pkgs() {
     fi
 }
 
-install_snap_lxd_30() {
-    [ -n "$LXD_VER" ] && ( snap remove lxd  || return 1 )
-    snap install lxd --channel="3.0/stable" > /dev/null
-}
-
 install_opennebula_lxd_pkgs() {
     install opennebula-node-lxd || return 1
 }
@@ -792,12 +787,6 @@ if debian?; then
         MISSING_PKGS="${MISSING_PKGS} gnupg"
 fi
 
-# check if snad is installed
-if lxd?; then
-    check "type snap >/dev/null 2>&1" "Checking snapd is installed" 1 \
-        "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} snapd"
-fi
-
 networking? && {
     # check if we have iptables-persistent netfilter-persistent
     if debian?; then
@@ -910,8 +899,6 @@ check "install_ruby_gems" "Installing Ruby gems" 3
 if kvm?; then
     check "install_opennebula_kvm_pkgs" "Installing OpenNebula node packages" 3
 elif lxd?; then
-    LXD_VER=$(snap list lxd 2>/dev/null | awk '/^lxd/ {print $2}')
-    [[ "$LXD_VER" != 3.0* ]] && check install_snap_lxd_30 "Install lxd 3.0 snap" 3
     check "install_opennebula_lxd_pkgs" "Installing OpenNebula node packages" 3
 fi
 
