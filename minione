@@ -642,6 +642,8 @@ install_opennebula_kvm_pkgs() {
 }
 
 install_opennebula_lxd_pkgs() {
+    install lxd || return 1
+    systemctl start lxd.socket || return 1
     install opennebula-node-lxd || return 1
 }
 
