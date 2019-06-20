@@ -484,9 +484,12 @@ EOF
 }
 
 ifup_bridge() {
-    debian && ifup tap0
-    ifup ${BRIDGE_INTERFACE}
-
+    if netplan?; then
+        netplan apply
+    else
+        debian? && ifup tap0
+        ifup ${BRIDGE_INTERFACE}
+    fi
 }
 
 disable_invalid_net_cfg() {
