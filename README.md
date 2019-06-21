@@ -46,6 +46,8 @@ wget 'https://github.com/OpenNebula/minione/releases/latest/download/minione'
 sudo bash minione --lxd
 ```
 
+## Tutorial
+
 Continue with detailed **[tutorial](https://github.com/OpenNebula/minione/wiki)**.
 
 ## License
