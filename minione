@@ -990,10 +990,15 @@ test_ssh_connection() {
 
 add_ssh_keys_to_oneadmin() {
     local TMP_FILE=$(mktemp) || return 1
+
+    # put current template to the tempfile
+    oneuser show 0 | \
+        sed '/USER TEMPLATE/,/VMS USAGE/!d;//d' > ${TMP_FILE}
+
     ONEADMIN_OS_USER_KEY=$(cat /var/lib/one/.ssh/id*pub 2>/dev/null)
     SSH_PUBKEY_CONTENT=$(cat "${SSH_PUBKEY}"  2>/dev/null)
 
-    cat > "${TMP_FILE}"<< EOF
+    cat >> "${TMP_FILE}"<< EOF
 SSH_PUBLIC_KEY="${ONEADMIN_OS_USER_KEY}
 ${SSH_PUBKEY_CONTENT}"
 EOF
@@ -1027,7 +1032,7 @@ EOF
 }
 
 title "Configuration"
-check "conf_change \"\#ONEGATE_ENDPOINT = .*\" \"ONEGATE_ENDPOINT = 'http:\/\/${VNET_GATEWAY}:5030'\""\
+check "conf_change \"\#ONEGATE_ENDPOINT = .*\" \"ONEGATE_ENDPOINT = \\\"http:\/\/${VNET_GATEWAY}:5030\\\"\""\
         "Switching OneGate endpoint in oned.conf"
 check "conf_change \":host: .*\" \":host: ${VNET_GATEWAY}\" \"/etc/one/onegate-server.conf\""\
         "Switching OneGate endpoint in onegate-server.conf"
@@ -1139,9 +1144,11 @@ export_marketapp() {
 update_template() {
     local TMP_FILE=$(mktemp) 2>/dev/null || return 1
 
-    # Add root password setting to context
+    # Add root password, report_ready and token setting to context
     onetemplate show 0 | grep CONTEXT -A1000 \
         | sed -e "s/CONTEXT=\[/CONTEXT=[ PASSWORD=\"${VM_PASSWORD}\",/" \
+        | sed -e "s/CONTEXT=\[/CONTEXT=[ REPORT_READY=\"YES\",/" \
+        | sed -e "s/CONTEXT=\[/CONTEXT=[ TOKEN=\"YES\",/" \
         > "${TMP_FILE}"
 
     # Add network
