@@ -553,8 +553,7 @@ start_dnsmasq() {
     else
         cp /etc/dnsmasq.conf /etc/dnsmasq.conf.bk 2>/dev/null
         cat << EOT > /etc/dnsmasq.conf || return 1
-interface=${BRIDGE_INTERFACE}
-except-interface=lo
+interface=${BRIDGE_INTERFACE},lo
 bind-interfaces
 EOT
         systemctl start dnsmasq
@@ -909,6 +908,8 @@ fi
 
 if node?; then
     [[ "${ENABLED_APPARMOR}" = 'yes' ]] && check "modify_apparmor" "Updating AppArmor"
+    check "rm -f /etc/libvirt/qemu/networks/autostart/default.xml" \
+        "Disable default libvirtd networking"
     check "service ${LIBVIRTD} restart" "Restart libvirtd"
 fi
 
