@@ -898,7 +898,10 @@ debian? && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 redhat? && check "enable_rhel_extra_repos" "Enabling RHEL 7 extra & opt repositories"
 centos? && check "enable_epel" "Installing EPEL"
 check "install_opennebula_pkgs" "Installing OpenNebula packages" 3
-check "install_ruby_gems" "Installing Ruby gems" 3
+
+if [[ ! -L /usr/share/one/gems ]]; then
+     check "install_ruby_gems" "Installing Ruby gems" 3
+fi
 
 if kvm?; then
     check "install_opennebula_kvm_pkgs" "Installing OpenNebula node packages" 3
