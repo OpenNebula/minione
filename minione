@@ -39,7 +39,7 @@ NETWORKING='yes'
 DELETE_ONEADMIN='yes'
 
 e() {
-  let SPACE_NUM=35+${#2}-${#1}
+  SPACE_NUM=$(( 35+${#2}-${#1} ))
   printf "%s %${SPACE_NUM}s\n" "$1" "$2"
 }
 
@@ -75,13 +75,15 @@ usage() {
 # COMMAND LINE PARSING
 #-------------------------------------------------------------------------------
 
-PARAMETERS='help,version:,force,verbose,yes,frontend,password:,ssh-pubkey:,\
-    bridge-interface:,nat-interface:,vnet-address:,vnet-netmask:,\
-    vnet-gateway:,vnet-ar-ip-start:,vnet-ar-ip-count:,marketapp-name:,\
-    vm-password,lxd,sunstone-port:,purge,preserve-user'
+PARAMETERS=$(cat <<EOF
+    help,version:,force,verbose,yes,frontend,password:,ssh-pubkey:,
+    bridge-interface:,nat-interface:,vnet-address:,vnet-netmask:,
+    vnet-gateway:,vnet-ar-ip-start:,vnet-ar-ip-count:,marketapp-name:,
+    vm-password,lxd,sunstone-port:,purge,preserve-user
+EOF
+)
 
-OPTS=$(getopt -o "hvf" -l "$PARAMETERS" -n 'minione' -- "$@")
-if [ $? != 0 ] ; then
+if ! OPTS=$(getopt -o "hvf" -l "$PARAMETERS" -n 'minione' -- "$@"); then
     usage
     exit 1
 fi
@@ -144,7 +146,7 @@ done
 
 title() {
     echo ""
-    echo "### $@"
+    echo "### $*"
 }
 
 interface_exists() {
@@ -174,8 +176,8 @@ get_distname_and_version() {
         DIST=$(lsb_release -si 2>/dev/null)
         VER=$(lsb_release -sr 2>/dev/null)
     elif [ -f /etc/redhat-release ]; then
-        DIST=$(cat /etc/redhat-release | cut -d ' ' -f1)
-        VER=$(cat /etc/redhat-release | sed -e 's/[^0-9\.]*//g')
+        DIST=$(cut -d ' ' -f1 < /etc/redhat-release)
+        VER=$(sed -e 's/[^0-9\.]*//g' < /etc/redhat-release)
     elif [ -f /etc/os-release ]; then
         DIST=$(grep ^NAME= /etc/os-release | cut -d\" -f2)
         DIST=${DIST% Linux}
@@ -196,7 +198,7 @@ get_distname_and_version() {
 
 get_first_ssh_key() {
     shopt -s nullglob
-    for K in $HOME/.ssh/*.pub; do
+    for K in "$HOME"/.ssh/*.pub; do
         echo "$K"
         return 0
     done
@@ -212,10 +214,10 @@ mask2cidr() {
 }
 
 yes_no() {
-    read ANS
+    read -r ANS
     while [[ "${ANS}" != yes && "${ANS}" != no ]]; do
         echo 'yes or no?'
-        read ANS
+        read -r ANS
     done
     [[ $ANS = no ]] && exit 0
 }
@@ -229,27 +231,30 @@ check() {
     local TEXT=$2
     local TRIES=${3:-1}
     local ON_FAIL=$4
-    local STDERR_TMP_FILE=$(mktemp)
-    local STDOUT_TMP_FILE=$(mktemp)
+    local STDERR_TMP_FILE
+    local STDOUT_TMP_FILE
     local RC=1
+
+    STDERR_TMP_FILE=$(mktemp)
+    STDOUT_TMP_FILE=$(mktemp)
 
     [[ ${VERBOSE} = 'yes' ]] && echo -ne "${TEXT}  "
 
     I=1
     while [[ $I -le $TRIES && $RC -gt 0 ]]; do
-        eval "${COMMAND}" 2>${STDERR_TMP_FILE} >${STDOUT_TMP_FILE}
+        eval "${COMMAND}" 2>"${STDERR_TMP_FILE}" >"${STDOUT_TMP_FILE}"
         RC=$?
         if [ $RC -gt 0 ]; then
             [ "$ON_FAIL" = "" ] &&  echo -ne "retry $I "
             sleep 1
         fi
-        I=$(($I + 1))
+        I=$((I + 1))
     done
 
-    STDERR=$(cat $STDERR_TMP_FILE)
-    STDOUT=$(cat $STDOUT_TMP_FILE)
-    unlink ${STDERR_TMP_FILE}
-    unlink ${STDOUT_TMP_FILE}
+    STDERR=$(cat "$STDERR_TMP_FILE")
+    STDOUT=$(cat "$STDOUT_TMP_FILE")
+    unlink "${STDERR_TMP_FILE}"
+    unlink "${STDOUT_TMP_FILE}"
 
     if [[ ${RC} = '0' ]]; then
         [[ ${VERBOSE} = 'yes' ]] && green "OK"
@@ -283,48 +288,48 @@ check() {
 }
 
 run_and_print_if_failed() {
-    $@ >/dev/null
+    eval "$@" >/dev/null
     local RC=$?
-    local MSG=$@
+    local MSG=$*
 
     [ ! $RC -eq 0 ] && echo "$MSG"
 
     return $RC
 }
 
-centos?() {
+centos() {
     [[ "$DISTNAME" =~ CentOS|RedHat ]]
 }
 
-redhat?() {
+redhat() {
     [[ "$DISTNAME" =~ RedHat ]]
 }
 
-debian?() {
+debian() {
     [[ "$DISTNAME" =~ Ubuntu|Debian ]]
 }
 
-firewalld_running?() {
+firewalld_running() {
     systemctl -q is-active firewalld
 }
 
-netplan?() {
+netplan() {
     [[ ! -s /run/network/ifstate && $(type netplan 2>/dev/null) ]]
 }
 
-kvm?() {
+kvm() {
     [[ $NODE == yes && $LXD == no ]]
 }
 
-lxd?() {
+lxd() {
     [[ $NODE == yes && $LXD == yes ]]
 }
 
-node?() {
+node() {
     [[ $NODE == yes ]]
 }
 
-networking?() {
+networking() {
     [[ $NETWORKING == yes ]]
 }
 
@@ -358,7 +363,7 @@ disk_free() {
     local LIMIT=$1
     local WHERE=$2
 
-    read -r AVAIL TARGET <<<$(df -BG --output=avail,target "$WHERE" | tail -1)
+    read -r AVAIL TARGET <<<"$(df -BG --output=avail,target "$WHERE" | tail -1)"
     AVAIL=${AVAIL%G}
 
     if [[ "${AVAIL}" -lt "${LIMIT}" ]]; then
@@ -390,11 +395,11 @@ modify_apparmor() {
 }
 
 install() {
-    if centos?; then
-        run_and_print_if_failed "yum -y install $@"
-    elif debian?; then
+    if centos; then
+        run_and_print_if_failed "yum -y install $*"
+    elif debian; then
         export DEBIAN_FRONTEND=noninteractive
-        run_and_print_if_failed "apt-get -q -y install $@"
+        run_and_print_if_failed "apt-get -q -y install $*"
         RC=$?
         unset DEBIAN_FRONTEND
         return $RC
@@ -403,7 +408,7 @@ install() {
 
 
 create_bridge() {
-    if centos?; then
+    if centos; then
         if [[ $1 = purge ]]; then
             rm -f /etc/sysconfig/network-scripts/ifcfg-minionebr
             ip link set down dev "${BRIDGE_INTERFACE}" || true
@@ -421,8 +426,8 @@ IPV6_AUTOCONF=no
 NM_CONTROLLED=no
 EOF
         fi
-    elif debian?; then
-        if netplan?; then
+    elif debian; then
+        if netplan; then
             if [[ $1 = purge ]]; then
                 rm -f /etc/systemd/network/minionebr-nic.netdev
                 rm -f /etc/netplan/minione.yaml
@@ -473,7 +478,7 @@ iface minionebr inet static
 EOF
                 # add source for interfaces.d/*.cfg if missing
                 FILE='/etc/network/interfaces'
-                if egrep -q -e "^ *source */etc/network/interfaces.d/\*\.cfg" -e "^ *source-directory /etc/network/interfaces.d" $FILE ; then
+                if grep -qE -e "^ *source */etc/network/interfaces.d/\*\.cfg" -e "^ *source-directory /etc/network/interfaces.d" $FILE ; then
                     true # already present
                 else
                     echo 'source /etc/network/interfaces.d/*.cfg' >> $FILE
@@ -484,11 +489,11 @@ EOF
 }
 
 ifup_bridge() {
-    if netplan?; then
+    if netplan; then
         netplan apply
     else
-        debian? && ifup tap0
-        ifup ${BRIDGE_INTERFACE}
+        debian && ifup tap0
+        ifup "${BRIDGE_INTERFACE}"
     fi
 }
 
@@ -561,7 +566,7 @@ EOT
 }
 
 configure_repos() {
-    if centos?; then
+    if centos; then
         if [[ $1 = 'purge' ]]; then
             rm -f /etc/yum.repos.d/opennebula.repo
         else
@@ -574,7 +579,7 @@ gpgkey=https://downloads.opennebula.org/repo/repo.key
 gpgcheck=1
 EOT
         fi
-    elif debian?; then
+    elif debian; then
         if [[ $1 = 'purge' ]]; then
             rm -f /etc/apt/sources.list.d/opennebula.list
         else
@@ -592,19 +597,19 @@ enable_rhel_extra_repos() {
 }
 
 enable_epel() {
-    if redhat?; then
+    if redhat; then
         rpm -ivh 'https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm'
-    elif centos? ; then
+    elif centos ; then
         install "epel-release"
     fi
 }
 
 install_opennebula_pkgs() {
-    if centos?; then
+    if centos; then
         install "opennebula-server opennebula-sunstone opennebula-ruby "\
             "opennebula-gate opennebula-flow" || return 1
 
-    elif debian?; then
+    elif debian; then
         install "opennebula opennebula-sunstone opennebula-gate "\
             "opennebula-flow" || return 1
     fi
@@ -612,7 +617,7 @@ install_opennebula_pkgs() {
 }
 
 install_ruby_gems() {
-    centos? && {
+    centos && {
         install redhat-lsb || return 1
         gem install bundler --version '<2.0' >/dev/null || return 1
     }
@@ -621,15 +626,15 @@ install_ruby_gems() {
     /usr/share/one/install_gems --yes > "$OUT"
     unset DEBIAN_FRONTEND
     RC=$?
-    cat "$OUT" | grep 'Could not' >&2
+    grep 'Could not' <"$OUT" >&2
     return $RC
 }
 
 install_opennebula_kvm_pkgs() {
-    if centos?; then
+    if centos; then
         install opennebula-node-kvm || return 1
 
-        if redhat?; then
+        if redhat; then
             subscription-manager repos --enable \
                 rhel-7-server-rhv-4-mgmt-agent-rpms || return 1
             install qemu-kvm-rhev || return 1
@@ -638,7 +643,7 @@ install_opennebula_kvm_pkgs() {
                 "yum --quiet -y update centos-release"
             install centos-release-qemu-ev qemu-kvm-ev || return 1
         fi
-    elif debian?; then
+    elif debian; then
         install opennebula-node
     fi
 }
@@ -650,18 +655,18 @@ install_opennebula_lxd_pkgs() {
 }
 
 uninstall_opennebula_pkgs() {
-    if centos?; then
+    if centos; then
         yum --quiet -y remove opennebula-node-kvm opennebula-server \
             opennebula-sunstone  opennebula-ruby opennebula-gate \
             opennebula-flow opennebula-common
         systemctl restart ${LIBVIRTD} || true
 
-        if redhat?; then
+        if redhat; then
             yum --quiet -y remove qemu-kvm-rhev || true
         else
             yum --quiet -y remove qemu-kvm-ev >/dev/null || true
         fi
-    elif debian?; then
+    elif debian; then
         apt-get purge -q -y opennebula-node opennebula \
             opennebula-sunstone opennebula-gate opennebula-flow \
             opennebula-common >/dev/null
@@ -671,7 +676,7 @@ uninstall_opennebula_pkgs() {
 
 # Initialize some usefull vars
 NETMASK_BITS=$(mask2cidr "${VNET_NETMASK}")
-read -r DISTNAME DISTVER <<<$(get_distname_and_version)
+read -r DISTNAME DISTVER <<<"$(get_distname_and_version)"
 
 [[ "${DISTNAME}${DISTVER}" =~ Ubuntu16.04|Ubuntu18.04 ]] && LIBVIRTD="libvirt-bin"
 
@@ -733,11 +738,11 @@ check "supported_dist_ver \"$SUPPORTED_MAP\"" \
 check "repo_exists" "Checking if OpenNebula repository exists" 3
 
 # check if lxd is available for given distribution and version
-lxd? && check "supported_dist_ver \"$SUPPORTED_LXD_MAP\"" \
+lxd && check "supported_dist_ver \"$SUPPORTED_LXD_MAP\"" \
     "Checking LXD support for given version"
 
 # check cpu flgas for virtualizaton capabilities
-kvm? && { check 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
+kvm && { check 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
     "Checking cpu virtualization capabilities" 1 \
     "SKIP QEMU will be used" || USE_QEMU='yes'; }
 
@@ -745,7 +750,7 @@ kvm? && { check 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
 check 'disk_free 20 /var' 'Checking free disk space' 1 'IGNORE'
 
 # check if given interface exists
-networking? && {
+networking && {
     if [[ -n "${NAT_INTERFACE}" ]]; then
         check "interface_exists ${NAT_INTERFACE}" \
         "Checking [${NAT_INTERFACE}] net device exists"
@@ -770,13 +775,13 @@ check "service sshd status >/dev/null" \
     "Checking sshd service is running"
 
 # check if we have bridge-utils
-networking? && {
+networking && {
     check "type brctl >/dev/null 2>&1" "Checking bridge-utils are installed" 1 \
         "SKIP will try to install" || MISSING_PKGS='bridge-utils'
 }
 
 # check if we have apt-transport-https
-if debian?; then
+if debian; then
     check "dpkg -L apt-transport-https >/dev/null 2>&1" \
         "Checking apt-transport-https is installed" 1 \
         "SKIP will try to install" || \
@@ -784,16 +789,16 @@ if debian?; then
 fi
 
 # check if gnupg is installed (required for apt-key add)
-if debian?; then
+if debian; then
     check "dpkg -L gnupg >/dev/null 2>&1" \
         "Checking if gnupg is installed" 1 \
         "SKIP will try to install" || \
         MISSING_PKGS="${MISSING_PKGS} gnupg"
 fi
 
-networking? && {
+networking && {
     # check if we have iptables-persistent netfilter-persistent
-    if debian?; then
+    if debian; then
         check "dpkg -l iptables-persistent netfilter-persistent > /dev/null" \
             "Checking (iptables|netfilter)-persistent are installed" 1 \
             "SKIP will try to install" || \
@@ -811,9 +816,9 @@ networking? && {
 
 # Check SELinux or AppArmor
 SELINUX=$(getenforce 2>/dev/null)
-centos? && { check "[[ ! \"${SELINUX}\" = 'Enforcing' ]]" \
+centos && { check "[[ ! \"${SELINUX}\" = 'Enforcing' ]]" \
     "Checking SELinux" 1 "SKIP will try to disable" || DISABLE_SELINUX='yes'; }
-debian? && { check "! aa-status >/dev/null 2>&1" \
+debian && { check "! aa-status >/dev/null 2>&1" \
     "Checking AppArmor" 1 "SKIP will try to modify" || ENABLED_APPARMOR='yes'; }
 
 # check for given ssh key
@@ -835,7 +840,7 @@ else
     fi
 fi
 
-node? && {
+node && {
     # check if the requested app name exists on market place
     if type curl >/dev/null 2>&1; then
         check "curl -s -H \"${JSON_HEADERS}\" ${APPS_URL} \
@@ -859,8 +864,8 @@ title "Main deployment steps:"
 [[ "${CLEAN}" = yes ]]            && echo "Clean oneadmin home"
 [[ "${DISABLE_SELINUX}" = yes ]]  && echo "Disable SELinux"
 [[ -n "${MISSING_PKGS}" ]]        && echo "Install ${MISSING_PKGS}"
-node? && {
-    centos? && firewalld_running?     && echo "Disable_firewalld"
+node && {
+    centos && firewalld_running     && echo "Disable_firewalld"
     echo "Configure bridge ${BRIDGE_INTERFACE} with IP ${VNET_GATEWAY}/${NETMASK_BITS}"
     echo "Enable NAT over ${NAT_INTERFACE}"
     [[ "${ENABLED_APPARMOR}" = yes ]] && echo "Modify AppArmor"
@@ -878,38 +883,38 @@ title "Installation"
 VERBOSE='yes'
 
 [[ "${CLEAN}" = yes ]] && clean
-debian? && check "apt-get -q -y update >/dev/null" "Updating APT cache"
+debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 [[ "${DISABLE_SELINUX}" = 'yes' ]] && check "disable_selinux" "Disabling SELinux"
 [[ -n "${MISSING_PKGS}" ]] && check "install ${MISSING_PKGS}" "Install ${MISSING_PKGS}" 3
-networking? && {
-    centos? && check "disable_invalid_net_cfg" "Rename invalid network configs"
+networking && {
+    centos && check "disable_invalid_net_cfg" "Rename invalid network configs"
     check "create_bridge" "Creating bridge interface ${BRIDGE_INTERFACE}"
     check "ifup_bridge" "Bring bridge interfaces up"
-    centos? && firewalld_running? && check "disable_firewalld" "Disabling firewalld"
+    centos && firewalld_running && check "disable_firewalld" "Disabling firewalld"
     [[ "$FORWARD" = 0 ]] && check "sysctl -w net.ipv4.ip_forward=1 >/dev/null" "Enabling IPv4 forward"
     check "configure_nat" "Configuring NAT using iptables"
-    centos? && check "iptables-save > /etc/sysconfig/iptables" "Saving iptables changes"
-    debian? && check "netfilter-persistent save" "Saving iptables changes"
+    centos && check "iptables-save > /etc/sysconfig/iptables" "Saving iptables changes"
+    debian && check "netfilter-persistent save" "Saving iptables changes"
     check "install dnsmasq" "Installing DNSMasq" 3
     check "start_dnsmasq" "Starting DNSMasq"
 }
 check "configure_repos" "Configuring repositories"
-debian? && check "apt-get -q -y update >/dev/null" "Updating APT cache"
-redhat? && check "enable_rhel_extra_repos" "Enabling RHEL 7 extra & opt repositories"
-centos? && check "enable_epel" "Installing EPEL"
+debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
+redhat && check "enable_rhel_extra_repos" "Enabling RHEL 7 extra & opt repositories"
+centos && check "enable_epel" "Installing EPEL"
 check "install_opennebula_pkgs" "Installing OpenNebula packages" 3
 
 if [[ ! -L /usr/share/one/gems ]]; then
      check "install_ruby_gems" "Installing Ruby gems" 3
 fi
 
-if kvm?; then
+if kvm; then
     check "install_opennebula_kvm_pkgs" "Installing OpenNebula node packages" 3
-elif lxd?; then
+elif lxd; then
     check "install_opennebula_lxd_pkgs" "Installing OpenNebula node packages" 3
 fi
 
-if node?; then
+if node; then
     [[ "${ENABLED_APPARMOR}" = 'yes' ]] && check "modify_apparmor" "Updating AppArmor"
     check "rm -f /etc/libvirt/qemu/networks/autostart/default.xml" \
         "Disable default libvirtd networking"
@@ -934,7 +939,7 @@ conf_change() {
 
 switch_to_qemu() {
     LINE_NUM=$(grep -n '^VM_MAD =' -A 10 /etc/one/oned.conf | \
-        grep -E '^[0-9]+-\s*TYPE' | grep kvm | awk -F\- '{print $1}')
+        grep -E '^[0-9]+-\s*TYPE' | grep kvm | awk -F- '{print $1}')
     sed -i "${LINE_NUM}s/kvm/qemu/" /etc/one/oned.conf
 }
 
@@ -968,6 +973,7 @@ deny_ssh_from_vnet() {
     STAR_NET=${VNET_ADDRESS}
     # 172.16.0.0 ~> 172.16.*.*, but  10.0.1.0~> 10.0.1.*
     for I in 1 2 3 4; do
+         # shellcheck disable=SC2001
         STAR_NET=$(echo "${STAR_NET}" |sed -e 's/\(.*\)\.0\([0\.\*]*\)$/\1.*\2/')
     done
 
@@ -993,11 +999,12 @@ test_ssh_connection() {
 }
 
 add_ssh_keys_to_oneadmin() {
-    local TMP_FILE=$(mktemp) || return 1
+    local TMP_FILE
+    TMP_FILE=$(mktemp) || return 1
 
     # put current template to the tempfile
     oneuser show 0 | \
-        sed '/USER TEMPLATE/,/VMS USAGE/!d;//d' > ${TMP_FILE}
+        sed '/USER TEMPLATE/,/VMS USAGE/!d;//d' > "${TMP_FILE}"
 
     ONEADMIN_OS_USER_KEY=$(cat /var/lib/one/.ssh/id*pub 2>/dev/null)
     SSH_PUBKEY_CONTENT=$(cat "${SSH_PUBKEY}"  2>/dev/null)
@@ -1042,9 +1049,9 @@ check "conf_change \":host: .*\" \":host: ${VNET_GATEWAY}\" \"/etc/one/onegate-s
         "Switching OneGate endpoint in onegate-server.conf"
 check "conf_change \"SCHED_INTERVAL = .*\" \"SCHED_INTERVAL = 10\" \"/etc/one/sched.conf\""\
     "Switching scheduler interval to 10sec"
-lxd? && check "conf_change \"\s*:command: \\/bin\\/login\" \"  :command: \\/bin\\/bash\" \"/var/lib/one/remotes/etc/vmm/lxd/lxdrc\""\
+lxd && check "conf_change \"\s*:command: \\/bin\\/login\" \"  :command: \\/bin\\/bash\" \"/var/lib/one/remotes/etc/vmm/lxd/lxdrc\""\
     "Switching VNC command to /bin/bash in lxdrc"
-lxd? && check "conf_change \"\s*:command => '\\/bin\\/login'\" \"            :command => '\\/bin\\/bash'\" \"/var/lib/one/remotes/vmm/lxd/opennebula_vm.rb\""\
+lxd && check "conf_change \"\s*:command => '\\/bin\\/login'\" \"            :command => '\\/bin\\/bash'\" \"/var/lib/one/remotes/vmm/lxd/opennebula_vm.rb\""\
     "Switching VNC command to /bin/bash in opennebula_vm.rb"
 [[ ${USE_QEMU} = 'yes' ]] && check "switch_to_qemu"  "Switching to QEMU emulation"
 check "set_init_password" "Setting initial password for current user and oneadmin"
@@ -1068,7 +1075,8 @@ check "update_ssh_configs" "Update ssh configs to allow VM addresses reusig"
 onecli_cmd_tmpl() {
     local COMMAND=$1
     local DATA=$2
-    local TMP_FILE=$(mktemp) || return 1
+    local TMP_FILE
+    TMP_FILE=$(mktemp) || return 1
 
     cat > "${TMP_FILE}"<< EOF
 ${DATA}
@@ -1094,7 +1102,7 @@ EOF
 }
 
 create_vnet() {
-    SIZE=$((${VNET_AR_IP_COUNT} - 1))
+    SIZE=$((VNET_AR_IP_COUNT - 1))
 
     TEMPLATE=$(cat << EOF
 NAME = "vnet"
@@ -1146,7 +1154,8 @@ export_marketapp() {
 }
 
 update_template() {
-    local TMP_FILE=$(mktemp) 2>/dev/null || return 1
+    local TMP_FILE
+    TMP_FILE=$(mktemp) 2>/dev/null || return 1
 
     # Add root password, report_ready and token setting to context
     onetemplate show 0 | grep CONTEXT -A1000 \
@@ -1156,11 +1165,10 @@ update_template() {
         > "${TMP_FILE}"
 
     # Add network
-    echo 'NIC=[ NETWORK="vnet", NETWORK_UNAME="oneadmin", \
-        SECURITY_GROUPS="0" ]' >> "${TMP_FILE}"
+    echo 'NIC=[ NETWORK="vnet", NETWORK_UNAME="oneadmin", SECURITY_GROUPS="0" ]' >> "${TMP_FILE}"
 
     # Add LXD_SECURITY_PRIVILEGED="true"
-    lxd? && echo 'LXD_SECURITY_PRIVILEGED="true"' >> "${TMP_FILE}"
+    lxd && echo 'LXD_SECURITY_PRIVILEGED="true"' >> "${TMP_FILE}"
 
     onetemplate update 0 "${TMP_FILE}" >/dev/null
     RC=$?
@@ -1169,9 +1177,9 @@ update_template() {
 }
 
 check "update_datastores" "Updating datastores, TM_MAD=qcow2, SHARED=yes"
-kvm? && check "onehost create -i kvm -v kvm localhost >/dev/null 2>&1" \
+kvm && check "onehost create -i kvm -v kvm localhost >/dev/null 2>&1" \
     "Creating KVM host"
-lxd? && check "onehost create -i lxd -v lxd localhost >/dev/null 2>&1" \
+lxd && check "onehost create -i lxd -v lxd localhost >/dev/null 2>&1" \
     "Creating LXD host"
 check "create_vnet" "Creating virtual network"
 check "export_marketapp" \
