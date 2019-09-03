@@ -172,7 +172,7 @@ get_distname_and_version() {
     local DIST
     local VER
 
-    if type lsb_release >/dev/null 2>&1; then
+    if type -t lsb_release >/dev/null; then
         DIST=$(lsb_release -si 2>/dev/null)
         VER=$(lsb_release -sr 2>/dev/null)
     elif [ -f /etc/redhat-release ]; then
@@ -314,7 +314,7 @@ firewalld_running() {
 }
 
 netplan_on() {
-    [ ! -s /run/network/ifstate ] && type netplan >/dev/null 2>&1
+    [ ! -s /run/network/ifstate ] && type -t netplan >/dev/null
 }
 
 kvm() {
@@ -348,9 +348,9 @@ repo_exists() {
         return 1
     else
         URL="${REPO_URL}/${VERSION}/${DISTNAME}/${DISTVER}"
-        if type curl >/dev/null 2>&1; then
+        if type -t curl >/dev/null; then
             run_and_print_if_failed "curl -f -s -S $URL"
-        elif type wget >/dev/null 2>&1; then
+        elif type -t wget >/dev/null; then
              wget "$URL"
         else
             echo "Missing curl/wget to check repository" >&2
@@ -776,7 +776,7 @@ check "service sshd status >/dev/null" \
 
 # check if we have bridge-utils
 networking && {
-    check "type brctl >/dev/null 2>&1" "Checking bridge-utils are installed" 1 \
+    check "type -t brctl >/dev/null" "Checking bridge-utils are installed" 1 \
         "SKIP will try to install" || MISSING_PKGS='bridge-utils'
 }
 
@@ -842,11 +842,11 @@ fi
 
 node && {
     # check if the requested app name exists on market place
-    if type curl >/dev/null 2>&1; then
+    if type -t curl >/dev/null; then
         check "curl -s -H \"${JSON_HEADERS}\" ${APPS_URL} \
             | grep '\"name\":\"${MARKET_APP_NAME}\"' >/dev/null" \
             "Checking presence of the market app: \"$MARKET_APP_NAME\"" 3 "Not found"
-    elif type wget > /dev/null 2>&1; then
+    elif type -t wget > /dev/null; then
         check "wget --quiet -O - --header \"${JSON_HEADERS}\" ${APPS_URL} \
             | grep '\"name\":\"${MARKET_APP_NAME}\"' >/dev/null" \
             "Checking presence of the market app: \"$MARKET_APP_NAME\"" 3 "Not found"
