@@ -313,8 +313,8 @@ firewalld_running() {
     systemctl -q is-active firewalld
 }
 
-netplan() {
-    [[ ! -s /run/network/ifstate && $(type netplan 2>/dev/null) ]]
+netplan_on() {
+    [ ! -s /run/network/ifstate ] && type netplan >/dev/null 2>&1
 }
 
 kvm() {
@@ -427,7 +427,7 @@ NM_CONTROLLED=no
 EOF
         fi
     elif debian; then
-        if netplan; then
+        if netplan_on; then
             if [[ $1 = purge ]]; then
                 rm -f /etc/systemd/network/minionebr-nic.netdev
                 rm -f /etc/netplan/minione.yaml
@@ -489,7 +489,7 @@ EOF
 }
 
 ifup_bridge() {
-    if netplan; then
+    if netplan_on; then
         netplan apply
     else
         debian && ifup tap0
