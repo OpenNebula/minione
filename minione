@@ -641,7 +641,8 @@ install_opennebula_kvm_pkgs() {
         else
             run_and_print_if_failed \
                 "yum --quiet -y update centos-release"
-            install centos-release-qemu-ev qemu-kvm-ev || return 1
+            install centos-release-qemu-ev || return 1
+            install qemu-kvm-ev || return 1
         fi
     elif debian; then
         install opennebula-node
