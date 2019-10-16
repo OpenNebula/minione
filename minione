@@ -1571,7 +1571,10 @@ frontend && {
     echo "  user: oneadmin"
     echo "  password: ${PASSWORD}"
 }
+
 node && packet && {
     title "Packet provisioned"
     onehost list
 }
+
+exit 0
