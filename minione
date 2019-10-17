@@ -1344,7 +1344,7 @@ packet_provision() {
     sudo -u oneadmin touch /var/lib/one/.ssh/known_hosts
     chown oneadmin:oneadmin "$PACKET_TEMPLATE"
 
-    if sudo -H -u oneadmin oneprovision create "$PACKET_TEMPLATE" --fail-cleanup -d; then
+    if sudo -H -u oneadmin oneprovision create "$PACKET_TEMPLATE" --batch --fail-cleanup --ping-timeout 60 -d; then
         green "OK"
     else
         red "FAILED"
