@@ -24,6 +24,14 @@ For LXD evaluation:
 - operating system:
   - Ubuntu 18.04
 
+For Edge (Packet) evaluation, for the frontend:
+- physical host or virtual machine (e.g., Amazon EC2 VM)
+- x86-64 Intel or AMD processor
+- operating system:
+  - CentOS 7 (RHEL 7)
+  - Debian 9
+  - Ubuntu 16.04, 18.04
+
 ## Quickstart
 
 Download the [latest release](https://github.com/OpenNebula/minione/releases/latest) of the **miniONE** tool, run it and follow the instructions on the terminal.
@@ -45,6 +53,17 @@ Run the commands to deploy the evaluation cloud:
 wget 'https://github.com/OpenNebula/minione/releases/latest/download/minione'
 sudo bash minione --lxd
 ```
+
+### Get Edge cloud on Packet
+
+Run the commands to deploy the evaluation cloud:
+
+```
+wget 'https://github.com/OpenNebula/minione/releases/latest/download/minione'
+sudo bash minione --edge packet --edge-packet-token [packet-token] --edge-packet-project [packet-project]
+```
+
+MiniONE will install OpenNebula frontend on the host where you run the command and also configure one host one the Edge (Packet in this case) where you can spawn your VMs.
 
 ## Tutorial
 
