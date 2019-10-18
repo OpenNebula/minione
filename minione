@@ -1354,12 +1354,6 @@ packet_provision() {
 
 title "Configuration"
 
-check "aug_set ONEGATE_ENDPOINT '\"http://${VNET_GATEWAY}:5030\"'" \
-    "Switching OneGate endpoint in oned.conf"
-
-check "aug_set SCHED_INTERVAL 10 /etc/one/sched.conf" \
-    "Switching scheduler interval in oned.conf"
-
 lxd && check "sed_subst \"\s*:command: \\/bin\\/login\" \"  :command: \\/bin\\/bash\" \"/var/lib/one/remotes/etc/vmm/lxd/lxdrc\""\
     "Switching VNC command to /bin/bash in lxdrc"
 lxd && check "sed_subst \"\s*:command => '\\/bin\\/login'\" \"            :command => '\\/bin\\/bash'\" \"/var/lib/one/remotes/vmm/lxd/opennebula_vm.rb\""\
@@ -1373,6 +1367,12 @@ packet && {
 }
 
 frontend && {
+    check "aug_set ONEGATE_ENDPOINT '\"http://${VNET_GATEWAY}:5030\"'" \
+        "Switching OneGate endpoint in oned.conf"
+
+    check "aug_set SCHED_INTERVAL 10 /etc/one/sched.conf" \
+        "Switching scheduler interval in oned.conf"
+
     [[ ${USE_QEMU} = 'yes' ]] && check "switch_to_qemu"  "Switching to QEMU emulation"
 
     check "set_init_password" "Setting initial password for current user and oneadmin"
