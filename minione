@@ -1537,6 +1537,10 @@ update_template() {
     return ${RC}
 }
 
+get_provision_ids() {
+    oneprovision list --l ID  | grep '-'
+}
+
 node && ! packet && {
     check "update_datastores" "Updating datastores, TM_MAD=qcow2, SHARED=yes"
     kvm && check "onehost create -i kvm -v kvm localhost >/dev/null 2>&1" \
@@ -1573,8 +1577,23 @@ frontend && {
 }
 
 node && packet && {
-    title "Packet provisioned"
-    onehost list
+	PROVISION_IDS=$(get_provision_ids)
+	if [ -n "$PROVISION_IDS" ]; then
+
+		title "Packet provisioned"
+		onehost list
+
+		echo ""
+		echo "To extend the setup by additional hypervisor on Packet run following command:"
+		echo "./minione --edge packet --node --edge-packet-token [<token>] --edge-packet-project [<project>]"
+		echo ""
+
+        echo "To cleanup (delete resources in OpenNebula and Packet) run:"
+
+		for PROVISION_ID in $PROVISION_IDS; do
+			echo "oneprovision delete $PROVISION_ID --cleanup"
+		done
+	fi
 }
 
 exit 0
