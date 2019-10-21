@@ -10,7 +10,7 @@ Common min. requirements:
 - default installation of the operating system with the latest updates
 - privileged user access (`root`)
 
-For KVM evaluation:
+For KVM evaluation on a dedicated physical server for the front-end and one KVM hypervisor node:
 - physical host
 - x86-64 Intel or AMD processor with **virt. capabilities**
 - operating system:
@@ -18,13 +18,13 @@ For KVM evaluation:
   - Debian 9
   - Ubuntu 16.04, 18.04
 
-For LXD evaluation:
+For LXD evaluation on a dedicated physical server or virtual machine for the front-end and one LXD hypervisor node:
 - physical host or virtual machine (e.g., Amazon EC2 VM)
 - x86-64 Intel or AMD processor
 - operating system:
   - Ubuntu 18.04
 
-For Edge (Packet) evaluation, for the frontend:
+For Edge evaluation on a dedicated physical server or virtual machine for the front-end and one remote Packet edge physical server for one KVM hypervisor node:
 - physical host or virtual machine (e.g., Amazon EC2 VM)
 - x86-64 Intel or AMD processor
 - operating system:
