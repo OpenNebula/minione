@@ -1193,7 +1193,7 @@ EOF
 
 update_ssh_configs() {
 
-    local HOSTS=${1:$STAR_NET}
+    local HOSTS=${1:-$STAR_NET}
 
     # allow VM addresses to be re-used
     touch /var/lib/one/.ssh/config || return 1
