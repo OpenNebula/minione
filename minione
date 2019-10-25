@@ -830,6 +830,30 @@ validate_packet() {
     fi
 }
 
+validate_packet_plan_facility() {
+    URL="/projects/$EDGE_PACKET_PROJECT/plans/"
+    DATA=$(packet_req "$URL")
+    AVAILABLE_FACILITY_IDS=$(echo "$DATA" | jq -r ".plans | .[] | select(.name==\"$EDGE_PACKET_PLAN.x86\") | .\"available_in\" | .[] | .href" | awk -F\/ '{print $3}')
+    if [ -z "$AVAILABLE_FACILITY_IDS" ]; then
+        echo "Can not list Packet project plans"
+        return 1
+    fi
+
+    URL="/projects/$EDGE_PACKET_PROJECT/facilities/"
+    DATA=$(packet_req "$URL")
+    REQUIRED_FACILITY_ID=$(echo "$DATA" |jq -r ".facilities | .[] | select(.code==\"$EDGE_PACKET_FACILITY\") | .id")
+    if [ -z "$REQUIRED_FACILITY_ID" ]; then
+        echo "Can not list Packet project facilities"
+        return 1
+    fi
+
+    if [[ ! $AVAILABLE_FACILITY_IDS =~ "$REQUIRED_FACILITY_ID" ]]; then
+        echo "Required Packet plan($EDGE_PACKET_PLAN) is not available in facility($EDGE_PACKET_FACILITY)"
+        return 1
+    fi
+}
+
+
 #-------------------------------------------------------------------------------
 # Checks & detection
 #-------------------------------------------------------------------------------
@@ -979,6 +1003,7 @@ node && packet && {
              check "validate_packet facilities code $EDGE_PACKET_FACILITY /projects/$EDGE_PACKET_PROJECT" "Checking Packet facility"
              check "validate_packet operating-systems slug $EDGE_PACKET_OS" "Checking Packet operating system"
              check "validate_packet plans name ${EDGE_PACKET_PLAN}.x86 /projects/$EDGE_PACKET_PROJECT" "Checking Packet plan"
+             check "validate_packet_plan_facility" "Checking packet facility and plan"
         fi
 
         check "curl -s -H \"${JSON_HEADERS}\" ${APPS_URL} \
