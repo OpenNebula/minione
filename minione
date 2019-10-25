@@ -833,7 +833,7 @@ validate_packet() {
 validate_packet_plan_facility() {
     URL="/projects/$EDGE_PACKET_PROJECT/plans/"
     DATA=$(packet_req "$URL")
-    AVAILABLE_FACILITY_IDS=$(echo "$DATA" | jq -r ".plans | .[] | select(.name==\"$EDGE_PACKET_PLAN.x86\") | .\"available_in\" | .[] | .href" | awk -F\/ '{print $3}')
+    AVAILABLE_FACILITY_IDS=$(echo "$DATA" | jq -r ".plans | .[] | select(.name==\"$EDGE_PACKET_PLAN.x86\") | .\"available_in\" | .[] | .href" | awk -F/ '{print $3}')
     if [ -z "$AVAILABLE_FACILITY_IDS" ]; then
         echo "Can not list Packet project plans"
         return 1
@@ -847,7 +847,7 @@ validate_packet_plan_facility() {
         return 1
     fi
 
-    if [[ ! $AVAILABLE_FACILITY_IDS =~ "$REQUIRED_FACILITY_ID" ]]; then
+    if [[ ! $AVAILABLE_FACILITY_IDS =~ $REQUIRED_FACILITY_ID ]]; then
         echo "Required Packet plan($EDGE_PACKET_PLAN) is not available in facility($EDGE_PACKET_FACILITY)"
         return 1
     fi
@@ -996,8 +996,7 @@ node && ! packet && {
 
 node && packet && {
     if check "type -t curl" "Checking curl is installed" 1 "SKIP"; then
-        check "[ $(packet_req '' -w '%{http_code}' -o /dev/null ) = 200 ]" "Checking Packet token"
-        check "[ $(packet_req /projects/"$EDGE_PACKET_PROJECT" -w '%{http_code}' -o /dev/null) = 200 ]" "Checking Packet project"
+        check "validate_packet projects id $EDGE_PACKET_PROJECT" "Checking Packet token and project"
 
         if check "type -t jq" "Checking jq is installed" 1 "IGNORE  can't validate Packet parameters"; then
              check "validate_packet facilities code $EDGE_PACKET_FACILITY /projects/$EDGE_PACKET_PROJECT" "Checking Packet facility"
