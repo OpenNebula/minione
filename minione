@@ -294,6 +294,7 @@ check() {
     local TEXT=$2
     local TRIES=${3:-1}
     local ON_FAIL=$4
+    local HINT=$5
     local STDERR_TMP_FILE
     local STDOUT_TMP_FILE
     local RC=1
@@ -329,7 +330,11 @@ check() {
             return ${RC}
         elif [[ ${FORCE} = 'no' && -n "${ON_FAIL}" ]]; then
             red "FAILED"
-            echo 'Consider running with "--force" to override'
+            if [[ -n "${HINT}" ]]; then
+                echo ${HINT}
+            else
+                echo 'Consider running with "--force" to override'
+            fi
             exit 1
         elif [[ ${FORCE} = 'yes' && "${ON_FAIL}" =~ "IGNORE" ]]; then
             orange "${ON_FAIL}"
@@ -995,14 +1000,13 @@ node && ! packet && {
 
 
 node && packet && {
-    if check "type -t curl" "Checking curl is installed" 1 "SKIP"; then
-        check "validate_packet projects id $EDGE_PACKET_PROJECT" "Checking Packet token and project"
-
-        if check "type -t jq" "Checking jq is installed" 1 "IGNORE  can't validate Packet parameters"; then
-             check "validate_packet facilities code $EDGE_PACKET_FACILITY /projects/$EDGE_PACKET_PROJECT" "Checking Packet facility"
-             check "validate_packet operating-systems slug $EDGE_PACKET_OS" "Checking Packet operating system"
-             check "validate_packet plans name ${EDGE_PACKET_PLAN}.x86 /projects/$EDGE_PACKET_PROJECT" "Checking Packet plan"
-             check "validate_packet_plan_facility" "Checking packet facility and plan"
+    if check "type -t curl" "Checking curl is installed" 1 "IGNORE can't validate Packet parameters" "Install curl package first"; then
+        if check "type -t jq" "Checking jq is installed" 1 "IGNORE can't validate Packet parameters" "Install jq package first"; then
+            check "validate_packet projects id $EDGE_PACKET_PROJECT" "Checking Packet token and project"
+            check "validate_packet facilities code $EDGE_PACKET_FACILITY /projects/$EDGE_PACKET_PROJECT" "Checking Packet facility"
+            check "validate_packet operating-systems slug $EDGE_PACKET_OS" "Checking Packet operating system"
+            check "validate_packet plans name ${EDGE_PACKET_PLAN}.x86 /projects/$EDGE_PACKET_PROJECT" "Checking Packet plan"
+            check "validate_packet_plan_facility" "Checking packet facility and plan"
         fi
 
         check "curl -s -H \"${JSON_HEADERS}\" ${APPS_URL} \
@@ -1446,6 +1450,7 @@ frontend && {
     check "add_ssh_keys_to_oneadmin" "Add ssh key to oneadmin user"
     check "update_ssh_configs" "Update ssh configs to allow VM addresses reusig"
     check "ensure_hostname_resolvable" "Ensure own hostname is resolvable"
+
 }
 
 check "one_is_ready" "Checking OpenNebula is working"
