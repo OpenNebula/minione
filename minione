@@ -1291,6 +1291,7 @@ packet_conf_oned() {
 }
 
 packet_conf_hooks() {
+    set -e pipefail
     aug_set "VM_HOOK[NAME = '\"external_ip_running\"']/NAME" '"external_ip_running"'
     aug_set "VM_HOOK[NAME = '\"external_ip_running\"']/ON" '"RUNNING"'
     aug_set "VM_HOOK[NAME = '\"external_ip_running\"']/COMMAND" '"alias_ip/alias_ip.rb"'
@@ -1307,6 +1308,7 @@ packet_conf_hooks() {
     aug_set "VM_HOOK[NAME = '\"alias_ip_done\"']/ON" '"DONE"'
     aug_set "VM_HOOK[NAME = '\"alias_ip_done\"']/COMMAND" '"alias_ip/alias_ip.rb"'
     aug_set "VM_HOOK[NAME = '\"alias_ip_done\"']/ARGUMENTS" "\"\$ID \$TEMPLATE\""
+    set +e
 }
 
 get_next_packet_id() {
@@ -1637,23 +1639,23 @@ frontend && {
 }
 
 node && packet && {
-	PROVISION_IDS=$(get_provision_ids)
-	if [ -n "$PROVISION_IDS" ]; then
+    PROVISION_IDS=$(get_provision_ids)
+    if [ -n "$PROVISION_IDS" ]; then
 
-		title "Packet provisioned"
-		onehost list
+        title "Packet provisioned"
+        onehost list
 
-		echo ""
-		echo "To extend the setup by additional hypervisor on Packet run following command:"
-		echo "./minione --edge packet --node --edge-packet-token [<token>] --edge-packet-project [<project>]"
-		echo ""
+        echo ""
+        echo "To extend the setup by additional hypervisor on Packet run following command:"
+        echo "./minione --edge packet --node --edge-packet-token [<token>] --edge-packet-project [<project>]"
+        echo ""
 
         echo "To cleanup (delete resources in OpenNebula and Packet) run:"
 
-		for PROVISION_ID in $PROVISION_IDS; do
-			echo "oneprovision delete $PROVISION_ID --cleanup"
-		done
-	fi
+        for PROVISION_ID in $PROVISION_IDS; do
+            echo "oneprovision delete $PROVISION_ID --cleanup"
+        done
+    fi
 }
 
 exit 0
