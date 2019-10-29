@@ -1242,6 +1242,41 @@ EOF
     }
 }
 
+ensure_hostname_resolvable() {
+    set -e pipefail
+    local HOSTNAME
+    local IP
+
+    HOSTNAME=$(hostname)
+    IP=$(get_my_ip)
+
+    if getent hosts "$HOSTNAME" >/dev/null; then
+        return 0
+    fi
+
+    if [ ! -f /usr/share/augeas/lenses/oned.aug ]; then
+        echo "Missing oned.aug" >&2
+        return 1
+    fi
+
+    MATCH=$(augtool match '/files/etc/hosts/*/ipaddr' "$IP")
+
+    if [ -n "$MATCH" ]; then
+        # IP already in /etc/hosts
+        augtool -s set "/files/etc/hosts/*[ipaddr=\"$IP\"]/alias[.=\"$HOSTNAME\"] \"$HOSTNAME\""
+    else
+        # IP not in /etc/hosts yet
+        LAST=$(augtool ls '/files/etc/hosts' | tail -1 | awk -F/ '{print $1}')
+        LAST=$(( LAST + 1 ))
+        AUG_CMD=$(mktemp)
+        echo "set /files/etc/hosts/$LAST/ipaddr \"$IP\"" > "$AUG_CMD"
+        echo "set /files/etc/hosts/$LAST/canonical \"$HOSTNAME\"" >> "$AUG_CMD"
+        augtool -s -f "$AUG_CMD"
+        rm "$AUG_CMD"
+    fi
+    set +e
+}
+
 packet_conf_oned() {
     set -e pipefail
     aug_set "MONITORING_INTERVAL_HOST" "1000"
@@ -1408,6 +1443,7 @@ frontend && {
     check "systemctl enable $ONE_SERVICES" "Enabling OpenNebula services"
     check "add_ssh_keys_to_oneadmin" "Add ssh key to oneadmin user"
     check "update_ssh_configs" "Update ssh configs to allow VM addresses reusig"
+    check "ensure_hostname_resolvable" "Ensure own hostname is resolvable"
 }
 
 check "one_is_ready" "Checking OpenNebula is working"
