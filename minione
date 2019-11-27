@@ -17,7 +17,7 @@
 #--------------------------------------------------------------------------- #
 
 # default parameters values
-VERSION='5.8'
+VERSION='5.10'
 FORCE='no'
 VERBOSE='no'
 ASK='yes'
@@ -113,8 +113,12 @@ fi
 eval set -- "$OPTS"
 
 # global vars
-SUPPORTED_MAP='^(CentOS7 5.6|CentOS7 5.8|Debian9 5.8|Ubuntu16.04 5.8|Ubuntu18.04 5.8|Ubuntu18.10 5.8)$'
-SUPPORTED_LXD_MAP='^(Ubuntu18.04 5.8)$'
+SUPPORTED_MAP='^(CentOS7 5.6|CentOS7 5.8|CentOS7 5.10|'
+SUPPORTED_MAP+='Debian9 5.8|Debian9 5.10|'
+SUPPORTED_MAP+='Ubuntu16.04 5.8|Ubuntu16.04 5.10|'
+SUPPORTED_MAP+='Ubuntu18.04 5.8|Ubuntu18.04 5.10|'
+SUPPORTED_MAP+='Ubuntu18.10 5.8|Ubuntu18.10 5.10)$'
+SUPPORTED_LXD_MAP='^(Ubuntu18.04 5.8|Ubuntu18.04 5.10)$'
 PURGE='no'
 DISABLE_SELINUX='no'
 ENABLED_APPARMOR='no'
@@ -331,7 +335,7 @@ check() {
         elif [[ ${FORCE} = 'no' && -n "${ON_FAIL}" ]]; then
             red "FAILED"
             if [[ -n "${HINT}" ]]; then
-                echo ${HINT}
+                echo "${HINT}"
             else
                 echo 'Consider running with "--force" to override'
             fi
