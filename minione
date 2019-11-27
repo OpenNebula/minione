@@ -200,6 +200,7 @@ if [[ $EDGE = packet ]]; then
     EXIT=0
     [[ -z "$EDGE_PACKET_TOKEN" ]] && { echo "--edge-packet-token required"; EXIT=1; }
     [[ -z "$EDGE_PACKET_PROJECT" ]] && { echo "--edge-packet-project required"; EXIT=1; }
+    [[ "$VERSION" != "5.10" ]] && { echo "Edge deployment only for 5.10"; EXIT=1; }
     [[ $EXIT != 0 ]] && exit $EXIT
 fi
 
@@ -1300,22 +1301,9 @@ packet_conf_oned() {
 
 packet_conf_hooks() {
     set -e pipefail
-    aug_set "VM_HOOK[NAME = '\"external_ip_running\"']/NAME" '"external_ip_running"'
-    aug_set "VM_HOOK[NAME = '\"external_ip_running\"']/ON" '"RUNNING"'
-    aug_set "VM_HOOK[NAME = '\"external_ip_running\"']/COMMAND" '"alias_ip/alias_ip.rb"'
-    aug_set "VM_HOOK[NAME = '\"external_ip_running\"']/ARGUMENTS" "\"\$ID \$TEMPLATE\""
-
-    aug_set "VM_HOOK[NAME = '\"alias_ip_hotplug\"']/NAME" '"alias_ip_hotplug"'
-    aug_set "VM_HOOK[NAME = '\"alias_ip_hotplug\"']/ON" '"CUSTOM"'
-    aug_set "VM_HOOK[NAME = '\"alias_ip_hotplug\"']/STATE" '"ACTIVE"'
-    aug_set "VM_HOOK[NAME = '\"alias_ip_hotplug\"']/LCM_STATE" '"HOTPLUG_NIC"'
-    aug_set "VM_HOOK[NAME = '\"alias_ip_hotplug\"']/COMMAND" '"alias_ip/alias_ip.rb"'
-    aug_set "VM_HOOK[NAME = '\"alias_ip_hotplug\"']/ARGUMENTS" "\"\$ID \$TEMPLATE\""
-
-    aug_set "VM_HOOK[NAME = '\"alias_ip_done\"']/NAME" '"alias_ip_done"'
-    aug_set "VM_HOOK[NAME = '\"alias_ip_done\"']/ON" '"DONE"'
-    aug_set "VM_HOOK[NAME = '\"alias_ip_done\"']/COMMAND" '"alias_ip/alias_ip.rb"'
-    aug_set "VM_HOOK[NAME = '\"alias_ip_done\"']/ARGUMENTS" "\"\$ID \$TEMPLATE\""
+    onehook create /usr/share/one/examples/alias_ip/done_hook
+    onehook create /usr/share/one/examples/alias_ip/hotplug_hook
+    onehook create /usr/share/one/examples/alias_ip/running_hook
     set +e
 }
 
@@ -1431,7 +1419,6 @@ lxd && check "sed_subst \"\s*:command => '\\/bin\\/login'\" \"            :comma
 
 packet && {
     check "packet_conf_oned" "Applying packet changes to oned.conf"
-    check "packet_conf_hooks" "Configuring packet hooks in oned.conf"
     check "update_ssh_configs '*'" "Update ssh configs to accessing Packet hosts"
 }
 
@@ -1459,7 +1446,10 @@ frontend && {
 
 check "one_is_ready" "Checking OpenNebula is working"
 
+packet && check "packet_conf_hooks" "Configuring packet hooks"
+
 packet && node && {
+    check "packet_conf_hooks" "Configuring packet hooks"
     check "packet_template" "Prepare packet template"
     check "oneprovision validate $PACKET_TEMPLATE" "Checking packet template [$PACKET_TEMPLATE]"
     packet_provision
