@@ -702,11 +702,16 @@ install_ruby_gems() {
         install redhat-lsb || return 1
         gem install bundler --version '<2.0' >/dev/null || return 1
     }
+
+    debian && {
+        apt-get -q -y install libssl-dev || return 1
+    }
+
     OUT=$(mktemp)
     export DEBIAN_FRONTEND=noninteractive
     /usr/share/one/install_gems --yes > "$OUT"
-    unset DEBIAN_FRONTEND
     RC=$?
+    unset DEBIAN_FRONTEND
     grep 'Could not' <"$OUT" >&2
     return $RC
 }
@@ -1252,7 +1257,7 @@ EOF
 }
 
 ensure_hostname_resolvable() {
-    set -e pipefail
+    set -e -o pipefail
     local HOSTNAME
     local IP
 
@@ -1287,7 +1292,7 @@ ensure_hostname_resolvable() {
 }
 
 packet_conf_oned() {
-    set -e pipefail
+    set -e -o pipefail
     aug_set "MONITORING_INTERVAL_HOST" "1000"
     aug_set "MONITORING_INTERVAL_VM" "300"
     aug_set "IPAM_MAD/ARGUMENTS" '"-t 1 -i dummy,packet"'
@@ -1300,7 +1305,7 @@ packet_conf_oned() {
 }
 
 packet_conf_hooks() {
-    set -e pipefail
+    set -e -o pipefail
     onehook create /usr/share/one/examples/alias_ip/done_hook
     onehook create /usr/share/one/examples/alias_ip/hotplug_hook
     onehook create /usr/share/one/examples/alias_ip/running_hook
@@ -1449,7 +1454,6 @@ check "one_is_ready" "Checking OpenNebula is working"
 packet && check "packet_conf_hooks" "Configuring packet hooks"
 
 packet && node && {
-    check "packet_conf_hooks" "Configuring packet hooks"
     check "packet_template" "Prepare packet template"
     check "oneprovision validate $PACKET_TEMPLATE" "Checking packet template [$PACKET_TEMPLATE]"
     packet_provision
