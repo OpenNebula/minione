@@ -259,7 +259,8 @@ get_distname_and_version() {
     elif [ -f /etc/SuSe-release ]; then
         DIST='SuSe'
     fi
-    [[ "${DIST}" =~ CentOS|RedHat|Debian ]] && VER=$(echo "$VER" | cut -c1)
+    [[ "${DIST}" =~ CentOS|RedHat ]] && VER=$(echo "$VER" | cut -c1)
+    [[ "${DIST}" =~ Debian ]] && VER=$(echo "$VER" | cut -d. -f1)
 
     echo "${DIST} ${VER}"
 }
