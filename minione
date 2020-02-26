@@ -1307,9 +1307,9 @@ packet_conf_oned() {
 
 packet_conf_hooks() {
     set -e -o pipefail
-    onehook create /usr/share/one/examples/alias_ip/done_hook
-    onehook create /usr/share/one/examples/alias_ip/hotplug_hook
-    onehook create /usr/share/one/examples/alias_ip/running_hook
+    onehook show alias_ip_done    >/dev/null 2>&1 || onehook create /usr/share/one/examples/alias_ip/done_hook
+    onehook show alias_ip_hotplug >/dev/null 2>&1 || onehook create /usr/share/one/examples/alias_ip/hotplug_hook
+    onehook show alias_ip_running >/dev/null 2>&1 || onehook create /usr/share/one/examples/alias_ip/running_hook
     set +e
 }
 
