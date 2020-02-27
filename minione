@@ -57,6 +57,7 @@ usage() {
     e "-f --force"                                "Skip non-fatal validation errors"
     e "--yes"                                     "Don't ask"
     e ""
+    e "--version [$VERSION]"                      "OpenNebula version to install"
     e "--lxd"                                     "Setup host to run LXD containers (KVM otherwise)"
     e "--frontend"                                "Install only frontend, skip node setup,"
     e ""                                          "no networking configuration"
