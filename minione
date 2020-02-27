@@ -168,7 +168,7 @@ while true ; do
         --preserve-user) DELETE_ONEADMIN="no"; shift;;
         --edge) EDGE="$2"; NETWORKING="no"; shift 2;;
         --edge-host-num) EDGE_HOST_NUM="$2"; shift 2;;
-        --edge-marketapp-name) EDGE_MARKET_APP_NAME="$2"; EDGE_DEFAULT_APP='no' shift 2;;
+        --edge-marketapp-name) EDGE_MARKET_APP_NAME="$2"; EDGE_DEFAULT_APP='no'; shift 2;;
         --edge-packet-token) EDGE_PACKET_TOKEN="$2"; shift 2;;
         --edge-packet-project) EDGE_PACKET_PROJECT="$2"; shift 2;;
         --edge-packet-facility) EDGE_PACKET_FACILITY="$2"; shift 2;;
@@ -1237,7 +1237,7 @@ update_ssh_configs() {
 
     # allow VM addresses to be re-used
     touch /var/lib/one/.ssh/config || return 1
-    grep -q "Host ${HOSTS}" /var/lib/one/.ssh/config || {
+    grep -q "Host ${HOSTS/\*/\\*}" /var/lib/one/.ssh/config || {
         cat >> /var/lib/one/.ssh/config << EOF || return 1
 Host ${HOSTS}
    StrictHostKeyChecking no
@@ -1248,7 +1248,7 @@ EOF
     }
 
     touch ~/.ssh/config || return 1
-    grep -q "Host ${HOSTS}" ~/.ssh/config || {
+    grep -q "Host ${HOSTS/\*/\\*}" ~/.ssh/config || {
         cat >> ~/.ssh/config << EOF || return 1
 Host ${HOSTS}
    StrictHostKeyChecking no
@@ -1432,6 +1432,9 @@ packet && {
 frontend && {
     check "aug_set ONEGATE_ENDPOINT '\"http://${VNET_GATEWAY}:5030\"'" \
         "Switching OneGate endpoint in oned.conf"
+
+    check "sed_subst \":host: .*\" \":host: ${VNET_GATEWAY}\" \"/etc/one/onegate-server.conf\""\
+        "Switching OneGate endpoint in onegate-server.conf"
 
     check "aug_set SCHED_INTERVAL 10 /etc/one/sched.conf" \
         "Switching scheduler interval in oned.conf"
@@ -1622,7 +1625,7 @@ node && ! packet && {
 
 packet && node && {
     DS_ID=$(onedatastore list --csv -l ID,NAME,TYPE -f TYPE=img -f NAME=packet-"${PACKET_LAST_ID}"-default | awk -F, '{print $1}' | tail -1)
-    check "export_marketapp \"${EDGE_MARKET_APP_NAME}\" ${DS_ID} \"-${PACKET_LAST_ID}\"" \
+    check "export_marketapp \"${EDGE_MARKET_APP_NAME}\" ${DS_ID} \"-${EDGE_PACKET_FACILITY}-${PACKET_LAST_ID}\"" \
         "Exporting [${EDGE_MARKET_APP_NAME}] from Marketplace to local datastore"
     check "update_template $VM_TEMPLATE_ID" "Updating VM template"
 }
