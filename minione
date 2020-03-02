@@ -1459,6 +1459,7 @@ check "one_is_ready" "Checking OpenNebula is working"
 packet && check "packet_conf_hooks" "Configuring packet hooks"
 
 packet && node && {
+    check "systemctl restart opennebula" "Restarting OpenNebula"
     check "packet_template" "Prepare packet template"
     check "oneprovision validate $PACKET_TEMPLATE" "Checking packet template [$PACKET_TEMPLATE]"
     packet_provision
