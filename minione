@@ -1640,7 +1640,7 @@ packet && node && {
 frontend && {
     title 'Report'
     echo "OpenNebula ${VERSION} was installed"
-    echo "Sunstone [the webui] is runninng on:"
+    echo "Sunstone [the webui] is running on:"
     echo "  http://$(get_my_ip)${PORT_STR}/"
     echo "Use following to login:"
     echo "  user: oneadmin"
