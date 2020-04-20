@@ -1,0 +1,95 @@
+@import url("theme.css");
+
+.wy-nav-content {
+    max-width: 1140px;
+}
+
+body {
+    color: #353735;
+}
+
+a {
+    color: #0098c3;
+}
+
+#entry-point {
+    display: none;
+}
+
+.rst-versions {
+    background-color: #353735;
+    border-top: 0;
+}
+
+.wy-side-nav-search {
+    background-color: #0098c3;
+}
+
+.wy-nav-side {
+    background-color: #353735;
+}
+
+.wy-table-responsive table td, .wy-table-responsive table th {
+    white-space: normal;
+}
+
+#start-here {
+    padding: 10px;
+    margin-top: 20px;
+    margin-bottom 10px;
+    font-weight: normal;
+}
+
+/*
+.wy-nav-content-wrap {
+    background: #FCFCFC;
+}
+*/
+
+pre.highlight {
+    white-space: pre;
+    padding: 12px 12px;
+    font-family: Consolas,"Andale Mono WT","Andale Mono","Lucida Console","Lucida Sans Typewriter","DejaVu Sans Mono","Bitstream Vera Sans Mono","Liberation Mono","Nimbus Mono L",Monaco,"Courier New",Courier,monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    display: block;
+    overflow: auto;
+    color: #404040;
+    border: 1px solid #e1e4e5;
+    overflow-x: auto;
+    background: #fff;
+    margin: 1px 0 24px 0;
+}
+
+#opennebula-frontpage .ofp-box {
+    width: 320px;
+    float: left;
+    padding: 10px;
+    margin: 10px;
+}
+
+/*#opennebula-frontpage h3 {
+    padding-top: 20px;
+}*/
+
+/*#opennebula-frontpage .ofp-box > a {
+    font-weight: bold;
+    color: #353735;
+}*/
+#opennebula-frontpage .ofp-box > a {
+    font-weight: bold;
+}
+
+#opennebula-frontpage .ofp-box > ul  {
+    margin-top:10px;
+    margin-bottom: 0px;
+}
+
+#opennebula-frontpage h3, #opennebula-frontpage .ofp-box-1, .clear-both {
+    clear: both;
+}
+
+#opennebula-frontpage h3 {
+    margin: 0;
+    padding-top: 10px;
+}
