@@ -4,6 +4,14 @@ Requirements
 
 Requirements may differ for various types of evaluation environments which you may deploy. In all cases, the provided host should have a fresh default installation of required operating system with latest updates and without any customizations.
 
+Common minimal requirements
+===========================
+- 4 GiB RAM
+- 20 GiB free space on disk
+- default installation of the operating system with the latest updates
+- privileged user access (`root`)
+- openssh-server package installed
+
 Virtual Machines (KVM)
 ======================
 |images-minione-kvm.png|
@@ -13,9 +21,8 @@ For KVM evaluation on a dedicated physical server for the front-end and one KVM 
 
 * x86-64 Intel or AMD processor with **virt. capabilities**
 * physical host or virtual machine supporting the nested virtualization
-* 4 GiB memory
-* 20 GiB free disk space
 * operating system: CentOS 7, Debian 9, Ubuntu 16.04 or 18.04
+
 
 System Containers (LXD)
 =======================
@@ -25,8 +32,6 @@ For LXD evaluation on a dedicated physical server or virtual machine for the fro
 
 * x86-64 Intel or AMD processor
 * physical host or virtual machine
-* 4 GiB memory
-* 20 GiB free disk space
 * operating system: Ubuntu 18.04
 
 Edge deployment + KVM on Packet
@@ -41,8 +46,6 @@ for the frontend
 
 * x86-64 Intel or AMD processor
 * physical host or virtual machine
-* 4 GiB memory
-* 20 GiB free disk space
 * operating system: CentOS 7, Debian 9, Ubuntu 16.04 or 18.04
 
 for the hypervisor(s) on Packet
