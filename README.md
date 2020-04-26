@@ -11,6 +11,7 @@ Common min. requirements:
 - 20 GiB free space on disk
 - default installation of the operating system with the latest updates
 - privileged user access (`root`)
+- openssh-server package installed
 
 For **KVM evaluation** on a dedicated physical server for both the front-end and one KVM hypervisor node:
 - physical host
