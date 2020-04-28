@@ -1,13 +1,14 @@
-************
+.. _overview_req:
+
+============
 Requirements
-************
+============
 
 Requirements may differ for various types of evaluation environments which you may deploy. In all cases, the provided host should have a fresh default installation of required operating system with latest updates and without any customizations.
 
 Virtual Machines (KVM)
 ======================
 |images-minione-kvm.png|
-
 
 For KVM evaluation on a dedicated physical server for the front-end and one KVM hypervisor node the minimal requirements are:
 
@@ -35,9 +36,7 @@ Edge deployment + KVM on Packet
 
 For Edge evaluation on a dedicated physical server or virtual machine for the front-end and one remote Packet edge physical server for one KVM hypervisor node the minimal requirements are
 
-
 for the frontend
-
 
 * x86-64 Intel or AMD processor
 * physical host or virtual machine

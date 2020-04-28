@@ -1,12 +1,14 @@
-***************
-Easy deployment
-***************
+.. _basic_deploy:
+
+===============
+Easy Deployment
+===============
 
 Various command line parameters passed to the miniONE tool can customize the deployment process, e.g. required OpenNebula version or initial passwords. You can get a list of available switches by running:
 
-.. code-block:: bash
+.. prompt:: bash # auto
 
-    bash minione --help
+    # bash minione --help
 
 In most cases, it's not necessary to specify anything and simply proceed with installation.
 
@@ -14,28 +16,28 @@ If needed, the deployment customization is covered by next section "Advanced Ins
 
 You have to choose between the KVM (default), LXD or Edge evaluation environment. Run the following command under the privileged user **root** to get ready the all-in-one OpenNebula installation with default KVM hypervisor:
 
-.. code-block:: bash
+.. prompt:: bash # auto
 
-    bash minione
+    # bash minione
 
 
 Or, for LXD environment:
 
-.. code-block:: bash
+.. prompt:: bash # auto
 
-    bash minione --lxd
+    # bash minione --lxd
 
 
 Or, for Edge environment on Packet:
 
-.. code-block:: bash
+.. prompt:: bash # auto
 
-    bash minione --edge packet --edge-packet-token [token] --edge-packet-project [project]
+    # bash minione --edge packet --edge-packet-token [token] --edge-packet-project [project]
 
 
 Be patient, it should take only a few minutes to get the host prepared. Main deployment steps are logged on the terminal and at the end of a successful deployment, the miniONE tool provides a report with connection parameters and initial credentials. For example:
 
-.. code-block:: bash
+.. code::
 
     ### Report
     OpenNebula 5.8 was installed
@@ -47,7 +49,7 @@ Be patient, it should take only a few minutes to get the host prepared. Main dep
 
 When running the Edge deployment you will see also similar report:
 
-.. code-block:: bash
+.. code::
 
     ### Packet provisioned
       ID NAME            CLUSTER   TVM      ALLOCATED_CPU      ALLOCATED_MEM STAT
@@ -55,18 +57,15 @@ When running the Edge deployment you will see also similar report:
 
 To extend the setup by additional hypervisor on Packet run following command:
 
-.. code-block:: bash
+.. prompt:: bash # auto
 
-    ./minione --edge packet --node --edge-packet-token [<token>] --edge-packet-project [<project>]
-
+    # bash minione --edge packet --node --edge-packet-token [<token>] --edge-packet-project [<project>]
 
 To cleanup (delete resources in OpenNebula and Packet) run:
 
+.. prompt:: bash # auto
 
-.. code-block:: bash
-
-    oneprovision delete aeb1e3e0-09fd-426c-9ee5-13ee60daeee7 --cleanup
-
+    # oneprovision delete aeb1e3e0-09fd-426c-9ee5-13ee60daeee7 --cleanup
 
 Now, the all-in-one OpenNebula evaluation environment is ready.
 

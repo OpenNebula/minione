@@ -1,6 +1,8 @@
-**********
+.. _basic_sunstone_cloud:
+
+==========
 Cloud View
-**********
+==========
 
 The default Sunstone view above (admin or user) is powerful, but complex. It's suitable for the cloud administrators and advanced users. End-users might benefit from the "cloud view", which is a simplified Sunstone interface focused on the very basic virtual machine management operations.
 
@@ -28,7 +30,7 @@ Click on the virtual machine to open the details with monitoring metrics and but
 
 Click on the "display" icon to open the graphical console. Login as user **root** with default password **opennebula** (can be changed in miniONE advanced deployment, see below). At the end, close the graphical console and click on the trash icon to termina the virtual machine.
 
-Continue with the official `Cloud End-User <http://docs.opennebula.org/stable/operation/sunstone_enduser/>`_ documentation.
+Continue with the official `Cloud End-User <http://docs.opennebula.io/stable/operation/sunstone_enduser/>`_ documentation.
 
 .. |images-sunstone-cloud-views| image:: /images/sunstone-cloud-views.png
 .. |images-sunstone-cloud-vm-add| image:: /images/sunstone-cloud-vm-add.png

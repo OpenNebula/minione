@@ -1,25 +1,27 @@
-####################
+.. _advanced_mp:
+
+====================
 Marketplace over CLI
-####################
+====================
 
 Your OpenNebula comes with a few pre-configured marketplaces. They can be managed via ``onemarket`` command, e.g. listed, updated or deleted. Type following command to list configured Marketplaces:
 
-.. code-block:: bash
+.. prompt:: bash # auto
 
     # onemarket list
       ID NAME                                 SIZE AVAIL        APPS MAD     ZONE
        1 Linux Containers                       0M -              33 linuxco    0
        0 OpenNebula Public                      0M -              36 one        0
 
-`Linux Containers <https://us.images.linuxcontainers.org/>`_ is an integration with public LXD image server (see the `documentation <http://docs.opennebula.org/stable/advanced_components/marketplace/market_lxd.html>`_). The `OpenNebula Public <https://marketplace.opennebula.systems>`_ is the official public marketplace for the OpenNebula with appliances prepared and tested by the OpenNebula Systems. To list the appliances available in these marketplaces, use ``onemarketapp`` command:
+`Linux Containers <https://us.images.linuxcontainers.org/>`_ is an integration with public LXD image server (see the `documentation <http://docs.opennebula.io/stable/advanced_components/marketplace/market_lxd.html>`_). The `OpenNebula Public <https://marketplace.opennebula.io>`_ is the official public marketplace for the OpenNebula with appliances prepared and tested by the OpenNebula Systems. To list the appliances available in these marketplaces, use ``onemarketapp`` command:
 
-.. code-block:: bash
+.. prompt:: bash # auto
 
     # onemarketapp list
 
 You can filter the output with standard stream processing tools, e.g. ``grep``:
 
-.. code-block:: bash
+.. prompt:: bash # auto
 
     # onemarketapp list | grep -i ubuntu
     68 ubuntu_xenial - LXD           1.0 1024M  rdy  img 05/27/19 Linux Containers   0
@@ -42,7 +44,7 @@ You can filter the output with standard stream processing tools, e.g. ``grep``:
 
 These appliances can be used, but first need to be exported from the remote marketplace and imported into the selected own datastore. Datastore is a configured storage location in your OpenNebula installation, there are several types for different purposes. For this case, we need to know the *image datastore* for images. We use ``onedatastore`` command to list available datastores, e.g.:
 
-.. code-block:: bash
+.. prompt:: bash # auto
 
     # onedatastore list
       ID NAME                SIZE AVAIL CLUSTERS     IMAGES TYPE DS      TM      STAT
@@ -52,8 +54,7 @@ These appliances can be used, but first need to be exported from the remote mark
 
 And, find the ID of only the image datastore (in default installation) with *img* in TYPE column. Based on the example outputs above, we'll use ``onemarketapp`` command to trigger the export of appliance 15 (Ubuntu 18.04 - KVM) into our image datastore 1 (default), and create a virtual machine template "Ubuntu 18.04" to quickly start the VM from this image. E.g.:
 
-
-.. code-block:: bash
+.. prompt:: bash # auto
 
     # onemarketapp export 15 'Ubuntu 18.04' -d 1
     IMAGE
@@ -63,7 +64,7 @@ And, find the ID of only the image datastore (in default installation) with *img
 
 Show the available images and virtual machine templates to check that the appliance was imported with ``oneimage`` and ``onetemplate`` commands. The download of the image can take some time and to be able to use it, you have to wait until its status (STAT) switches to *rdy* state.
 
-.. code-block:: bash
+.. prompt:: bash # auto
 
     # onetemplate list
       ID USER            GROUP           NAME                                REGTIME
@@ -79,7 +80,7 @@ The newly created template describes only a minimal virtual machine without netw
 
 Show the available virtual networks:
 
-.. code-block:: bash
+.. prompt:: bash # auto
 
     # onevnet list
       ID USER            GROUP        NAME                CLUSTERS   BRIDGE   LEASES
@@ -87,7 +88,7 @@ Show the available virtual networks:
 
 If we want to run virtual machine from the imported appliance, we have to specify it should have a network interface card attached to selected network. E.g.,
 
-.. code-block:: bash
+.. prompt:: bash # auto
 
     # onetemplate instantiate 1 --nic 0
     VM ID: 1

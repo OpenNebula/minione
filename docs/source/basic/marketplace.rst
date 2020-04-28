@@ -1,8 +1,10 @@
-***********
-Marketplace
-***********
+.. _basic_mp:
 
-Your OpenNebula installation is integrated with a few marketplaces. The most important one is the "`OpenNebula Public <https://marketplace.opennebula.systems>`_" marketplace, which contains various appliances with base OS and even some popular services built and tested by the OpenNebula Systems.
+===========
+Marketplace
+===========
+
+Your OpenNebula installation is integrated with a few marketplaces. The most important one is the "`OpenNebula Public <https://marketplace.opennebula.io>`_" marketplace, which contains various appliances with base OS and even some popular services built and tested by the OpenNebula Systems.
 
 Also, the images from `public LXD image server <https://us.images.linuxcontainers.org>`_ are available through the "Linux Containers" marketplace for the LXD environments. Please note these images are prepared by 3rd parties and all may not work seamlessly.
 
@@ -22,7 +24,7 @@ To run the imported appliance, follow the same steps from section "Run Virtual M
 
 |images-sunstone-apps-vm-create|
 
-Continue with the official `MarketPlace <http://docs.opennebula.org/stable/advanced_components/marketplace>`_ documentation.
+Continue with the official `MarketPlace <http://docs.opennebula.io/stable/advanced_components/marketplace>`_ documentation.
 
 
 .. |images-sunstone-marketplaces| image:: /images/sunstone-marketplaces.png

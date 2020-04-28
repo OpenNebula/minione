@@ -1,6 +1,8 @@
-************
+.. _basic_manage:
+
+============
 Manage Cloud
-************
+============
 
 The Sunstone web UI allows you to do all the cloud management operations. Walk through all the tabs available in the left panel to discover the entities which can be managed, and which are already preconfigured.
 

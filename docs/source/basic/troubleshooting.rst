@@ -1,6 +1,8 @@
-***************
+.. _basic_trouble:
+
+===============
 Troubleshooting
-***************
+===============
 
 All OpenNebula services are running under unprivileged user **oneadmin**.
 
@@ -27,42 +29,42 @@ Service Management
 
 Following examples describe the basic commands to control the system services:
 
-.. code-block:: bash
+.. prompt:: bash # auto
 
-    systemctl status opennebula.service
+    # systemctl status opennebula.service
 
 Stop service:
 
-.. code-block:: bash
+.. prompt:: bash # auto
 
-    systemctl stop opennebula.service
+    # systemctl stop opennebula.service
 
 Start service:
 
-.. code-block:: bash
+.. prompt:: bash # auto
 
-    systemctl start opennebula.service
+    # systemctl start opennebula.service
 
 Disable service to start on boot:
 
-.. code-block:: bash
+.. prompt:: bash # auto
 
-    systemctl disable opennebula.service
+    # systemctl disable opennebula.service
 
 Enable service to start on boot:
 
-.. code-block:: bash
+.. prompt:: bash # auto
 
-    systemctl enable opennebula.service
+    # systemctl enable opennebula.service
 
 Futher Help
 ===========
 
-Check and ask on `Community Forum <https://forum.opennebula.org/>`_.
+Check and ask on `Community Forum <https://forum.opennebula.io/>`_.
 
 Documentation:
 
-- `OpenNebula Documentation <http://docs.opennebula.org/>`_
+- `OpenNebula Documentation <http://docs.opennebula.io/>`_
 - `RHEL 7: Virtualization Deployment and Administration Guide <https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/virtualization_deployment_and_administration_guide>`_
 - `LXD: Getting started - command-line <https://linuxcontainers.org/lxd/getting-started-cli/>`_
 - `LXD: Documentation <https://lxd.readthedocs.io/en/latest/>`_

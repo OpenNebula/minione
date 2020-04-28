@@ -1,6 +1,8 @@
-#####################
+.. _advanced_manage:
+
+=====================
 Manage Cloud over CLI
-#####################
+=====================
 
 All cloud management operations (briefly described through the available Sunstone web UI tabs in the first part of this tutorial) can be done also via the set of powerful CLI tools. We'll again follow the Sunstone tabs to describe the group of commands, which provide the analogous functionality. All commands comes with rich manual page, which is displayed if command is run without any parameter.
 
@@ -48,7 +50,7 @@ Commands covering following Sunstone tabs:
 
 Most of the tools support ``list`` sub-command to show all available entities, and ``show`` to get detailed information about the particular one. Please try:
 
-.. code-block:: bash
+.. prompt:: bash # auto
 
     # oneimage list
     # onetemplate list
@@ -62,6 +64,6 @@ Most of the tools support ``list`` sub-command to show all available entities, a
     # oneuser list
     # oneuser show oneadmin
 
-Continue with the official `CLI Reference <http://docs.opennebula.org/stable/operation/references/cli.html>`_ and `Operation Guide <http://docs.opennebula.org/stable/operation/>`_.
+Continue with the official `CLI Reference <http://docs.opennebula.io/stable/operation/references/cli.html>`_ and `Operation Guide <http://docs.opennebula.io/stable/operation/>`_.
 
 .. |images-sunstone-tabs| image:: /images/sunstone-tabs.png

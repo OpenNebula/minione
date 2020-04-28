@@ -1,6 +1,8 @@
-*******************
+.. _basic_vm:
+
+===================
 Run virtual machine
-*******************
+===================
 
 To run our first virtual machine, we stick with the easy-to-use Sunstone web UI.
 
@@ -26,7 +28,7 @@ You can validate the virtual machine can reach the public internet services. E.g
 
 While being logged on your frontend under **root** or **oneadmin** user, you can login your virtual machine over SSH. The IP address of the virtual machine is visible in the virtual machines list. For example, for 172.16.100.2 try
 
-.. code-block:: bash
+.. prompt:: bash # auto
 
     # ssh root@172.16.100.2
     Warning: Permanently added '172.16.100.2' (ECDSA) to the list of known hosts.
@@ -37,11 +39,10 @@ To terminate the virtual machine, go back to the Sunstone web UI to **Instances 
 
 |images-sunstone-vm-terminate|
 
-Continue with the official `Virtual Machine Management <http://docs.opennebula.org/stable/operation/vm_management/>`_ documentation.
+Continue with the official `Virtual Machine Management <http://docs.opennebula.io/stable/operation/vm_management/>`_ documentation.
 
 .. |images-sunstone-vm-add| image:: /images/sunstone-vm-add.png
 .. |images-sunstone-vm-create| image:: /images/sunstone-vm-create.png
 .. |images-sunstone-vm-control| image:: /images/sunstone-vm-control.png
 .. |images-sunstone-vm-vnc| image:: /images/sunstone-vm-vnc.png
 .. |images-sunstone-vm-terminate| image:: /images/sunstone-vm-terminate.png
-

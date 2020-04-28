@@ -48,7 +48,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'MiniONE'
+project = u'miniONE'
 copyright = u'2020, OpenNebula Systems'
 author = u'OpenNebula Systems'
 
@@ -105,7 +105,7 @@ html_show_sphinx = False
 html_theme_options = {'display_version': False}
 
 html_context = {
-    'project': 'MiniONE',
+    'project': 'miniONE',
     'display_github': True,
     'github_user': 'OpenNebula',
     'github_repo': 'minione',
@@ -135,7 +135,7 @@ html_sidebars = {
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'MiniONE'
+htmlhelp_basename = 'miniONE'
 
 
 # -- Options for LaTeX output ---------------------------------------------

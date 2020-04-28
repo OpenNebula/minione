@@ -1,30 +1,27 @@
+==================
+OpenNebula miniONE
+==================
 
-|images-minione|
+**miniONE** is an easy to use deployment tool to build an evaluation OpenNebula (edge) cloud based on either virtual machines (KVM) or system containers (LXD). All necessary components to manage and run the virtual machines or containers are installed and configured on your dedicated system with just a single command run.
+
+Quick Start
+-----------
+
+.. prompt:: bash # auto
+
+    # wget 'https://github.com/OpenNebula/minione/releases/latest/download/minione'
+    # sudo bash minione
+
+.. _entry_point:
 
 .. toctree::
    :maxdepth: 1
 
-   Overview <prep/overview>
-   Requirements <prep/requirements>
-   Download <prep/download>
-   Easy deployment <usage/easy-deployment>
-   Validation <usage/validation>
-   Run virtual machine <usage/run-virtual-machine>
-   Cloud View <usage/cloud-view>
-   Marketplace <usage/marketplace>
-   Manage Cloud <usage/manage-cloud>
-   Troubleshooting <usage/troubleshooting>
+   Overview <overview/index>
+   Basic Usage <basic/index>
+   Advanced Usage <advanced/index>
 
-
-Advanced
-########
-.. toctree::
-   :maxdepth: 1
-
-   Customized Deployment <advanced/customized-deployment>
-   Edge Deployment <advanced/edge-deployment>
-   Run Virtual Machine over CLI <advanced/run-virtual-machine-cli>
-   Marketplace over CLI <advanced/marketplace-cli>
-   Manage Cloud over CLI <advanced/manage-cloud-cli>
+.. raw:: html
+   :file: toc.html
 
 .. |images-minione| image:: /images/minione.png
