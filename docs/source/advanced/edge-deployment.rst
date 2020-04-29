@@ -1,4 +1,4 @@
-.. _advanced_edge:
+.. _edge:
 
 ===============
 Edge Deployment

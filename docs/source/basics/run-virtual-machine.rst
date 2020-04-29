@@ -1,4 +1,4 @@
-.. _basic_vm:
+.. _run_vm:
 
 ===================
 Run virtual machine

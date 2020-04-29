@@ -6,7 +6,7 @@ Customized Deployment
 
 The default deployment doesn't have to fit everyone, or even the required resources (bridge, IP range, port) can be already used by other services. To deal with these cases, the miniONE tool has several command line switches, which can adjust the deployment and configuration of particular parts.
 
-This section covers advanced parameters for local KVM and LXD evaluation environments. See more options specific to **edge deployment** in section :ref:`Edge Deployment <advanced_edge>`.
+This section covers advanced parameters for local KVM and LXD evaluation environments. See more options specific to **edge deployment** in section :ref:`Edge Deployment <edge>`.
 
 The most common command line switches (followed by their defaults):
 

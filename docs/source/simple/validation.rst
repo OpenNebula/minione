@@ -1,4 +1,4 @@
-.. _basic_validate:
+.. _validate:
 
 ==========
 Validation

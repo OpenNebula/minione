@@ -1,4 +1,4 @@
-.. _advanced_mp:
+.. _mp_cli:
 
 ====================
 Marketplace over CLI

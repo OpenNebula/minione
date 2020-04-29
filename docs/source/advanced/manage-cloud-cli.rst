@@ -1,4 +1,4 @@
-.. _advanced_manage:
+.. _manage_cli:
 
 =====================
 Manage Cloud over CLI

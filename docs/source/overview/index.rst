@@ -7,6 +7,5 @@ Overview
 .. toctree::
    :maxdepth: 2
 
-   Overview <overview>
+   What's <whats>
    Requirements <requirements>
-   Download <download>

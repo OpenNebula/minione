@@ -1,4 +1,4 @@
-.. _advanced_vm:
+.. _run_vm_cli:
 
 ============================
 Run Virtual Machine over CLI

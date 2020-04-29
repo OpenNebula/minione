@@ -1,4 +1,4 @@
-.. _overview_download:
+.. _download:
 
 ========
 Download

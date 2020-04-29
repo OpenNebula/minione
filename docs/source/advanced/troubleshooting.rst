@@ -1,4 +1,4 @@
-.. _basic_trouble:
+.. _troubleshoot:
 
 ===============
 Troubleshooting

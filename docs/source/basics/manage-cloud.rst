@@ -1,4 +1,4 @@
-.. _basic_manage:
+.. _manage:
 
 ============
 Manage Cloud

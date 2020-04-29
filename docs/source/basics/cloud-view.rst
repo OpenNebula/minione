@@ -1,4 +1,4 @@
-.. _basic_sunstone_cloud:
+.. _cloud_view:
 
 ==========
 Cloud View

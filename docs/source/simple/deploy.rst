@@ -1,8 +1,8 @@
-.. _basic_deploy:
+.. _deploy:
 
-===============
-Easy Deployment
-===============
+======
+Deploy
+======
 
 Various command line parameters passed to the miniONE tool can customize the deployment process, e.g. required OpenNebula version or initial passwords. You can get a list of available switches by running:
 

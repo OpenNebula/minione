@@ -18,7 +18,8 @@ Quick Start
    :maxdepth: 1
 
    Overview <overview/index>
-   Basic Usage <basic/index>
+   Simple Cloud Deployment <simple/index>
+   OpenNebula Basics <basics/index>
    Advanced Usage <advanced/index>
 
 .. raw:: html

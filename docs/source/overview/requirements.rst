@@ -1,4 +1,4 @@
-.. _overview_req:
+.. _requirements:
 
 ============
 Requirements

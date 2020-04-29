@@ -1,4 +1,4 @@
-.. _basic_mp:
+.. _mp:
 
 ===========
 Marketplace
