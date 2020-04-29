@@ -1,7 +1,7 @@
 .. _run_vm:
 
 ===================
-Run virtual machine
+Run Virtual Machine
 ===================
 
 To run our first virtual machine, we stick with the easy-to-use Sunstone web UI.

@@ -7,5 +7,5 @@ Overview
 .. toctree::
    :maxdepth: 2
 
-   What's <whats>
+   What is? <whatis>
    Requirements <requirements>
