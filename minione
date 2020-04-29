@@ -224,7 +224,7 @@ interface_exists() {
 }
 
 get_interface_name() {
-    DEV=$(ip route | grep default | awk '{print $5}' 2>/dev/null)
+    DEV=$(ip route | grep default | head -1 | awk '{print $5}' 2>/dev/null)
     if [[ -z "${DEV}" ]]; then
         DEV=$(ip addr|grep '^[0-9]'|awk -F": " '{print $2}'|head -2|tail -1 2>/dev/null)
     fi
