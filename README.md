@@ -2,6 +2,8 @@
 
 **miniONE** is an easy to use deployment tool to build an evaluation OpenNebula cloud based on either virtual machines (KVM) or system containers (LXD). All necessary components to manage and run the virtual machines or containers are installed and configured on your dedicated system with just a single command run.
 
+**Follow the detailed [tutorial](https://docs.opennebula.io/minione/)**.
+
 ## Requirements
 
 Common min. requirements:
@@ -63,15 +65,11 @@ wget 'https://github.com/OpenNebula/minione/releases/latest/download/minione'
 sudo bash minione --edge packet --edge-packet-token [packet-token] --edge-packet-project [packet-project]
 ```
 
-MiniONE will install OpenNebula frontend on the host where you run the command and also configure one host one the Edge (Packet in this case) where you can spawn your VMs.
-
-## Tutorial
-
-Continue with detailed **[tutorial](https://github.com/OpenNebula/minione/wiki)**.
+miniONE will install OpenNebula frontend on the host where you run the command and also configure one host one the Edge (Packet in this case) where you can spawn your VMs.
 
 ## License
 
-Copyright 2002-2019, OpenNebula Project, OpenNebula Systems (formerly C12G Labs)
+Copyright 2002-2020, OpenNebula Project, OpenNebula Systems (formerly C12G Labs)
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License. You may obtain
