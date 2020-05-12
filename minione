@@ -114,12 +114,14 @@ fi
 eval set -- "$OPTS"
 
 # global vars
-SUPPORTED_MAP='^(CentOS7 5.6|CentOS7 5.8|CentOS7 5.10|'
-SUPPORTED_MAP+='Debian9 5.8|Debian9 5.10|'
-SUPPORTED_MAP+='Ubuntu16.04 5.8|Ubuntu16.04 5.10|'
-SUPPORTED_MAP+='Ubuntu18.04 5.8|Ubuntu18.04 5.10|'
-SUPPORTED_MAP+='Ubuntu18.10 5.8|Ubuntu18.10 5.10)$'
-SUPPORTED_LXD_MAP='^(Ubuntu18.04 5.8|Ubuntu18.04 5.10)$'
+SUPPORTED_MAP='^(CentOS7 5.10|CentOS7 5.11|'
+SUPPORTED_MAP+='CentOS8 5.10|CentOS8 5.11|'
+SUPPORTED_MAP+='Debian9 5.10|Debian9 5.11|'
+SUPPORTED_MAP+='Debian10 5.10|Debian10 5.11|'
+SUPPORTED_MAP+='Ubuntu16.04 5.10|Ubuntu16.04 5.11|'
+SUPPORTED_MAP+='Ubuntu18.04 5.10|Ubuntu18.04 5.11|'
+SUPPORTED_MAP+='Ubuntu20.04 5.11)$'
+SUPPORTED_LXD_MAP='^(Ubuntu18.04 5.10|Ubuntu18.04 5.11|Ubuntu20.04 5.11)$'
 PURGE='no'
 DISABLE_SELINUX='no'
 ENABLED_APPARMOR='no'
@@ -138,8 +140,6 @@ ONE_SERVICES='opennebula opennebula-sunstone opennebula-flow opennebula-gate'
 PACKET_TEMPLATE=''
 PACKET_LAST_ID=''
 AUGEAS_PKG='augeas-tools'
-ONED_AUG='/usr/share/augeas/lenses/oned.aug'
-ONED_AUG_URL='https://raw.githubusercontent.com/OpenNebula/one/master/share/augeas/oned.aug'
 VM_TEMPLATE_ID=''
 
 while true ; do
@@ -699,25 +699,6 @@ install_opennebula_pkgs() {
     systemctl daemon-reload
 }
 
-install_ruby_gems() {
-    centos && {
-        install redhat-lsb || return 1
-        gem install bundler --version '<2.0' >/dev/null || return 1
-    }
-
-    debian && {
-        apt-get -q -y install libssl-dev || return 1
-    }
-
-    OUT=$(mktemp)
-    export DEBIAN_FRONTEND=noninteractive
-    /usr/share/one/install_gems --yes > "$OUT"
-    RC=$?
-    unset DEBIAN_FRONTEND
-    grep 'Could not' <"$OUT" >&2
-    return $RC
-}
-
 install_opennebula_kvm_pkgs() {
     if centos; then
         install opennebula-node-kvm || return 1
@@ -1085,8 +1066,6 @@ debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 [[ -n "${MISSING_PKGS}" ]] && check "install ${MISSING_PKGS}" "Install ${MISSING_PKGS}" 3
 [[ -n "${MISSING_PIP_PKGS}" ]] && check "pip install ${MISSING_PIP_PKGS}" \
     "Install from PyPI ${MISSING_PIP_PKGS}" 3
-[[ ! -f "${ONED_AUG}" ]] && check "curl -s -o ${ONED_AUG} ${ONED_AUG_URL}" \
-    "Download augeas lens oned.aug"
 
 networking && {
     centos && check "disable_invalid_net_cfg" "Rename invalid network configs"
@@ -1107,10 +1086,6 @@ frontend && {
     redhat && check "enable_rhel_extra_repos" "Enabling RHEL 7 extra & opt repositories"
     centos && check "enable_epel" "Installing EPEL"
     check "install_opennebula_pkgs" "Installing OpenNebula packages" 3
-
-    if [[ ! -L /usr/share/one/gems ]]; then
-         check "install_ruby_gems" "Installing Ruby gems" 3
-    fi
 }
 
 if kvm; then
