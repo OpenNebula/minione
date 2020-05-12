@@ -726,7 +726,7 @@ uninstall_opennebula_pkgs() {
     if centos; then
         yum --quiet -y remove opennebula-node-kvm opennebula-server \
             opennebula-sunstone  opennebula-ruby opennebula-gate \
-            opennebula-flow opennebula-common
+            opennebula-flow opennebula-common opennebula-rubygems
         systemctl restart ${LIBVIRTD} || true
 
         if redhat; then
@@ -737,7 +737,7 @@ uninstall_opennebula_pkgs() {
     elif debian; then
         apt-get purge -q -y opennebula-node opennebula \
             opennebula-sunstone opennebula-gate opennebula-flow \
-            opennebula-common >/dev/null
+            opennebula-common opennebula-rubygems >/dev/null
         service ${LIBVIRTD} restart || true
     fi
 }
