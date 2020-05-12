@@ -719,8 +719,6 @@ install_opennebula_kvm_pkgs() {
 }
 
 install_opennebula_lxd_pkgs() {
-    install lxd || return 1
-    systemctl start lxd.socket || return 1
     install opennebula-node-lxd || return 1
 }
 
@@ -1100,7 +1098,9 @@ if node && ! packet ; then
     [[ "${ENABLED_APPARMOR}" = 'yes' ]] && check "modify_apparmor" "Updating AppArmor"
     check "rm -f /etc/libvirt/qemu/networks/autostart/default.xml" \
         "Disable default libvirtd networking"
-    check "service ${LIBVIRTD} restart" "Restart libvirtd"
+    if ! lxd; then
+        check "service ${LIBVIRTD} restart" "Restart libvirtd"
+    fi
 fi
 
 #-------------------------------------------------------------------------------
