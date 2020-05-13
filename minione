@@ -495,7 +495,7 @@ create_bridge() {
         if [[ $1 = purge ]]; then
             rm -f /etc/sysconfig/network-scripts/ifcfg-minionebr
             ip link set down dev "${BRIDGE_INTERFACE}" || true
-            brctl delbr "${BRIDGE_INTERFACE}" || true
+            ip link del name "${BRIDGE_INTERFACE}" || true
         else
             cat > /etc/sysconfig/network-scripts/ifcfg-minionebr<< EOF
 DEVICE=${BRIDGE_INTERFACE}
@@ -516,7 +516,7 @@ EOF
                 rm -f /etc/netplan/minione.yaml
                 ip link delete minionebr-nic || true
                 ip link set down dev "${BRIDGE_INTERFACE}" || true
-                brctl delbr "${BRIDGE_INTERFACE}" || true
+                ip link del name "${BRIDGE_INTERFACE}" || true
             else
                 cat > /etc/systemd/network/minionebr-nic.netdev<< EOF
 [NetDev]
@@ -540,9 +540,9 @@ EOF
                 rm -f /etc/network/interfaces.d/tap.cfg
                 rm -f /etc/network/interfaces.d/minionebr.cfg
                 ip link set down dev "${BRIDGE_INTERFACE}" || true
-                brctl delbr "${BRIDGE_INTERFACE}" || true
+                ip link del name "${BRIDGE_INTERFACE}" || true
             else
-                brctl addbr "${BRIDGE_INTERFACE}" || return 1
+                ip link add name "${BRIDGE_INTERFACE}" type bridge|| return 1
                 mkdir /etc/network/interfaces.d 2>/dev/null
                 cat > /etc/network/interfaces.d/tap.cfg<< EOF
 iface tap0 inet manual
@@ -708,10 +708,12 @@ install_opennebula_kvm_pkgs() {
                 rhel-7-server-rhv-4-mgmt-agent-rpms || return 1
             install qemu-kvm-rhev || return 1
         else
-            run_and_print_if_failed \
-                "yum --quiet -y update centos-release"
-            install centos-release-qemu-ev || return 1
-            install qemu-kvm-ev || return 1
+            if [[ "${DISTVER}" = 7 ]]; then
+                run_and_print_if_failed \
+                    "yum --quiet -y update centos-release"
+                install centos-release-qemu-ev || return 1
+                install qemu-kvm-ev || return 1
+            fi
         fi
     elif debian; then
         install opennebula-node
@@ -896,10 +898,10 @@ frontend && {
     check "service sshd status >/dev/null" \
         "Checking sshd service is running"
 
-    # check if we have bridge-utils
+    # check if we have iptables
     networking && {
-        check "type -t brctl >/dev/null" "Checking bridge-utils are installed" 1 \
-            "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} bridge-utils"
+        check "type -t iptables >/dev/null" "Checking iptables are installed" 1 \
+            "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} iptables"
     }
 
     # check if we have apt-transport-https
