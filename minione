@@ -1414,6 +1414,9 @@ frontend && {
     check "sed_subst \":host: .*\" \":host: ${VNET_GATEWAY}\" \"/etc/one/onegate-server.conf\""\
         "Switching OneGate endpoint in onegate-server.conf"
 
+    check "sed_subst \":keep_empty_bridge: .*\" \":keep_empty_bridge: true\" \"/var/lib/one/remotes/etc/vnm/OpenNebulaNetwork.conf\""\
+        "Switching keep_empty_bridge on in OpenNebulaNetwork.conf"
+
     check "aug_set SCHED_INTERVAL 10 /etc/one/sched.conf" \
         "Switching scheduler interval in oned.conf"
 
