@@ -1475,8 +1475,9 @@ EOF
 update_datastores() {
     TEMPLATE=$(cat << EOF
 <DATASTORE>
-  <SHARED><![CDATA[YES]]></SHARED>
-  <TM_MAD><![CDATA[qcow2]]></TM_MAD>
+  <SHARED>YES</SHARED>
+  <TM_MAD>qcow2</TM_MAD>
+  <DISK_TYPE>FILE</DISK_TYPE>
 </DATASTORE>
 EOF
 )
