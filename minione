@@ -495,7 +495,7 @@ create_bridge() {
         if [[ $1 = purge ]]; then
             rm -f /etc/sysconfig/network-scripts/ifcfg-minionebr
             ip link set down dev "${BRIDGE_INTERFACE}" || true
-            ip link del name "${BRIDGE_INTERFACE}" || true
+            ip link del "${BRIDGE_INTERFACE}" || true
         else
             cat > /etc/sysconfig/network-scripts/ifcfg-minionebr<< EOF
 DEVICE=${BRIDGE_INTERFACE}
@@ -516,7 +516,7 @@ EOF
                 rm -f /etc/netplan/minione.yaml
                 ip link delete minionebr-nic || true
                 ip link set down dev "${BRIDGE_INTERFACE}" || true
-                ip link del name "${BRIDGE_INTERFACE}" || true
+                ip link del "${BRIDGE_INTERFACE}" || true
             else
                 cat > /etc/systemd/network/minionebr-nic.netdev<< EOF
 [NetDev]
@@ -540,7 +540,7 @@ EOF
                 rm -f /etc/network/interfaces.d/tap.cfg
                 rm -f /etc/network/interfaces.d/minionebr.cfg
                 ip link set down dev "${BRIDGE_INTERFACE}" || true
-                ip link del name "${BRIDGE_INTERFACE}" || true
+                ip link del "${BRIDGE_INTERFACE}" || true
             else
                 ip link add name "${BRIDGE_INTERFACE}" type bridge|| return 1
                 mkdir /etc/network/interfaces.d 2>/dev/null
