@@ -140,6 +140,8 @@ ONE_SERVICES='opennebula opennebula-sunstone opennebula-flow opennebula-gate'
 PACKET_TEMPLATE=''
 PACKET_LAST_ID=''
 AUGEAS_PKG='augeas-tools'
+PIP='pip'
+PYTHON_PIP='python-pip'
 VM_TEMPLATE_ID=''
 
 while true ; do
@@ -201,7 +203,7 @@ if [[ $EDGE = packet ]]; then
     EXIT=0
     [[ -z "$EDGE_PACKET_TOKEN" ]] && { echo "--edge-packet-token required"; EXIT=1; }
     [[ -z "$EDGE_PACKET_PROJECT" ]] && { echo "--edge-packet-project required"; EXIT=1; }
-    [[ "$VERSION" != "5.10" ]] && { echo "Edge deployment only for 5.10"; EXIT=1; }
+    [[ ! "$VERSION" =~ 5.10|5.11 ]] && { echo "Edge deployment only for 5.10 or 5.11"; EXIT=1; }
     [[ $EXIT != 0 ]] && exit $EXIT
 fi
 
@@ -749,6 +751,7 @@ NETMASK_BITS=$(mask2cidr "${VNET_NETMASK}")
 read -r DISTNAME DISTVER <<<"$(get_distname_and_version)"
 
 [[ "${DISTNAME}${DISTVER}" =~ Ubuntu16.04|Ubuntu18.04 ]] && LIBVIRTD="libvirt-bin"
+[[ "${DISTNAME}${DISTVER}" =~ CentOS8 ]] && PIP="pip3" && PYTHON_PIP="python3-pip"
 
 centos && AUGEAS_PKG='augeas'
 
@@ -1007,15 +1010,26 @@ node && packet && {
             "Checking presence of the market app: \"$EDGE_MARKET_APP_NAME\"" 3 "Not found"
     fi
 
-    check "type -t pip >/dev/null" "Checking python-pip is installed" 1 \
-        "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} python-pip"
+    check "type -t $PIP >/dev/null" "Checking ${PYTHON_PIP} is installed" 1 \
+       "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} ${PYTHON_PIP}"
 
     if type -t ansible >/dev/null; then
-        check "[[ \"$(ansible --version|head -1)\" =~ \"ansible 2.5\" ]]" \
-            "Checking ansible version (>=2.5.0, <2.6.0)"
+        ANSIBLE_VERSION=$(ansible --version | head -1 | tr -cd '[[:digit:]]' | cut -c 1,2)
+        if [ $VERSION = "5.10" ]; then
+            check "[[ \"$ANSIBLE_VERSION\" =~ \"25\" ]]" \
+                "Checking ansible version (>=2.5.0, <2.6.0)"
+        elif [ $VERSION = "5.11" ]; then
+            check "[[ \"$ANSIBLE_VERSION\" =~ \"28\" ]]" \
+                "Checking ansible version (>=2.8.0, <2.9.0)"
+        fi
     else
-        check "false" "Checking ansible" 1 "SKIP will try to install" \
-            || MISSING_PIP_PKGS="'ansible>=2.5.0,<2.6.0'"
+        if [ $VERSION = "5.10" ]; then
+            check "false" "Checking ansible" 1 "SKIP will try to install" \
+                || MISSING_PIP_PKGS="'ansible>=2.5.0,<2.6.0'"
+        elif [ $VERSION = "5.11" ]; then
+            check "false" "Checking ansible" 1 "SKIP will try to install" \
+                || MISSING_PIP_PKGS="'ansible>=2.8.0,<2.9.0'"
+        fi
     fi
 }
 
@@ -1064,7 +1078,7 @@ VERBOSE='yes'
 debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 [[ "${DISABLE_SELINUX}" = 'yes' ]] && check "disable_selinux" "Disabling SELinux"
 [[ -n "${MISSING_PKGS}" ]] && check "install ${MISSING_PKGS}" "Install ${MISSING_PKGS}" 3
-[[ -n "${MISSING_PIP_PKGS}" ]] && check "pip install ${MISSING_PIP_PKGS}" \
+[[ -n "${MISSING_PIP_PKGS}" ]] && check "$PIP install ${MISSING_PIP_PKGS}" \
     "Install from PyPI ${MISSING_PIP_PKGS}" 3
 
 networking && {
@@ -1309,6 +1323,7 @@ packet_template() {
     cat >> "$PACKET_TEMPLATE" << EOF || return 1
 ---
 name: PacketProvision-${PACKET_LAST_ID}
+playbook: default
 
 defaults:
   provision:
@@ -1386,7 +1401,7 @@ packet_provision() {
     chown oneadmin:oneadmin "$PACKET_TEMPLATE"
 
     [[ ${VERBOSE} = 'yes' ]] && PARAMS="-D"
-    if sudo -H -u oneadmin oneprovision create "$PACKET_TEMPLATE" --batch --fail-cleanup --ping-timeout 60 -d $PARAMS; then
+    if sudo PATH=$PATH:/usr/local/bin -H -u oneadmin oneprovision create "$PACKET_TEMPLATE" --batch --fail-cleanup --ping-timeout 60 -d $PARAMS; then
         green "OK"
     else
         red "FAILED"
