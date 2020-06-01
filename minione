@@ -135,6 +135,7 @@ JSON_HEADERS='Accept: application/json'
 FORWARD=$(sysctl -n net.ipv4.ip_forward 2>/dev/null)
 LIBVIRTD='libvirtd'
 ONE_WAIT_TIMEOUT=60
+IMAGE_WAIT_TIMEOUT=300
 STAR_NET=''
 ONE_SERVICES='opennebula opennebula-sunstone opennebula-flow opennebula-gate'
 PACKET_TEMPLATE=''
@@ -1561,6 +1562,15 @@ export_marketapp() {
     rm "$OUT"
 }
 
+image_is_ready() {
+    for I in $(seq $IMAGE_WAIT_TIMEOUT); do
+        oneimage list --csv --no-header | grep -q -v rdy || return 0
+        sleep 1
+    done
+    echo "Image download reached timeout" >&2
+    return 1
+}
+
 update_template() {
     local ID
     local TMP_FILE
@@ -1618,6 +1628,7 @@ node && ! packet && {
     check "create_vnet" "Creating virtual network"
     check "export_marketapp \"$MARKET_APP_NAME\"" \
         "Exporting [${MARKET_APP_NAME}] from Marketplace to local datastore"
+    check "image_is_ready" "Waiting until the image is ready"
     check "update_template" "Updating VM template"
 }
 
@@ -1625,6 +1636,7 @@ packet && node && {
     DS_ID=$(onedatastore list --csv -l ID,NAME,TYPE -f TYPE=img -f NAME=packet-"${PACKET_LAST_ID}"-default | awk -F, '{print $1}' | tail -1)
     check "export_marketapp \"${EDGE_MARKET_APP_NAME}\" ${DS_ID} \"-${EDGE_PACKET_FACILITY}-${PACKET_LAST_ID}\"" \
         "Exporting [${EDGE_MARKET_APP_NAME}] from Marketplace to local datastore"
+    check "image_is_ready" "Waiting until the image is ready"
     check "update_template $VM_TEMPLATE_ID" "Updating VM template"
 }
 
