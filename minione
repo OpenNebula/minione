@@ -17,7 +17,7 @@
 #--------------------------------------------------------------------------- #
 
 # default parameters values
-VERSION='5.10'
+VERSION='5.11'
 FORCE='no'
 VERBOSE='no'
 ASK='yes'
@@ -33,6 +33,9 @@ VNET_AR_IP_COUNT='100'
 MARKET_APP_NAME='CentOS 7'
 VM_PASSWORD='opennebula'
 LXD='no'
+FRC='no'
+FRC_MARKET_APP_NAME="alpine"
+FRC_KERNEL_NAME="Kernel 4.15 x86_64 - Firecracker"
 SUNSTONE_PORT='80'
 NODE='yes'
 FRONTEND='yes'
@@ -58,7 +61,8 @@ usage() {
     e "--yes"                                     "Don't ask"
     e ""
     e "--version [$VERSION]"                      "OpenNebula version to install"
-    e "--lxd"                                     "Setup host to run LXD containers (KVM otherwise)"
+    e "--lxd"                                     "Setup host to run LXD containers"
+    e "--firecracker"                             "Setup host to run Firecracker micro-VMs"
     e "--frontend"                                "Install only frontend, skip node setup,"
     e ""                                          "no networking configuration"
     e "--node"                                    "Install only node, edge(Packet) only"
@@ -68,6 +72,8 @@ usage() {
     e "--vm-password [${VM_PASSWORD}]"            "Root password for virtual machine"
     e "--sunstone-port [${SUNSTONE_PORT}]"        "Setup sunstone port"
     e "--marketapp-name [${MARKET_APP_NAME}]"     "Name of Marketplace appliance to import"
+    e "--fc-marketapp-name [${FRC_MARKET_APP_NAME}]" "Dockerhub image for Firecracker"
+    e "--fc-kernel-name [${FRC_KERNEL_NAME}]"     "Market app kernel name for Firecracker"
     e ""
     e "--bridge-interface [${BRIDGE_INTERFACE}]"  "Bridge interface for private networking"
     e "--nat-interface [first net device]"        "Interface to configure for NAT"
@@ -99,10 +105,10 @@ PARAMETERS=$(cat <<EOF
     help,version:,force,verbose,yes,frontend,node,password:,ssh-pubkey:,
     bridge-interface:,nat-interface:,vnet-address:,vnet-netmask:,
     vnet-gateway:,vnet-ar-ip-start:,vnet-ar-ip-count:,marketapp-name:,
-    vm-password,lxd,sunstone-port:,purge,preserve-user,edge:,
+    vm-password,lxd,firecracker,sunstone-port:,purge,preserve-user,edge:,
     edge-host-num:,edge-marketapp-name:,edge-packet-token:,
     edge-packet-project:,edge-packet-facility:,edge-packet-plan:,
-    edge-packet-os:
+    edge-packet-os:,fc-marketapp-name:,frc_kernel_name:
 EOF
 )
 
@@ -130,6 +136,7 @@ MISSING_PIP_PKGS=''
 USE_QEMU='no'
 CLEAN='no'
 APPS_URL='https://marketplace.opennebula.io/appliance'
+DOCKERHUB_URL='https://hub.docker.com/v2/repositories/library'
 REPO_URL='https://downloads.opennebula.org/repo'
 JSON_HEADERS='Accept: application/json'
 FORWARD=$(sysctl -n net.ipv4.ip_forward 2>/dev/null)
@@ -138,6 +145,7 @@ ONE_WAIT_TIMEOUT=60
 IMAGE_WAIT_TIMEOUT=300
 STAR_NET=''
 ONE_SERVICES='opennebula opennebula-sunstone opennebula-flow opennebula-gate'
+FRC_KERNEL_PARAMS="console=ttyS0 reboot=k panic=1 pci=off i8042.noaux i8042.nomux i8042.nopnp i8042.dumbkbd"
 PACKET_TEMPLATE=''
 PACKET_LAST_ID=''
 AUGEAS_PKG='augeas-tools'
@@ -164,8 +172,10 @@ while true ; do
         --vnet-ar-ip-start) VNET_AR_IP_START="$2" ; shift 2;;
         --vnet-ar-ip-count) VNET_AR_IP_COUNT="$2" ; shift 2;;
         --marketapp-name) MARKET_APP_NAME="$2" ; shift 2;;
+        --fc-marketapp-name) FRC_MARKET_APP_NAME="$2" ; shift 2;;
         --vm-password-name) VM_PASSWORD="$2" ; shift 2;;
         --lxd) LXD="yes"; shift;;
+        --firecracker) FRC="yes"; shift;;
         --sunstone-port) SUNSTONE_PORT="$2"; shift 2;;
         --purge) PURGE="yes"; shift;;
         --preserve-user) DELETE_ONEADMIN="no"; shift;;
@@ -210,6 +220,10 @@ fi
 
 if [[ $NODE = yes && $FRONTEND = no ]]; then
     [[ $EDGE = "no" ]] && { echo "--node only valid with --edge packet";  exit 1; }
+fi
+
+if [[ $FRC == yes ]]; then
+    [[ ! "$VERSION" =~ 5.11 ]] && { echo "Firecracker only available for 5.11"; exit 1; }
 fi
 
 #-------------------------------------------------------------------------------
@@ -396,7 +410,7 @@ netplan_on() {
 }
 
 kvm() {
-    [[ $NODE == yes && $LXD == no && $EDGE == no ]]
+    [[ $NODE == yes && $LXD == no && $EDGE == no && $FRC == no ]]
 }
 
 packet() {
@@ -405,6 +419,10 @@ packet() {
 
 lxd() {
     [[ $NODE == yes && $LXD == yes && $EDGE == no ]]
+}
+
+frc() {
+    [[ $NODE == yes && $FRC == yes ]]
 }
 
 frontend() {
@@ -727,6 +745,10 @@ install_opennebula_lxd_pkgs() {
     install opennebula-node-lxd || return 1
 }
 
+install_opennebula_frc_pkgs() {
+    install opennebula-node-firecracker || return 1
+}
+
 uninstall_opennebula_pkgs() {
     if centos; then
         yum --quiet -y remove opennebula-node-kvm opennebula-server \
@@ -747,6 +769,29 @@ uninstall_opennebula_pkgs() {
     fi
 }
 
+create_docker_repo() {
+    if centos; then
+        curl -s https://download.docker.com/linux/centos/docker-ce.repo \
+            -o /etc/yum.repos.d/docker-ce.repo
+    elif debian; then
+        curl -fsSL https://download.docker.com/linux/"${DISTNAME,,}"/gpg | sudo apt-key add
+        add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/${DISTNAME,,} $(lsb_release -cs) stable"
+    fi
+}
+
+install_docker() {
+    if centos; then
+        if [[ ${DISTVER} = "8" ]]; then
+            yum install -y --nobest docker-ce
+        else
+            yum install -y docker-ce
+        fi
+
+    elif debian; then
+        apt-get -q -y install docker-ce
+    fi
+}
+
 # Initialize some usefull vars
 NETMASK_BITS=$(mask2cidr "${VNET_NETMASK}")
 read -r DISTNAME DISTVER <<<"$(get_distname_and_version)"
@@ -755,6 +800,8 @@ read -r DISTNAME DISTVER <<<"$(get_distname_and_version)"
 [[ "${DISTNAME}${DISTVER}" =~ CentOS8|RedHat8 ]] && PIP="pip3" && PYTHON_PIP="python3-pip"
 
 centos && AUGEAS_PKG='augeas'
+
+
 
 #-------------------------------------------------------------------------------
 # Uninstall
@@ -979,7 +1026,7 @@ networking && {
         "Checking virtual network ${VNET_ADDRESS}/${NETMASK_BITS} is not routed"
 }
 
-node && ! packet && {
+kvm || lxd && {
     # check if the requested app name exists on market place
     if type -t curl >/dev/null; then
         check "curl -s -H \"${JSON_HEADERS}\" ${APPS_URL} \
@@ -995,6 +1042,33 @@ node && ! packet && {
     fi
 }
 
+frc && {
+    # check if the requested app name exists on market place
+    if type -t curl >/dev/null; then
+        check "curl -s -H \"${JSON_HEADERS}\" -I ${DOCKERHUB_URL}/${FRC_MARKET_APP_NAME}/ \
+            | grep  'HTTP.*OK' >/dev/null" \
+            "Checking presence of the dockerhub image: \"${FRC_MARKET_APP_NAME}\"" 3 "Not found"
+        check "curl -s -H \"${JSON_HEADERS}\" ${APPS_URL} \
+            | grep '\"name\":\"${FRC_KERNEL_NAME}\"' >/dev/null" \
+            "Checking presence of the market app: \"$FRC_KERNEL_NAME\"" 3 "Not found"
+    elif type -t wget > /dev/null; then
+        check "wget -S -O /dev/null --header \
+            \"${JSON_HEADERS}\" ${DOCKERHUB_URL}/${FRC_MARKET_APP_NAME}/ 2>&1 \
+            | grep  'HTTP.*OK' >/dev/null" \
+            "Checking presence of the market app: \"$FRC_MARKET_APP_NAME\"" 3 "Not found"
+        check "wget --quiet -O - --header \"${JSON_HEADERS}\" ${APPS_URL} \
+            | grep '\"name\":\"${FRC_KERNEL_NAME}\"' >/dev/null" \
+            "Checking presence of the market app: \"$FRC_KERNEL_NAME\"" 3 "Not found"
+    else
+        # Always fail, but continue with info when --force was given
+        check "false" "Missing curl/wget to check market app" 1 "IGNORE Can't check"
+    fi
+
+    debian && {
+        check "type -t add-apt-repository >/dev/null" "Checking add-apt-repository is available" 1 \
+           "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} software-properties-common"
+    }
+}
 
 node && packet && {
     if check "type -t curl" "Checking curl is installed" 1 "IGNORE can't validate Packet parameters" "Install curl package first"; then
@@ -1049,6 +1123,7 @@ node && ! packet && {
     [[ "${ENABLED_APPARMOR}" = yes ]] && echo "Modify AppArmor"
     lxd && echo "Install OpenNebula LXD node"
     kvm && echo "Install OpenNebula KVM node"
+    frc && echo "Install OpenNebula Firecracker node"
     echo "Export appliance and update VM template"
 }
 
@@ -1094,7 +1169,11 @@ networking && {
     check "install dnsmasq" "Installing DNSMasq" 3
     check "start_dnsmasq" "Starting DNSMasq"
 }
+
 check "configure_repos" "Configuring repositories"
+
+frc && check "create_docker_repo" "Create docker packages repository"
+
 debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 
 frontend && {
@@ -1104,14 +1183,16 @@ frontend && {
 }
 
 if kvm; then
-    check "install_opennebula_kvm_pkgs" "Installing OpenNebula node packages" 3
+    check "install_opennebula_kvm_pkgs" "Installing OpenNebula kvm node packages" 3
 elif lxd; then
-    check "install_opennebula_lxd_pkgs" "Installing OpenNebula node packages" 3
+    check "install_opennebula_lxd_pkgs" "Installing OpenNebula lxd node packages" 3
+elif frc; then
+    check "install_opennebula_frc_pkgs" "Installing OpenNebula firecracker node packages" 3
 elif packet; then
     check "install opennebula-provision" "Installing opennebula-provision package " 3
 fi
 
-if node && ! packet ; then
+if kvm || lxd ; then
     [[ "${ENABLED_APPARMOR}" = 'yes' ]] && check "modify_apparmor" "Updating AppArmor"
     check "rm -f /etc/libvirt/qemu/networks/autostart/default.xml" \
         "Disable default libvirtd networking"
@@ -1120,8 +1201,14 @@ if node && ! packet ; then
     fi
 fi
 
+frc && {
+    check "install_docker" "Install docker"
+    check "systemctl start docker" "Start docker service"
+    check "systemctl enable docker" "Enable docker service"
+}
+
 #-------------------------------------------------------------------------------
-# Configuration
+# Configuration functions
 #-------------------------------------------------------------------------------
 
 sed_subst() {
@@ -1410,6 +1497,16 @@ packet_provision() {
     fi
 }
 
+update_network_hooks() {
+    cp /var/lib/one/remotes/vnm/hooks/pre/firecracker /var/lib/one/remotes/vnm/fw/pre.d/firecracker
+    cp /var/lib/one/remotes/vnm/hooks/clean/firecracker /var/lib/one/remotes/vnm/fw/clean.d/firecracker
+    chown oneadmin:oneadmin /var/lib/one/remotes/vnm/fw/pre.d/firecracker
+    chown oneadmin:oneadmin /var/lib/one/remotes/vnm/fw/clean.d/firecracker
+}
+
+#-------------------------------------------------------------------------------
+# Configuration
+#-------------------------------------------------------------------------------
 title "Configuration"
 
 lxd && check "sed_subst \"\s*:command: \\/bin\\/login\" \"  :command: \\/bin\\/bash\" \"/var/lib/one/remotes/etc/vmm/lxd/lxdrc\""\
@@ -1421,6 +1518,11 @@ lxd && check "sed_subst \"\s*:command => '\\/bin\\/login'\" \"            :comma
 packet && {
     check "packet_conf_oned" "Applying packet changes to oned.conf"
     check "update_ssh_configs '*'" "Update ssh configs to accessing Packet hosts"
+}
+
+frc && {
+    check "usermod -a -G docker oneadmin" "Add oneadmin to docker group"
+    check "update_network_hooks" "Update network hooks"
 }
 
 frontend && {
@@ -1470,7 +1572,7 @@ networking && {
 
 
 #-------------------------------------------------------------------------------
-#  Bootstrap
+#  Bootstrap functions
 #-------------------------------------------------------------------------------
 onecli_cmd_tmpl() {
     local COMMAND=$1
@@ -1489,10 +1591,13 @@ EOF
 }
 
 update_datastores() {
+    MAD="<TM_MAD>qcow2</TM_MAD>"
+    frc && MAD="<TM_MAD>shared</TM_MAD><DS_MAD>fs</DS_MAD>"
+
     TEMPLATE=$(cat << EOF
 <DATASTORE>
   <SHARED>YES</SHARED>
-  <TM_MAD>qcow2</TM_MAD>
+  $MAD
   <DISK_TYPE>FILE</DISK_TYPE>
 </DATASTORE>
 EOF
@@ -1541,6 +1646,7 @@ export_marketapp() {
     local APP_NAME="$1"
     local DS_ID="${2:-1}"
     local SUFFIX="$3"
+    local NEW_NAME="${4:-$APP_NAME$SUFFIX}"
 
     poll_for_marketplace
 
@@ -1550,7 +1656,7 @@ export_marketapp() {
     # onemarketapp always return 0 and prints to STDOUT
     OUT=$(mktemp)
 
-    onemarketapp export "${ID}" "${APP_NAME}${SUFFIX}" --datastore "$DS_ID" > "$OUT"
+    onemarketapp export "${ID}" "${NEW_NAME}" --datastore "$DS_ID" > "$OUT"
 
     if grep -q -i error < "$OUT"; then
         cat "$OUT" >&2
@@ -1578,6 +1684,11 @@ update_template() {
     ID=${1:-0}
     TMP_FILE=$(mktemp) 2>/dev/null || return 1
 
+    # For firecracker delete OS=[...] template entry
+    frc && {
+        onedb change-body template --id="$ID" /VMTEMPLATE/TEMPLATE/OS --delete
+    }
+
     # Add root password, report_ready and token setting to context
     onetemplate show "$ID" | grep CONTEXT -A1000 \
         | sed -e "s/CONTEXT=\[/CONTEXT=[ PASSWORD=\"${VM_PASSWORD}\",/" \
@@ -1590,6 +1701,17 @@ update_template() {
 
     # Add LXD_SECURITY_PRIVILEGED="true"
     lxd && ! packet && echo 'LXD_SECURITY_PRIVILEGED="true"' >> "${TMP_FILE}"
+
+    # Add kernel for firecracker
+    frc && {
+        onedb change-body template --id=0 /VMTEMPLATE/TEMPLATE/OS --delete
+
+        {   echo 'NIC_DEFAULT=[ MODEL="virtio" ]'
+            echo "OS=["
+            echo "  KERNEL_CMD=\"$FRC_KERNEL_PARAMS\","
+            echo "  KERNEL_DS=\"\$FILE[IMAGE=\\\"kernel\\\"]\" ]"
+        } >> "${TMP_FILE}"
+    }
 
     # Add Packet default appliance setup and networking
     packet && {
@@ -1619,13 +1741,25 @@ get_provision_ids() {
     oneprovision list --l ID  | grep '-'
 }
 
+
+#-------------------------------------------------------------------------------
+#  Bootstrap
+#-------------------------------------------------------------------------------
+
 node && ! packet && {
-    check "update_datastores" "Updating datastores, TM_MAD=qcow2, SHARED=yes"
-    kvm && check "onehost create -i kvm -v kvm localhost >/dev/null 2>&1" \
-        "Creating KVM host"
-    lxd && check "onehost create -i lxd -v lxd localhost >/dev/null 2>&1" \
-        "Creating LXD host"
-    check "create_vnet" "Creating virtual network"
+    check "update_datastores" "Updating datastores template"
+}
+
+kvm && check "onehost create -i kvm -v kvm localhost >/dev/null 2>&1" \
+    "Creating KVM host"
+lxd && check "onehost create -i lxd -v lxd localhost >/dev/null 2>&1" \
+    "Creating LXD host"
+frc && check "onehost create -i firecracker -v firecracker localhost >/dev/null 2>&1" \
+    "Creating Firecracker host"
+
+networking && check "create_vnet" "Creating virtual network"
+
+kvm || lxd && ! packet && {
     check "export_marketapp \"$MARKET_APP_NAME\"" \
         "Exporting [${MARKET_APP_NAME}] from Marketplace to local datastore"
     check "image_is_ready" "Waiting until the image is ready"
@@ -1640,6 +1774,14 @@ packet && node && {
     check "update_template $VM_TEMPLATE_ID" "Updating VM template"
 }
 
+frc && {
+    check "export_marketapp \"$FRC_MARKET_APP_NAME\"" \
+        "Exporting [${FRC_MARKET_APP_NAME}] from dockerhub to local datastore"
+    check "export_marketapp \"$FRC_KERNEL_NAME\" 2 \"\" kernel" \
+        "Exporting [${FRC_KERNEL_NAME}] to local datastore"
+    check "image_is_ready" "Waiting until the image is ready"
+    check "update_template" "Updating VM template"
+}
 
 #-------------------------------------------------------------------------------
 # Report
