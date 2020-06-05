@@ -953,6 +953,11 @@ frontend && {
     networking && {
         check "type -t iptables >/dev/null" "Checking iptables are installed" 1 \
             "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} iptables"
+
+        if [[ "${DISTNAME}${DISTVER}" =~ CentOS7 ]]; then
+            check "type -t brctl >/dev/null" "Checking bridge-utils are installed" 1 \
+                "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} bridge-utils"
+        fi
     }
 
     # check if we have apt-transport-https
