@@ -27,6 +27,11 @@ Or, for LXD environment:
 
     # bash minione --lxd
 
+Or, for Firecracker environment:
+
+.. prompt:: bash # auto
+
+    # bash minione --firecracker
 
 Or, for Edge environment on Packet:
 

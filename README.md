@@ -1,6 +1,6 @@
 # miniONE
 
-**miniONE** is an easy to use deployment tool to build an evaluation OpenNebula cloud based on either virtual machines (KVM) or system containers (LXD). All necessary components to manage and run the virtual machines or containers are installed and configured on your dedicated system with just a single command run.
+**miniONE** is an easy to use deployment tool to build an evaluation OpenNebula cloud based on either virtual machines (KVM), system containers (LXD), micro VMs (Firecracker) or Edge deployment on Packet. All necessary components to manage and run the virtual machines or containers are installed and configured on your dedicated system with just a single command run.
 
 **Follow the detailed [tutorial](https://docs.opennebula.io/minione/)**.
 
@@ -17,23 +17,31 @@ For **KVM evaluation** on a dedicated physical server for both the front-end and
 - physical host
 - x86-64 Intel or AMD processor with **virt. capabilities**
 - operating system:
-  - CentOS 7 (RHEL 7)
-  - Debian 9
-  - Ubuntu 16.04, 18.04
+  - CentOS 7 (RHEL 7) or CentOS 8 (RHEL 8)
+  - Debian 9, 10
+  - Ubuntu 16.04, 18.04, 20.04
 
 For **LXD evaluation** on a dedicated physical server or virtual machine for both the front-end and one LXD hypervisor node:
 - physical host or virtual machine (e.g., Amazon EC2 VM)
 - x86-64 Intel or AMD processor
 - operating system:
-  - Ubuntu 18.04
+  - Ubuntu 18.04, 20.04
+
+For **Firecracker evaluation** on a dedicated physical server or virtual machine for both the front-end and one Firecracker hypervisor node:
+- physical host or virtual machine (e.g., Amazon EC2 VM)
+- x86-64 Intel or AMD processor
+- operating system:
+  - CentOS 7 (RHEL 7) or CentOS 8 (RHEL 8)
+  - Debian 9, 10
+  - Ubuntu 16.04, 18.04, 20.04
 
 For **Edge evaluation** on a dedicated physical server or virtual machine for the front-end and one remote Packet edge physical server for one KVM hypervisor node:
 - physical host or virtual machine (e.g., Amazon EC2 VM)
 - x86-64 Intel or AMD processor
 - operating system:
-  - CentOS 7 (RHEL 7)
-  - Debian 9
-  - Ubuntu 16.04, 18.04
+  - CentOS 7 (RHEL 7) or CentOS 8 (RHEL 8)
+  - Debian 9, 10
+  - Ubuntu 16.04, 18.04, 20.04
 
 ## Quickstart
 
@@ -55,6 +63,14 @@ Run the commands to deploy the evaluation cloud:
 ```
 wget 'https://github.com/OpenNebula/minione/releases/latest/download/minione'
 sudo bash minione --lxd
+```
+### Get Firecracker cloud
+
+Run the commands to deploy the evaluation cloud:
+
+```
+wget 'https://github.com/OpenNebula/minione/releases/latest/download/minione'
+sudo bash minione --firecracker
 ```
 
 ### Get Edge cloud on Packet

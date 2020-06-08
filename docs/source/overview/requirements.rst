@@ -22,7 +22,7 @@ For KVM evaluation on a dedicated physical server for the front-end and one KVM 
 
 * x86-64 Intel or AMD processor with **virt. capabilities**
 * physical host or virtual machine supporting the nested virtualization
-* operating system: CentOS 7, Debian 9, Ubuntu 16.04 or 18.04
+* operating system: CentOS 7 or 8, Debian 9 or 10, Ubuntu 16.04, 18.04 or 20.04
 
 
 System Containers (LXD)
@@ -33,7 +33,17 @@ For LXD evaluation on a dedicated physical server or virtual machine for the fro
 
 * x86-64 Intel or AMD processor
 * physical host or virtual machine
-* operating system: Ubuntu 18.04
+* operating system: Ubuntu 18.04 or 20.04
+
+Firecracker Micro VMs
+=======================
+|images-minione-firecracker|
+
+For Firecracker evaluation on a dedicated physical server or virtual machine for the front-end and one Firecracker hypervisor node the minimal requirements are:
+
+* x86-64 Intel or AMD processor
+* physical host or virtual machine
+* operating system: CentOS 7 or 8, Debian 9 or 10, Ubuntu 16.04, 18.04 or 20.04
 
 Edge deployment + KVM on Packet
 ===============================
@@ -56,4 +66,5 @@ The deployment process with the `miniONE <https://github.com/OpenNebula/minione>
 
 .. |images-minione-kvm.png| image:: /images/minione-kvm.png
 .. |images-minione-lxd| image:: /images/minione-lxd.png
+.. |images-minione-firecracker| image:: /images/minione-firecracker.png
 .. |images-minione-packet| image:: /images/minione-packet.png
