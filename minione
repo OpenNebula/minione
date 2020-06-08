@@ -108,7 +108,7 @@ PARAMETERS=$(cat <<EOF
     vm-password,lxd,firecracker,sunstone-port:,purge,preserve-user,edge:,
     edge-host-num:,edge-marketapp-name:,edge-packet-token:,
     edge-packet-project:,edge-packet-facility:,edge-packet-plan:,
-    edge-packet-os:,fc-marketapp-name:,frc_kernel_name:
+    edge-packet-os:,fc-marketapp-name:,fc-kernel-name:
 EOF
 )
 
@@ -173,6 +173,7 @@ while true ; do
         --vnet-ar-ip-count) VNET_AR_IP_COUNT="$2" ; shift 2;;
         --marketapp-name) MARKET_APP_NAME="$2" ; shift 2;;
         --fc-marketapp-name) FRC_MARKET_APP_NAME="$2" ; shift 2;;
+        --fc-kernel-name) FRC_KERNEL_NAME="$2" ; shift 2;;
         --vm-password-name) VM_PASSWORD="$2" ; shift 2;;
         --lxd) LXD="yes"; shift;;
         --firecracker) FRC="yes"; shift;;
