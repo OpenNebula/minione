@@ -923,9 +923,14 @@ lxd && check "supported_dist_ver \"$SUPPORTED_LXD_MAP\"" \
     "Checking LXD support for given version"
 
 # check cpu flgas for virtualizaton capabilities
-frontend && kvm && { check 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
-    "Checking cpu virtualization capabilities" 1 \
-    "SKIP QEMU will be used" || USE_QEMU='yes'; }
+frontend && {
+    kvm && check 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
+        "Checking cpu virtualization capabilities" 1 \
+        "SKIP QEMU will be used" || USE_QEMU='yes';
+
+    frc && check 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
+        "Checking cpu virtualization capabilities"
+    }
 
 check "type -t augtool >/dev/null" "Checking augeas is installed" 1 \
     "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} $AUGEAS_PKG"
