@@ -1608,12 +1608,11 @@ EOF
 }
 
 update_datastores() {
-    MAD="<TM_MAD>qcow2</TM_MAD>"
-    frc && MAD="<TM_MAD>shared</TM_MAD><DS_MAD>fs</DS_MAD>"
+    MAD="<SHARED>YES</SHARED><TM_MAD>qcow2</TM_MAD>"
+    frc && MAD="<SHARED>NO</SHARED><TM_MAD>ssh</TM_MAD><DS_MAD>fs</DS_MAD>"
 
     TEMPLATE=$(cat << EOF
 <DATASTORE>
-  <SHARED>YES</SHARED>
   $MAD
   <DISK_TYPE>FILE</DISK_TYPE>
 </DATASTORE>
