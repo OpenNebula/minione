@@ -17,7 +17,7 @@
 #--------------------------------------------------------------------------- #
 
 # default parameters values
-VERSION='5.11'
+VERSION='5.12'
 FORCE='no'
 VERBOSE='no'
 ASK='yes'
@@ -108,7 +108,7 @@ PARAMETERS=$(cat <<EOF
     vm-password,lxd,firecracker,sunstone-port:,purge,preserve-user,edge:,
     edge-host-num:,edge-marketapp-name:,edge-packet-token:,
     edge-packet-project:,edge-packet-facility:,edge-packet-plan:,
-    edge-packet-os:,fc-marketapp-name:,fc-kernel-name:
+    edge-packet-os:,fc-marketapp-name:,fc-kernel-name:,repo-base:
 EOF
 )
 
@@ -120,14 +120,14 @@ fi
 eval set -- "$OPTS"
 
 # global vars
-SUPPORTED_MAP='^(CentOS7 5.10|CentOS7 5.11|'
-SUPPORTED_MAP+='CentOS8 5.10|CentOS8 5.11|'
-SUPPORTED_MAP+='Debian9 5.10|Debian9 5.11|'
-SUPPORTED_MAP+='Debian10 5.10|Debian10 5.11|'
-SUPPORTED_MAP+='Ubuntu16.04 5.10|Ubuntu16.04 5.11|'
-SUPPORTED_MAP+='Ubuntu18.04 5.10|Ubuntu18.04 5.11|'
-SUPPORTED_MAP+='Ubuntu20.04 5.11)$'
-SUPPORTED_LXD_MAP='^(Ubuntu18.04 5.10|Ubuntu18.04 5.11|Ubuntu20.04 5.11)$'
+SUPPORTED_MAP='^(CentOS7 5.10|CentOS7 5.12|'
+SUPPORTED_MAP+='CentOS8 5.10|CentOS8 5.12|'
+SUPPORTED_MAP+='Debian9 5.10|Debian9 5.12|'
+SUPPORTED_MAP+='Debian10 5.10|Debian10 5.12|'
+SUPPORTED_MAP+='Ubuntu16.04 5.10|Ubuntu16.04 5.12|'
+SUPPORTED_MAP+='Ubuntu18.04 5.10|Ubuntu18.04 5.12|'
+SUPPORTED_MAP+='Ubuntu20.04 5.12)$'
+SUPPORTED_LXD_MAP='^(Ubuntu18.04 5.10|Ubuntu18.04 5.12|Ubuntu20.04 5.12)$'
 PURGE='no'
 DISABLE_SELINUX='no'
 ENABLED_APPARMOR='no'
@@ -137,7 +137,7 @@ USE_QEMU='no'
 CLEAN='no'
 APPS_URL='https://marketplace.opennebula.io/appliance'
 DOCKERHUB_URL='https://hub.docker.com/v2/repositories/library'
-REPO_URL='https://downloads.opennebula.org/repo'
+REPO_URL='https://downloads.opennebula.io/repo'
 JSON_HEADERS='Accept: application/json'
 FORWARD=$(sysctl -n net.ipv4.ip_forward 2>/dev/null)
 LIBVIRTD='libvirtd'
@@ -152,6 +152,7 @@ AUGEAS_PKG='augeas-tools'
 PIP='pip'
 PYTHON_PIP='python-pip'
 VM_TEMPLATE_ID=''
+REPO_BASE=''
 
 while true ; do
     case "$1" in
@@ -188,6 +189,7 @@ while true ; do
         --edge-packet-facility) EDGE_PACKET_FACILITY="$2"; shift 2;;
         --edge-packet-plan) EDGE_PACKET_PLAN="$2"; shift 2;;
         --edge-packet-os) EDGE_PACKET_OS="$2"; shift 2;;
+        --repo-base) REPO_BASE="$2"; shift 2;;
         --) shift ; break ;;
         *)  usage; exit 1 ;;
     esac
@@ -215,7 +217,7 @@ if [[ $EDGE = packet ]]; then
     EXIT=0
     [[ -z "$EDGE_PACKET_TOKEN" ]] && { echo "--edge-packet-token required"; EXIT=1; }
     [[ -z "$EDGE_PACKET_PROJECT" ]] && { echo "--edge-packet-project required"; EXIT=1; }
-    [[ ! "$VERSION" =~ 5.10|5.11 ]] && { echo "Edge deployment only for 5.10 or 5.11"; EXIT=1; }
+    [[ ! "$VERSION" =~ 5.10|5.12 ]] && { echo "Edge deployment only for 5.10 or 5.12"; EXIT=1; }
     [[ $EXIT != 0 ]] && exit $EXIT
 fi
 
@@ -224,7 +226,11 @@ if [[ $NODE = yes && $FRONTEND = no ]]; then
 fi
 
 if [[ $FRC == yes ]]; then
-    [[ ! "$VERSION" =~ 5.11 ]] && { echo "Firecracker only available for 5.11"; exit 1; }
+    [[ ! "$VERSION" =~ 5.12 ]] && { echo "Firecracker only available for 5.12"; exit 1; }
+fi
+
+if [[ -z "$REPO_BASE" ]]; then
+    REPO_BASE="$REPO_URL"/"$VERSION"
 fi
 
 #-------------------------------------------------------------------------------
@@ -452,7 +458,7 @@ repo_exists() {
         echo "Currently only CentOS, Ubuntu or Debian are supported" >&2
         return 1
     else
-        URL="${REPO_URL}/${VERSION}/${DISTNAME}/${DISTVER}"
+        URL="${REPO_BASE}/${DISTNAME}/${DISTVER}"
         if type -t curl >/dev/null; then
             run_and_print_if_failed "curl -f -s -S $URL"
         elif type -t wget >/dev/null; then
@@ -678,9 +684,9 @@ configure_repos() {
             cat << EOT > /etc/yum.repos.d/opennebula.repo
 [opennebula]
 name=opennebula
-baseurl=https://downloads.opennebula.org/repo/${VERSION}/${DISTNAME}/${DISTVER}/x86_64
+baseurl=${REPO_BASE}/${DISTNAME}/${DISTVER}/x86_64
 enabled=1
-gpgkey=https://downloads.opennebula.org/repo/repo.key
+gpgkey=https://downloads.opennebula.io/repo/repo.key
 gpgcheck=1
 EOT
         fi
@@ -688,9 +694,9 @@ EOT
         if [[ $1 = 'purge' ]]; then
             rm -f /etc/apt/sources.list.d/opennebula.list
         else
-            ( wget -q -O- https://downloads.opennebula.org/repo/repo.key | \
+            ( wget -q -O- https://downloads.opennebula.io/repo/repo.key | \
                 apt-key add - >/dev/null ) || return 1
-            echo "deb https://downloads.opennebula.org/repo/${VERSION}/${DISTNAME}/${DISTVER} stable opennebula" \
+            echo "deb ${REPO_BASE}/${DISTNAME}/${DISTVER} stable opennebula" \
                 > /etc/apt/sources.list.d/opennebula.list  || return 1
         fi
     fi
@@ -1104,7 +1110,7 @@ node && packet && {
         if [ "$VERSION" = "5.10" ]; then
             check "[[ \"$ANSIBLE_VERSION\" =~ \"25\" ]]" \
                 "Checking ansible version (>=2.5.0, <2.6.0)"
-        elif [ "$VERSION" = "5.11" ]; then
+        elif [ "$VERSION" = "5.12" ]; then
             check "[[ \"$ANSIBLE_VERSION\" =~ \"28\" ]]" \
                 "Checking ansible version (>=2.8.0, <2.9.0)"
         fi
@@ -1112,7 +1118,7 @@ node && packet && {
         if [ "$VERSION" = "5.10" ]; then
             check "false" "Checking ansible" 1 "SKIP will try to install" \
                 || MISSING_PIP_PKGS="'ansible>=2.5.0,<2.6.0'"
-        elif [ "$VERSION" = "5.11" ]; then
+        elif [ "$VERSION" = "5.12" ]; then
             check "false" "Checking ansible" 1 "SKIP will try to install" \
                 || MISSING_PIP_PKGS="'ansible>=2.8.0,<2.9.0'"
         fi
