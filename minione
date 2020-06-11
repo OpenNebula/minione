@@ -127,7 +127,9 @@ SUPPORTED_MAP+='Debian10 5.10|Debian10 5.12|'
 SUPPORTED_MAP+='Ubuntu16.04 5.10|Ubuntu16.04 5.12|'
 SUPPORTED_MAP+='Ubuntu18.04 5.10|Ubuntu18.04 5.12|'
 SUPPORTED_MAP+='Ubuntu20.04 5.12)$'
-SUPPORTED_LXD_MAP='^(Ubuntu18.04 5.10|Ubuntu18.04 5.12|Ubuntu20.04 5.12)$'
+SUPPORTED_LXD_MAP='^(Ubuntu18.04 5.10|'
+SUPPORTED_LXD_MAP+='Ubuntu18.04 5.11|Ubuntu20.04 5.11|'
+SUPPORTED_LXD_MAP+='Ubuntu18.04 5.12|Ubuntu20.04 5.12)$'
 PURGE='no'
 DISABLE_SELINUX='no'
 ENABLED_APPARMOR='no'
@@ -226,7 +228,7 @@ if [[ $NODE = yes && $FRONTEND = no ]]; then
 fi
 
 if [[ $FRC == yes ]]; then
-    [[ ! "$VERSION" =~ 5.12 ]] && { echo "Firecracker only available for 5.12"; exit 1; }
+    [[ ! "$VERSION" =~ 5.11|5.12 ]] && { echo "Firecracker only available for 5.11 or 5.12"; exit 1; }
 fi
 
 if [[ -z "$REPO_BASE" ]]; then
