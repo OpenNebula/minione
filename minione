@@ -105,7 +105,7 @@ PARAMETERS=$(cat <<EOF
     help,version:,force,verbose,yes,frontend,node,password:,ssh-pubkey:,
     bridge-interface:,nat-interface:,vnet-address:,vnet-netmask:,
     vnet-gateway:,vnet-ar-ip-start:,vnet-ar-ip-count:,marketapp-name:,
-    vm-password,lxd,firecracker,sunstone-port:,purge,preserve-user,edge:,
+    vm-password:,lxd,firecracker,sunstone-port:,purge,preserve-user,edge:,
     edge-host-num:,edge-marketapp-name:,edge-packet-token:,
     edge-packet-project:,edge-packet-facility:,edge-packet-plan:,
     edge-packet-os:,fc-marketapp-name:,fc-kernel-name:,repo-base:
@@ -177,7 +177,7 @@ while true ; do
         --marketapp-name) MARKET_APP_NAME="$2" ; shift 2;;
         --fc-marketapp-name) FRC_MARKET_APP_NAME="$2" ; shift 2;;
         --fc-kernel-name) FRC_KERNEL_NAME="$2" ; shift 2;;
-        --vm-password-name) VM_PASSWORD="$2" ; shift 2;;
+        --vm-password) VM_PASSWORD="$2" ; shift 2;;
         --lxd) LXD="yes"; shift;;
         --firecracker) FRC="yes"; shift;;
         --sunstone-port) SUNSTONE_PORT="$2"; shift 2;;
