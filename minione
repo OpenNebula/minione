@@ -1296,12 +1296,12 @@ deny_ssh_from_vnet() {
 }
 
 add_keys_to_known_hosts() {
-    su oneadmin -c 'ssh-keyscan -H localhost > ~/.ssh/known_hosts' || return 1
+    su oneadmin -c 'ssh-keyscan localhost > ~/.ssh/known_hosts' || return 1
     HOSTNAME=$(hostname)
-    su oneadmin -c "ssh-keyscan -H ${HOSTNAME} >> ~/.ssh/known_hosts" || return 1
+    su oneadmin -c "ssh-keyscan ${HOSTNAME} >> ~/.ssh/known_hosts" || return 1
     FQDN=$(hostname -f 2>/dev/null)
     if [[ -n "$FQDN" && "$HOSTNAME" != "${FQDN}" ]]; then
-        su oneadmin -c "ssh-keyscan -H ${FQDN} >> ~/.ssh/known_hosts" || return 1
+        su oneadmin -c "ssh-keyscan ${FQDN} >> ~/.ssh/known_hosts" || return 1
     fi
 }
 
