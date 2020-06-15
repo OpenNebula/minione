@@ -12,6 +12,9 @@ In the left tab, click on **Instances → VMs** to get a (currently empty) list 
 
 Select the prepared template of "CentOS 7". (Please note the initial template already has network interface preconfigured in the "Network" section below. If you later import additional appliances from the Marketplace or your own, you will need to assign the network interface to them).
 
+.. note::
+    "CentOS 7" is default applicance for the KVM/LXD deployment, if you choose Firecracker the default appliance is "Alpine", everything else remains the same.
+
 Click on the **Create** button to start the virtual machine.
 
 |images-sunstone-vm-create|
