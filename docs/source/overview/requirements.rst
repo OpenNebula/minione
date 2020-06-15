@@ -35,7 +35,7 @@ For LXD evaluation on a dedicated physical server or virtual machine for the fro
 * physical host or virtual machine
 * operating system: Ubuntu 18.04 or 20.04
 
-Firecracker Micro VMs
+Micro VMs (Firecracker)
 =======================
 |images-minione-firecracker|
 
