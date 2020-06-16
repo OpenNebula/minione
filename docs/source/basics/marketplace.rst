@@ -8,7 +8,11 @@ Your OpenNebula installation is integrated with a few marketplaces. The most imp
 
 Also, the images from `public LXD image server <https://us.images.linuxcontainers.org>`_ are available through the "Linux Containers" marketplace for the LXD environments. Please note these images are prepared by 3rd parties and all may not work seamlessly.
 
-.. note:: This seciton covers KVM & LXD setup, for Firecracker you can use images from the `DockerHub registry <https://hub.docker.com/>`_, for more details see :ref:`Firecracker Deployment <firecracker-dockerhub>`.
+.. note::
+
+    This section covers KVM and LXD evaluation environment.
+
+    **For Firecracker**, you should use images from `DockerHub <https://hub.docker.com/>`_ as explained in advanced :ref:`Firecracker Deployment <firecracker-dockerhub>` section.
 
 Check the enabled marketplaces in **Storage → MarketPlaces**:
 

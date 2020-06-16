@@ -4,7 +4,7 @@
 Edge Deployment
 ===============
 
-When running the Edge deployment, most of the parameters are related to the remote cloud provider - `Packet <https://packet.net>`_. For the details consult `Packet API documentation <https://www.packet.com/developers/api>`_. If there are commands `curl` and `jq` available on the system the parameters will be validated before the installation starts.
+When running the Edge deployment, most of the parameters are related to the remote cloud provider - `Packet <https://packet.net>`_. For the details consult `Packet API documentation <https://www.packet.com/developers/api>`_. If there are commands ``curl`` and ``jq`` available on the system the parameters will be validated before the installation starts.
 
 +-------------------------------------------+--------------------------------------------------------+
 | Parameter                                 | Description                                            |
@@ -27,7 +27,7 @@ When running the Edge deployment, most of the parameters are related to the remo
 Appliance
 =========
 
-By default miniONE will prepare ``Service WordPress`` but you can choose what applicance you like from the `Market Place <https://marketplace.opennebula.io/appliance>`_.
+By default miniONE will prepare ``Service WordPress`` but you can choose any other appliance from the `Market Place <https://marketplace.opennebula.io/appliance>`_.
 
 +---------------------------------------------------------+-----------------------------------------+
 | Parameter                                               | Description                             |

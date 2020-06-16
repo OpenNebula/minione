@@ -14,7 +14,11 @@ The browser window should reload with a new layout. To run the virtual machine i
 
 |images-sunstone-cloud-vm-add|
 
-Select the prepared template of "CentOS 7". (Please note the initial template already has network interface preconfigured in the "Network" section below. If you later import additional appliances from the Marketplace or your own, you will need to assign the network interface to them).
+Select the prepared template, the name might differ from the one displayed on pictures based on selected evaluation environment type:
+
+.. include:: ../shared/templates.txt
+
+(Please note the initial template already has network interface preconfigured in the "Network" section below. If you later import additional appliances from the Marketplace or your own, you will need to assign the network interface to them).
 
 Click on the **Create** button to start the virtual machine.
 
