@@ -150,6 +150,8 @@ ONE_SERVICES='opennebula opennebula-sunstone opennebula-flow opennebula-gate'
 FRC_KERNEL_PARAMS="console=ttyS0 reboot=k panic=1 pci=off i8042.noaux i8042.nomux i8042.nopnp i8042.dumbkbd"
 PACKET_TEMPLATE=''
 PACKET_LAST_ID=''
+PLAYBOOK='default'
+HYPERVISOR='kvm'
 AUGEAS_PKG='augeas-tools'
 PIP='pip'
 PYTHON_PIP='python-pip'
@@ -229,6 +231,8 @@ fi
 
 if [[ $FRC == yes ]]; then
     [[ ! "$VERSION" =~ 5.11|5.12 ]] && { echo "Firecracker only available for 5.11 or 5.12"; exit 1; }
+    PLAYBOOK="default_firecracker"
+    HYPERVISOR="firecracker"
 fi
 
 if [[ -z "$REPO_BASE" ]]; then
@@ -806,7 +810,7 @@ NETMASK_BITS=$(mask2cidr "${VNET_NETMASK}")
 read -r DISTNAME DISTVER <<<"$(get_distname_and_version)"
 
 [[ "${DISTNAME}${DISTVER}" =~ Ubuntu16.04|Ubuntu18.04 ]] && LIBVIRTD="libvirt-bin"
-[[ "${DISTNAME}${DISTVER}" =~ CentOS8|RedHat8 ]] && PIP="pip3" && PYTHON_PIP="python3-pip"
+[[ "${DISTNAME}${DISTVER}" =~ CentOS8|RedHat8|Ubuntu20.04 ]] && PIP="pip3" && PYTHON_PIP="python3-pip"
 
 centos && AUGEAS_PKG='augeas'
 
@@ -936,7 +940,7 @@ frontend && {
         "Checking cpu virtualization capabilities" 1 \
         "SKIP QEMU will be used" || USE_QEMU='yes';
 
-    frc && check 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
+    frc && ! packet && 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
         "Checking cpu virtualization capabilities"
     }
 
@@ -1083,7 +1087,7 @@ frc && {
         check "false" "Missing curl/wget to check market app" 1 "IGNORE Can't check"
     fi
 
-    debian && {
+    debian && ! packet && {
         check "type -t add-apt-repository >/dev/null" "Checking add-apt-repository is available" 1 \
            "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} software-properties-common"
     }
@@ -1099,7 +1103,7 @@ node && packet && {
             check "validate_packet_plan_facility" "Checking packet facility and plan"
         fi
 
-        check "curl -s -H \"${JSON_HEADERS}\" ${APPS_URL} \
+        ! frc && check "curl -s -H \"${JSON_HEADERS}\" ${APPS_URL} \
             | grep '\"name\":\"${EDGE_MARKET_APP_NAME}\"' >/dev/null" \
             "Checking presence of the market app: \"$EDGE_MARKET_APP_NAME\"" 3 "Not found"
     fi
@@ -1205,7 +1209,7 @@ if kvm; then
     check "install_opennebula_kvm_pkgs" "Installing OpenNebula kvm node packages" 3
 elif lxd; then
     check "install_opennebula_lxd_pkgs" "Installing OpenNebula lxd node packages" 3
-elif frc; then
+elif frc && ! packet; then
     check "install_opennebula_frc_pkgs" "Installing OpenNebula firecracker node packages" 3
 elif packet; then
     check "install opennebula-provision" "Installing opennebula-provision package " 3
@@ -1430,7 +1434,7 @@ packet_template() {
     cat >> "$PACKET_TEMPLATE" << EOF || return 1
 ---
 name: PacketProvision-${PACKET_LAST_ID}
-playbook: default
+playbook: $PLAYBOOK
 
 defaults:
   provision:
@@ -1453,8 +1457,8 @@ EOF
     for I in $(seq 1 "$EDGE_HOST_NUM"); do
         cat >> "$PACKET_TEMPLATE" << EOF || return 1
   - reserved_cpu: 50
-    im_mad: kvm
-    vm_mad: kvm
+    im_mad: $HYPERVISOR
+    vm_mad: $HYPERVISOR
     provision:
       hostname: packet-host-${PACKET_LAST_ID}-$I
 
@@ -1472,6 +1476,11 @@ datastores:
   - name: packet-${PACKET_LAST_ID}-system
     type: system_ds
     tm_mad: ssh
+    safe_dirs: '/var/tmp /tmp'
+  - name: packet-${PACKET_LAST_ID}-files
+    type: file_ds
+    tm_mad: ssh
+    ds_mad: fs
     safe_dirs: '/var/tmp /tmp'
 
 networks:
@@ -1517,10 +1526,12 @@ packet_provision() {
 }
 
 update_network_hooks() {
-    cp /var/lib/one/remotes/vnm/hooks/pre/firecracker /var/lib/one/remotes/vnm/fw/pre.d/firecracker
-    cp /var/lib/one/remotes/vnm/hooks/clean/firecracker /var/lib/one/remotes/vnm/fw/clean.d/firecracker
-    chown oneadmin:oneadmin /var/lib/one/remotes/vnm/fw/pre.d/firecracker
-    chown oneadmin:oneadmin /var/lib/one/remotes/vnm/fw/clean.d/firecracker
+    for VN_MAD in 802.1Q bridge dummy ebtables ovswitch ovswitch_vxlan vxlan; do
+        cp /var/lib/one/remotes/vnm/hooks/pre/firecracker /var/lib/one/remotes/vnm/${VN_MAD}/pre.d/firecracker
+        cp /var/lib/one/remotes/vnm/hooks/clean/firecracker /var/lib/one/remotes/vnm/${VN_MAD}/clean.d/firecracker
+        chown oneadmin:oneadmin /var/lib/one/remotes/vnm/${VN_MAD}/pre.d/firecracker
+        chown oneadmin:oneadmin /var/lib/one/remotes/vnm/${VN_MAD}/clean.d/firecracker
+    done
 }
 
 #-------------------------------------------------------------------------------
@@ -1772,7 +1783,7 @@ kvm && check "onehost create -i kvm -v kvm localhost >/dev/null 2>&1" \
     "Creating KVM host"
 lxd && check "onehost create -i lxd -v lxd localhost >/dev/null 2>&1" \
     "Creating LXD host"
-frc && check "onehost create -i firecracker -v firecracker localhost >/dev/null 2>&1" \
+frc && ! packet && check "onehost create -i firecracker -v firecracker localhost >/dev/null 2>&1" \
     "Creating Firecracker host"
 
 networking && check "create_vnet" "Creating virtual network"
@@ -1784,7 +1795,7 @@ kvm || lxd && ! packet && {
     check "update_template" "Updating VM template"
 }
 
-packet && node && {
+packet && node && ! frc && {
     DS_ID=$(onedatastore list --csv -l ID,NAME,TYPE -f TYPE=img -f NAME=packet-"${PACKET_LAST_ID}"-default | awk -F, '{print $1}' | tail -1)
     check "export_marketapp \"${EDGE_MARKET_APP_NAME}\" ${DS_ID} \"-${EDGE_PACKET_FACILITY}-${PACKET_LAST_ID}\"" \
         "Exporting [${EDGE_MARKET_APP_NAME}] from Marketplace to local datastore"
@@ -1793,10 +1804,19 @@ packet && node && {
 }
 
 frc && {
-    check "export_marketapp \"$FRC_MARKET_APP_NAME\"" \
+    DS_ID=1
+    if packet; then
+        DS_ID=$(onedatastore list --csv -l ID,NAME,TYPE -f TYPE=img -f NAME=packet-"${PACKET_LAST_ID}"-default | awk -F, '{print $1}' | tail -1)
+    fi
+
+    check "export_marketapp \"$FRC_MARKET_APP_NAME\" ${DS_ID}" \
         "Exporting [${FRC_MARKET_APP_NAME}] from dockerhub to local datastore"
-    check "export_marketapp \"$FRC_KERNEL_NAME\" 2 \"\" kernel" \
+
+    DS_ID=$(onedatastore list --csv -l ID,NAME,TYPE -f TYPE=fil -f NAME=packet-"${PACKET_LAST_ID}"-files | awk -F, '{print $1}' | tail -1)
+
+    check "export_marketapp \"$FRC_KERNEL_NAME\" ${DS_ID} \"\" kernel" \
         "Exporting [${FRC_KERNEL_NAME}] to local datastore"
+
     check "image_is_ready" "Waiting until the image is ready"
     check "update_template" "Updating VM template"
 }
