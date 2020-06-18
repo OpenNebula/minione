@@ -940,9 +940,9 @@ frontend && {
         "Checking cpu virtualization capabilities" 1 \
         "SKIP QEMU will be used" || USE_QEMU='yes';
 
-    frc && ! packet && 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
+    frc && ! packet && check 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
         "Checking cpu virtualization capabilities"
-    }
+}
 
 check "type -t augtool >/dev/null" "Checking augeas is installed" 1 \
     "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} $AUGEAS_PKG"
