@@ -1812,7 +1812,10 @@ frc && {
     check "export_marketapp \"$FRC_MARKET_APP_NAME\" ${DS_ID}" \
         "Exporting [${FRC_MARKET_APP_NAME}] from dockerhub to local datastore"
 
-    DS_ID=$(onedatastore list --csv -l ID,NAME,TYPE -f TYPE=fil -f NAME=packet-"${PACKET_LAST_ID}"-files | awk -F, '{print $1}' | tail -1)
+    DS_ID=2
+    if packet; then
+        DS_ID=$(onedatastore list --csv -l ID,NAME,TYPE -f TYPE=fil -f NAME=packet-"${PACKET_LAST_ID}"-files | awk -F, '{print $1}' | tail -1)
+    fi
 
     check "export_marketapp \"$FRC_KERNEL_NAME\" ${DS_ID} \"\" kernel" \
         "Exporting [${FRC_KERNEL_NAME}] to local datastore"
