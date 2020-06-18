@@ -1526,7 +1526,7 @@ packet_provision() {
 }
 
 update_network_hooks() {
-    for VN_MAD in 802.1Q bridge dummy ebtables ovswitch ovswitch_vxlan vxlan; do
+    for VN_MAD in 802.1Q bridge dummy ebtables fw ovswitch ovswitch_vxlan vxlan; do
         cp /var/lib/one/remotes/vnm/hooks/pre/firecracker /var/lib/one/remotes/vnm/${VN_MAD}/pre.d/firecracker
         cp /var/lib/one/remotes/vnm/hooks/clean/firecracker /var/lib/one/remotes/vnm/${VN_MAD}/clean.d/firecracker
         chown oneadmin:oneadmin /var/lib/one/remotes/vnm/${VN_MAD}/pre.d/firecracker
