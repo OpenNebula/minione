@@ -41,17 +41,15 @@ While being logged on your frontend under **root** or **oneadmin** user, you can
 
 .. note::
 
-    Remember that for the single host deployments (KVM/LXD/Firecracker) the VMs still have only private IP address. By default from the range ``172.16.100.0/24``. So the first VM will get ``172.16.100.2`` as the ``.1`` is used for the miniONE frontend.
+    Remember that in local all-in-one deployments (with KVM/LXD/Firecracker) the VMs still have only private IP addresses. By default from the range ``172.16.100.0/24``. So the first VM will get ``172.16.100.2`` as the ``.1`` is used for the miniONE frontend.
 
-    However, if you want to reach the VM from the outside using the IP address of the miniONE host you can forward the port similarily as in the following example.
-    For demonstration we are showing how to forward the port 8080 from the miniONE host to the port 80 of the running VM.
+    If you want to reach the private VM from the outside by sharing the IP address of the miniONE host, you can **forward** communication over the selected host port to the particular port of private VM. For example, the following command ensures that miniONE host port 8080 is forwarded to port 80 of the VM with IP address ``172.16.100.2``:
 
+    .. prompt:: bash # auto
 
-.. prompt:: bash # auto
+        # iptables -t nat -I PREROUTING -p tcp --dport 8080 -j DNAT --to 172.16.100.2:80
 
-    # iptables -t nat -I PREROUTING -p tcp --dport 8080 -j DNAT --to 172.16.100.2:80
-
-
+    (i.e., if you point your browser to your miniONE host and port 8080, e.g. ``http://minione:8080``, it reaches the port 80 of your private VM).
 
 To terminate the virtual machine, go back to the Sunstone web UI to **Instances → VMs**. Select the particular virtual machine and click on the trash button to terminate it.
 

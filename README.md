@@ -35,7 +35,8 @@ For **Firecracker evaluation** on a dedicated physical server or virtual machine
   - Debian 9, 10
   - Ubuntu 16.04, 18.04, 20.04
 
-For **Edge evaluation** on a dedicated physical server or virtual machine for the front-end and one remote Packet edge physical server for one KVM hypervisor node:
+For **Edge evaluation** on a dedicated physical server or virtual machine for the front-end and one remote Packet edge physical server for one **KVM or Firecracker** hypervisor node:
+
 - physical host or virtual machine (e.g., Amazon EC2 VM)
 - x86-64 Intel or AMD processor
 - operating system:
@@ -75,6 +76,8 @@ sudo bash minione --firecracker
 
 ### Get Edge cloud on Packet
 
+miniONE will install OpenNebula frontend on the host where you run the command and also deploy and configure a hypervisor host on the Edge ([Packet](https://www.packet.com/) in this case) where you can spawn your VMs.
+
 Run the commands to deploy the evaluation cloud:
 
 ```
@@ -82,9 +85,7 @@ wget 'https://github.com/OpenNebula/minione/releases/latest/download/minione'
 sudo bash minione --edge packet --edge-packet-token [packet-token] --edge-packet-project [packet-project]
 ```
 
-miniONE will install OpenNebula frontend on the host where you run the command and also configure one host one the Edge (Packet in this case) where you can spawn your VMs.
-
-Optionally, you can use Firecracker hypervisor on the Edge.
+Optionally, you can use choose deploy to **Firecracker** hypervisor on the Edge.
 
 ```
 wget 'https://github.com/OpenNebula/minione/releases/latest/download/minione'

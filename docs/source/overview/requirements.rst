@@ -45,11 +45,11 @@ For Firecracker evaluation on a dedicated physical server or virtual machine for
 * physical host or virtual machine
 * operating system: CentOS 7 or 8, Debian 9 or 10, Ubuntu 16.04, 18.04 or 20.04
 
-Edge deployment + KVM on Packet
-===============================
+Edge deployment + KVM or Firecracker on Packet
+==============================================
 |images-minione-packet|
 
-For Edge evaluation on a dedicated physical server or virtual machine for the front-end and one remote Packet edge physical server for one KVM hypervisor node the minimal requirements are
+For Edge evaluation on a dedicated physical server or virtual machine for the front-end and one remote Packet edge physical server for one KVM or Firecracker hypervisor node the minimal requirements are
 
 for the frontend
 

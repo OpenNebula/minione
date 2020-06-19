@@ -10,42 +10,44 @@ Various command line parameters passed to the miniONE tool can customize the dep
 
     # bash minione --help
 
-In most cases, it's not necessary to specify anything and simply proceed with installation.
+In most cases, it's not necessary to specify anything and simply proceed with installation. If needed, the deployment customizations are covered in the section :ref:`Advanced Usage <advanced>`. You have to choose among the KVM (default), LXD, Firecracker, Edge with KVM or Edge with Firecracker evaluation environments.
 
-If needed, the deployment customization is covered by next section "Advanced Installation".
-
-You have to choose between the KVM (default), LXD or Edge evaluation environment. Run the following command under the privileged user **root** to get ready the all-in-one OpenNebula installation with default KVM hypervisor:
+Run the following command under the privileged user **root** to get ready the all-in-one OpenNebula installation with default KVM hypervisor:
 
 .. prompt:: bash # auto
 
     # bash minione
 
-
-Or, for LXD environment:
+Or, for **LXD** environment:
 
 .. prompt:: bash # auto
 
     # bash minione --lxd
 
-Or, for Firecracker environment:
+Or, for **Firecracker** environment:
 
 .. prompt:: bash # auto
 
     # bash minione --firecracker
 
-Or, for Edge environment on Packet:
+Or, for **Edge with KVM** environment on Packet:
 
 .. prompt:: bash # auto
 
     # bash minione --edge packet --edge-packet-token [token] --edge-packet-project [project]
 
+Or, for **Edge with Firecracker** environment on Packet:
+
+.. prompt:: bash # auto
+
+    # bash minione --firecracker --edge packet --edge-packet-token [token] --edge-packet-project [project]
 
 Be patient, it should take only a few minutes to get the host prepared. Main deployment steps are logged on the terminal and at the end of a successful deployment, the miniONE tool provides a report with connection parameters and initial credentials. For example:
 
 .. code::
 
     ### Report
-    OpenNebula 5.8 was installed
+    OpenNebula 5.12 was installed
     Sunstone (the webui) is running on:
       http://192.0.2.1/
     Use following to login:

@@ -4,7 +4,7 @@
 Edge Deployment
 ===============
 
-When running the Edge deployment, most of the parameters are related to the remote cloud provider - `Packet <https://packet.net>`_. For the details consult `Packet API documentation <https://www.packet.com/developers/api>`_. If there are commands ``curl`` and ``jq`` available on the system the parameters will be validated before the installation starts.
+When running the Edge deployment with KVM, most of the parameters are related to the remote cloud provider - `Packet <https://packet.net>`_. For the details consult `Packet API documentation <https://www.packet.com/developers/api>`_. If there are commands ``curl`` and ``jq`` available on the system the parameters will be validated before the installation starts.
 
 +-------------------------------------------+--------------------------------------------------------+
 | Parameter                                 | Description                                            |
