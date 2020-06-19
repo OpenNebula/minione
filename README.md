@@ -84,6 +84,13 @@ sudo bash minione --edge packet --edge-packet-token [packet-token] --edge-packet
 
 miniONE will install OpenNebula frontend on the host where you run the command and also configure one host one the Edge (Packet in this case) where you can spawn your VMs.
 
+Optionally, you can use Firecracker hypervisor on the Edge.
+
+```
+wget 'https://github.com/OpenNebula/minione/releases/latest/download/minione'
+sudo bash minione --firecracker --edge packet --edge-packet-token [packet-token] --edge-packet-project [packet-project]
+```
+
 ## License
 
 Copyright 2002-2020, OpenNebula Project, OpenNebula Systems (formerly C12G Labs)
