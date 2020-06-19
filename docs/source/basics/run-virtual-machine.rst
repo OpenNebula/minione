@@ -30,7 +30,7 @@ You can validate the virtual machine can reach the public internet services. E.g
 
 |images-sunstone-vm-vnc|
 
-While being logged on your frontend under **root** or **oneadmin** user, you can login your virtual machine over SSH. The IP address of the virtual machine is visible in the virtual machines list. For example, for 172.16.100.2 try
+While being logged on your frontend under **root** or **oneadmin** user, you can login your virtual machine over SSH. The IP address of the virtual machine is visible in the virtual machines list.
 
 .. prompt:: bash # auto
 
@@ -38,6 +38,20 @@ While being logged on your frontend under **root** or **oneadmin** user, you can
     Warning: Permanently added '172.16.100.2' (ECDSA) to the list of known hosts.
     Last login: Mon May 20 14:16:55 2019 from 172.16.100.1
     [root@localhost ~]#
+
+.. note::
+
+    Remember that for the single host deployments (KVM/LXD/Firecracker) the VMs still have only private IP address. By default from the range ``172.16.100.0/24``. So the first VM will get ``172.16.100.2`` as the ``.1`` is used for the miniONE frontend.
+
+    However, if you want to reach the VM from the outside using the IP address of the miniONE host you can forward the port similarily as in the following example.
+    For demonstration we are showing how to forward the port 8080 from the miniONE host to the port 80 of the running VM.
+
+
+.. prompt:: bash # auto
+
+    # iptables -t nat -I PREROUTING -p tcp --dport 8080 -j DNAT --to 172.16.100.2:80
+
+
 
 To terminate the virtual machine, go back to the Sunstone web UI to **Instances → VMs**. Select the particular virtual machine and click on the trash button to terminate it.
 

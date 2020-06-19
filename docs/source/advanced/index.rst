@@ -10,6 +10,7 @@ Advanced Usage
    Customized Deployment <customized-deployment>
    Firecracker Deployment <firecracker-deployment>
    Edge Deployment <edge-deployment>
+   Edge Deployment with Firecracker <edge-fc-deployment>
    Run Virtual Machine over CLI <run-virtual-machine-cli>
    Marketplace over CLI <marketplace-cli>
    Manage Cloud over CLI <manage-cloud-cli>
