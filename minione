@@ -1699,9 +1699,17 @@ export_marketapp() {
 
 image_is_ready() {
     for I in $(seq $IMAGE_WAIT_TIMEOUT); do
-        oneimage list --csv --no-header | grep -q -v rdy || return 0
+        STATES=$(oneimage list --csv --no-header -l stat)
+
+        # some error occurs
+        echo "$STATES" | grep err && { echo "Image download error"; return 1; }
+
+        # all images are ready
+        echo "$STATES" | grep -q -v rdy || return 0
+
         sleep 1
     done
+
     echo "Image download reached timeout" >&2
     return 1
 }
