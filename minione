@@ -235,6 +235,11 @@ if [[ $FRC == yes ]]; then
     HYPERVISOR="firecracker"
 fi
 
+if [[ $LXD == yes ]]; then
+    PLAYBOOK="default_lxd"
+    HYPERVISOR="lxd"
+fi
+
 if [[ -z "$REPO_BASE" ]]; then
     REPO_BASE="$REPO_URL"/"$VERSION"
 fi
@@ -431,7 +436,7 @@ packet() {
 }
 
 lxd() {
-    [[ $NODE == yes && $LXD == yes && $EDGE == no ]]
+    [[ $NODE == yes && $LXD == yes ]]
 }
 
 frc() {
@@ -931,7 +936,7 @@ check "supported_dist_ver \"$SUPPORTED_MAP\"" \
 check "repo_exists" "Checking if OpenNebula repository exists" 3
 
 # check if lxd is available for given distribution and version
-lxd && check "supported_dist_ver \"$SUPPORTED_LXD_MAP\"" \
+lxd && ! packet && check "supported_dist_ver \"$SUPPORTED_LXD_MAP\"" \
     "Checking LXD support for given version"
 
 # check cpu flgas for virtualizaton capabilities
@@ -1207,7 +1212,7 @@ frontend && {
 
 if kvm; then
     check "install_opennebula_kvm_pkgs" "Installing OpenNebula kvm node packages" 3
-elif lxd; then
+elif lxd && ! packet; then
     check "install_opennebula_lxd_pkgs" "Installing OpenNebula lxd node packages" 3
 elif frc && ! packet; then
     check "install_opennebula_frc_pkgs" "Installing OpenNebula firecracker node packages" 3
@@ -1215,7 +1220,7 @@ elif packet; then
     check "install opennebula-provision" "Installing opennebula-provision package " 3
 fi
 
-if kvm || lxd ; then
+if kvm || lxd && ! packet ; then
     [[ "${ENABLED_APPARMOR}" = 'yes' ]] && check "modify_apparmor" "Updating AppArmor"
     check "rm -f /etc/libvirt/qemu/networks/autostart/default.xml" \
         "Disable default libvirtd networking"
@@ -1539,10 +1544,12 @@ update_network_hooks() {
 #-------------------------------------------------------------------------------
 title "Configuration"
 
-lxd && check "sed_subst \"\s*:command: \\/bin\\/login\" \"  :command: \\/bin\\/bash\" \"/var/lib/one/remotes/etc/vmm/lxd/lxdrc\""\
+lxd && {
+    check "sed_subst \"\s*:command: \\/bin\\/login\" \"  :command: \\/bin\\/bash\" \"/var/lib/one/remotes/etc/vmm/lxd/lxdrc\""\
     "Switching VNC command to /bin/bash in lxdrc"
-lxd && check "sed_subst \"\s*:command => '\\/bin\\/login'\" \"            :command => '\\/bin\\/bash'\" \"/var/lib/one/remotes/vmm/lxd/opennebula_vm.rb\""\
+i   check "sed_subst \"\s*:command => '\\/bin\\/login'\" \"            :command => '\\/bin\\/bash'\" \"/var/lib/one/remotes/vmm/lxd/opennebula_vm.rb\""\
     "Switching VNC command to /bin/bash in opennebula_vm.rb"
+}
 
 
 packet && {
@@ -1737,7 +1744,7 @@ update_template() {
     node && ! packet && echo 'NIC=[ NETWORK="vnet", NETWORK_UNAME="oneadmin", SECURITY_GROUPS="0" ]' >> "${TMP_FILE}"
 
     # Add LXD_SECURITY_PRIVILEGED="true"
-    lxd && ! packet && echo 'LXD_SECURITY_PRIVILEGED="true"' >> "${TMP_FILE}"
+    lxd && echo 'LXD_SECURITY_PRIVILEGED="true"' >> "${TMP_FILE}"
 
     # Add kernel for firecracker
     frc && {
@@ -1789,7 +1796,7 @@ node && ! packet && {
 
 kvm && check "onehost create -i kvm -v kvm localhost >/dev/null 2>&1" \
     "Creating KVM host"
-lxd && check "onehost create -i lxd -v lxd localhost >/dev/null 2>&1" \
+lxd && ! packet && check "onehost create -i lxd -v lxd localhost >/dev/null 2>&1" \
     "Creating LXD host"
 frc && ! packet && check "onehost create -i firecracker -v firecracker localhost >/dev/null 2>&1" \
     "Creating Firecracker host"
