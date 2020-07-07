@@ -223,6 +223,7 @@ if [[ $EDGE = packet ]]; then
     [[ -z "$EDGE_PACKET_PROJECT" ]] && { echo "--edge-packet-project required"; EXIT=1; }
     [[ ! "$VERSION" =~ 5.10|5.12 ]] && { echo "Edge deployment only for 5.10 or 5.12"; EXIT=1; }
     [[ $EXIT != 0 ]] && exit $EXIT
+    MARKET_APP_NAME="$EDGE_MARKET_APP_NAME"
 fi
 
 if [[ $NODE = yes && $FRONTEND = no ]]; then
@@ -233,6 +234,7 @@ if [[ $FRC == yes ]]; then
     [[ ! "$VERSION" =~ 5.11|5.12 ]] && { echo "Firecracker only available for 5.11 or 5.12"; exit 1; }
     PLAYBOOK="default_firecracker"
     HYPERVISOR="firecracker"
+    MARKET_APP_NAME="$FRC_MARKET_APP_NAME"
 fi
 
 if [[ $LXD == yes ]]; then
@@ -1688,6 +1690,7 @@ export_marketapp() {
     local DS_ID="${2:-1}"
     local SUFFIX="$3"
     local NEW_NAME="${4:-$APP_NAME$SUFFIX}"
+    local TEMPLATE_ID=""
 
     poll_for_marketplace
 
@@ -1705,7 +1708,13 @@ export_marketapp() {
         return 1
     fi
 
-    VM_TEMPLATE_ID=$(tail -1 < "$OUT" | awk '{print $2}')
+    TEMPLATE_ID=$(tail -1 < "$OUT" | awk '{print $2}')
+
+    # if -1 (kernel) don't update the VM_TEMPLATE_ID
+    if [ $TEMPL_ID != -1 ]; then
+        VM_TEMPLATE_ID=$TEMPL_ID
+    fi
+
     rm "$OUT"
 }
 
@@ -1808,41 +1817,32 @@ frc && ! packet && check "onehost create -i firecracker -v firecracker localhost
 
 networking && check "create_vnet" "Creating virtual network"
 
-kvm || lxd && ! packet && {
-    check "export_marketapp \"$MARKET_APP_NAME\"" \
-        "Exporting [${MARKET_APP_NAME}] from Marketplace to local datastore"
-    check "image_is_ready" "Waiting until the image is ready"
-    check "update_template" "Updating VM template"
+DS_ID=1
+SUFFIX=''
+
+node && packet && {
+    DS_ID=$(onedatastore list --csv -l ID,NAME,TYPE -f TYPE=img -f NAME=packet-"${PACKET_LAST_ID}"-default | awk -F, '{print $1}' | tail -1)
+    SUFFIX="-${EDGE_PACKET_FACILITY}-${PACKET_LAST_ID}"
 }
 
-packet && node && ! frc && {
-    DS_ID=$(onedatastore list --csv -l ID,NAME,TYPE -f TYPE=img -f NAME=packet-"${PACKET_LAST_ID}"-default | awk -F, '{print $1}' | tail -1)
-    check "export_marketapp \"${EDGE_MARKET_APP_NAME}\" ${DS_ID} \"-${EDGE_PACKET_FACILITY}-${PACKET_LAST_ID}\"" \
-        "Exporting [${EDGE_MARKET_APP_NAME}] from Marketplace to local datastore"
-    check "image_is_ready" "Waiting until the image is ready"
-    check "update_template $VM_TEMPLATE_ID" "Updating VM template"
-}
+check "export_marketapp \"$MARKET_APP_NAME\" \"${DS_ID}\" \"${SUFFIX}\"" "Exporting [${EDGE_MARKET_APP_NAME}] from Marketplace to local datastore"
+check "image_is_ready" "Waiting until the image is ready"
 
 frc && {
-    DS_ID=1
-    if packet; then
-        DS_ID=$(onedatastore list --csv -l ID,NAME,TYPE -f TYPE=img -f NAME=packet-"${PACKET_LAST_ID}"-default | awk -F, '{print $1}' | tail -1)
-    fi
-
-    check "export_marketapp \"$FRC_MARKET_APP_NAME\" ${DS_ID}" \
-        "Exporting [${FRC_MARKET_APP_NAME}] from dockerhub to local datastore"
-
     DS_ID=2
     if packet; then
         DS_ID=$(onedatastore list --csv -l ID,NAME,TYPE -f TYPE=fil -f NAME=packet-"${PACKET_LAST_ID}"-files | awk -F, '{print $1}' | tail -1)
     fi
 
-    check "export_marketapp \"$FRC_KERNEL_NAME\" ${DS_ID} \"\" kernel" \
-        "Exporting [${FRC_KERNEL_NAME}] to local datastore"
+    if ! node || ! $(oneimage show "kernel" >/dev/null); then
+        check "export_marketapp \"$FRC_KERNEL_NAME\" ${DS_ID} \"\" kernel" \
+            "Exporting [${FRC_KERNEL_NAME}] to local datastore"
+    fi
 
     check "image_is_ready" "Waiting until the image is ready"
-    check "update_template" "Updating VM template"
 }
+
+check "update_template ${VM_TEMPLATE_ID:-0}" "Updating VM template"
 
 #-------------------------------------------------------------------------------
 # Report
