@@ -785,7 +785,7 @@ uninstall_opennebula_pkgs() {
         apt-get purge -q -y opennebula-node opennebula \
             opennebula-sunstone opennebula-gate opennebula-flow \
             opennebula-common opennebula-rubygems >/dev/null
-        service ${LIBVIRTD} restart || true
+        systemctl restart ${LIBVIRTD} || true
     fi
 }
 
@@ -971,7 +971,7 @@ frontend && {
         "Checking user from previous installation" 1 "IGNORE"
 
     # check if sshd service is running
-    check "service sshd status >/dev/null" \
+    check "systemctl status -n0 sshd >/dev/null" \
         "Checking sshd service is running"
 
     # check if we have iptables
@@ -1232,7 +1232,7 @@ if kvm || lxd && ! packet ; then
     check "rm -f /etc/libvirt/qemu/networks/autostart/default.xml" \
         "Disable default libvirtd networking"
     if ! lxd; then
-        check "service ${LIBVIRTD} restart" "Restart libvirtd"
+        check "systemctl restart ${LIBVIRTD}" "Restart libvirtd"
     fi
 fi
 
