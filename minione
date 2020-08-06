@@ -1839,7 +1839,7 @@ frc && {
         DS_ID=$(onedatastore list --csv -l ID,NAME,TYPE -f TYPE=fil -f NAME=packet-"${PACKET_LAST_ID}"-files | awk -F, '{print $1}' | tail -1)
     fi
 
-    if ! node || ! $(oneimage show "kernel" >/dev/null); then
+    if ! node || ! oneimage show "kernel" >/dev/null; then
         check "export_marketapp \"$FRC_KERNEL_NAME\" ${DS_ID} \"\" kernel" \
             "Exporting [${FRC_KERNEL_NAME}] to local datastore"
     fi
