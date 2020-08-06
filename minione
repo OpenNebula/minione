@@ -1197,7 +1197,11 @@ networking && {
     check "create_bridge" "Creating bridge interface ${BRIDGE_INTERFACE}"
     check "ifup_bridge" "Bring bridge interfaces up"
     centos && firewalld_running && check "disable_firewalld" "Disabling firewalld"
-    [[ "$FORWARD" = 0 ]] && check "sysctl -w net.ipv4.ip_forward=1 >/dev/null" "Enabling IPv4 forward"
+    [[ "$FORWARD" = 0 ]] && {
+        check "sysctl -w net.ipv4.ip_forward=1 >/dev/null" "Enabling IPv4 forward"
+        check "grep -q \"^net.ipv4.ip_forward=1$\" /etc/sysctl.conf || \
+            echo \"net.ipv4.ip_forward=1\" >> /etc/sysctl.conf" "Persisting IPv4 forward"
+    }
     check "configure_nat" "Configuring NAT using iptables"
     centos && check "iptables-save > /etc/sysconfig/iptables" "Saving iptables changes"
     debian && check "netfilter-persistent save" "Saving iptables changes"
