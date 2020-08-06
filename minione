@@ -586,7 +586,7 @@ EOF
                 ip link add name "${BRIDGE_INTERFACE}" type bridge|| return 1
                 mkdir /etc/network/interfaces.d 2>/dev/null
                 cat > /etc/network/interfaces.d/tap.cfg<< EOF
-iface tap0 inet manual
+iface tap0 inet auto
     pre-up ip tuntap add tap0 mode tap user root
 EOF
                 cat > /etc/network/interfaces.d/minionebr.cfg<< EOF
