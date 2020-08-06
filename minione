@@ -602,7 +602,8 @@ iface minionebr inet static
 EOF
                 # add source for interfaces.d/*.cfg if missing
                 FILE='/etc/network/interfaces'
-                if grep -qE -e "^ *source */etc/network/interfaces.d/\*\.cfg" -e "^ *source-directory /etc/network/interfaces.d" $FILE ; then
+                if grep -qE -e "^ *source */etc/network/interfaces.d/\*" \
+                    -e "^ *source-directory /etc/network/interfaces.d" $FILE ; then
                     true # already present
                 else
                     echo 'source /etc/network/interfaces.d/*.cfg' >> $FILE
