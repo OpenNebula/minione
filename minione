@@ -980,10 +980,8 @@ frontend && {
         check "type -t iptables >/dev/null" "Checking iptables are installed" 1 \
             "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} iptables"
 
-        if [[ "${DISTNAME}${DISTVER}" =~ CentOS7|RedHat7 ]]; then
-            check "type -t brctl >/dev/null" "Checking bridge-utils are installed" 1 \
-                "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} bridge-utils"
-        fi
+        check "type -t brctl >/dev/null" "Checking bridge-utils are installed" 1 \
+            "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} bridge-utils"
 
         if [[ "${DISTNAME}${DISTVER}" =~ CentOS8|RedHat8 ]]; then
             check "rpm -q network-scripts >/dev/null" "Checking network-scripts are installed" 1 \
