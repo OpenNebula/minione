@@ -1715,8 +1715,8 @@ export_marketapp() {
     TEMPLATE_ID=$(tail -1 < "$OUT" | awk '{print $2}')
 
     # if -1 (kernel) don't update the VM_TEMPLATE_ID
-    if [ $TEMPL_ID != -1 ]; then
-        VM_TEMPLATE_ID=$TEMPL_ID
+    if [ $TEMPLATE_ID != -1 ]; then
+        VM_TEMPLATE_ID=$TEMPLATE_ID
     fi
 
     rm "$OUT"
