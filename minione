@@ -1191,11 +1191,12 @@ debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 [[ -n "${MISSING_PIP_PKGS}" ]] && check "$PIP install ${MISSING_PIP_PKGS}" \
     "Install from PyPI ${MISSING_PIP_PKGS}" 3
 
+frontend && centos && firewalld_running && check "disable_firewalld" "Disabling firewalld"
+
 networking && {
     centos && check "disable_invalid_net_cfg" "Rename invalid network configs"
     check "create_bridge" "Creating bridge interface ${BRIDGE_INTERFACE}"
     check "ifup_bridge" "Bring bridge interfaces up"
-    centos && firewalld_running && check "disable_firewalld" "Disabling firewalld"
     [[ "$FORWARD" = 0 ]] && {
         check "sysctl -w net.ipv4.ip_forward=1 >/dev/null" "Enabling IPv4 forward"
         check "grep -q \"^net.ipv4.ip_forward=1$\" /etc/sysctl.conf || \
