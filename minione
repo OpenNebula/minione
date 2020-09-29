@@ -1558,7 +1558,7 @@ title "Configuration"
 lxd && {
     check "sed_subst \"\s*:command: \\/bin\\/login\" \"  :command: \\/bin\\/bash\" \"/var/lib/one/remotes/etc/vmm/lxd/lxdrc\""\
     "Switching VNC command to /bin/bash in lxdrc"
-i   check "sed_subst \"\s*:command => '\\/bin\\/login'\" \"            :command => '\\/bin\\/bash'\" \"/var/lib/one/remotes/vmm/lxd/opennebula_vm.rb\""\
+    check "sed_subst \"\s*:command => '\\/bin\\/login'\" \"            :command => '\\/bin\\/bash'\" \"/var/lib/one/remotes/vmm/lxd/opennebula_vm.rb\""\
     "Switching VNC command to /bin/bash in opennebula_vm.rb"
 }
 
