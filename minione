@@ -44,10 +44,13 @@ DELETE_ONEADMIN='yes'
 EDGE="no"
 EDGE_MARKET_APP_NAME="Service WordPress - KVM"
 EDGE_DEFAULT_APP='yes'
-EDGE_PACKET_FACILITY="ams1"
-EDGE_PACKET_PLAN="t1.small"
 EDGE_HOST_NUM="1"
-EDGE_PACKET_OS="ubuntu_18_04"
+PACKET_FACILITY="ams1"
+PACKET_PLAN="t1.small"
+PACKET_OS="ubuntu_18_04"
+AWS_REGION="us-east-1"
+AWS_INST_TYPE="t2.small"
+AWS_AMI="ami-0d6e9a57f6259ba3a"
 
 e() {
   SPACE_NUM=$(( 35+${#2}-${#1} ))
@@ -83,15 +86,23 @@ usage() {
     e "--vnet-ar-ip-start [${VNET_AR_IP_START}]"  "Virtual Network AR start IP"
     e "--vnet-ar-ip-count [100]"                  "Virtual Network AR size"
     e ""
-    e "--edge [packet]"                           "Edge provider"
-    e "--edge-packet-token [<token>]"             "Packet token (required with '--edge packet')"
-    e "--edge-packet-project [<project>]"         "Packet project (required with '--edge packet')"
+    e "--edge [aws|packet]"                       "Edge provider, 'aws' or 'packet'"
     e "--edge-host-num [$EDGE_HOST_NUM]"          "Number of edge hosts"
-    e "--edge-packet-facility [$EDGE_PACKET_FACILITY]" "Packet facility"
-    e "--edge-packet-plan [$EDGE_PACKET_PLAN]"    "Packet plan"
-    e "--edge-packet-os [$EDGE_PACKET_OS]"        "Packet OS"
     e "--edge-marketapp-name [$EDGE_MARKET_APP_NAME]"
-    e ""                                          "Market app name for Packet"
+    e ""                                          "Market app name for AWS orPacket"
+
+    e "--aws-access-key [<access-key>]"           "AWS access key token (required with '--edge aws')"
+    e "--aws-secret-key [<secret-key>]"           "AWS secret key (required with '--edge aws')"
+    e "--aws-region [$AWS_REGION]"                "AWS region"
+    e "--aws-instance-type [$AWS_INST_TYPE]"      "AWS instance type"
+    e "--aws-ami [$AWS_AMI]"                      "AWS image (has to be available in region)"
+    e ""
+
+    e "--packet-token [<token>]"                  "Packet token (required with '--edge packet')"
+    e "--packet-project [<project>]"              "Packet project (required with '--edge packet')"
+    e "--packet-facility [$PACKET_FACILITY]"      "Packet facility"
+    e "--packet-plan [$PACKET_PLAN]"        i     "Packet plan"
+    e "--packet-os [$PACKET_OS]"                  "Packet OS"
     e ""
     e "--purge"                                   "Only uninstall and exit"
     e "--preserve-user"                           "Dont't delete oneadmin user when purge"
@@ -106,9 +117,10 @@ PARAMETERS=$(cat <<EOF
     bridge-interface:,nat-interface:,vnet-address:,vnet-netmask:,
     vnet-gateway:,vnet-ar-ip-start:,vnet-ar-ip-count:,marketapp-name:,
     vm-password:,lxd,firecracker,sunstone-port:,purge,preserve-user,edge:,
-    edge-host-num:,edge-marketapp-name:,edge-packet-token:,
-    edge-packet-project:,edge-packet-facility:,edge-packet-plan:,
-    edge-packet-os:,fc-marketapp-name:,fc-kernel-name:,repo-base:
+    edge-host-num:,edge-marketapp-name:,
+    aws-access-key:,aws-secret-key:,aws-region:,aws-instance-type:,aws-ami:,
+    packet-token:,packet-project:,packet-facility:,packet-plan:,
+    packet-os:,fc-marketapp-name:,fc-kernel-name:,repo-base:
 EOF
 )
 
@@ -146,10 +158,8 @@ LIBVIRTD='libvirtd'
 ONE_WAIT_TIMEOUT=60
 IMAGE_WAIT_TIMEOUT=300
 STAR_NET=''
-ONE_SERVICES='opennebula opennebula-sunstone opennebula-flow opennebula-gate'
 FRC_KERNEL_PARAMS="console=ttyS0 reboot=k panic=1 pci=off i8042.noaux i8042.nomux i8042.nopnp i8042.dumbkbd"
-PACKET_TEMPLATE=''
-PACKET_LAST_ID=''
+FIREEDGE_NODE_VER="12"
 PLAYBOOK='default'
 HYPERVISOR='kvm'
 AUGEAS_PKG='augeas-tools'
@@ -157,6 +167,10 @@ PIP='pip'
 PYTHON_PIP='python-pip'
 VM_TEMPLATE_ID=''
 REPO_BASE=''
+HAVE_CURL=false
+HAVE_WGET=false
+INSTALL_TERRAFORM=false
+TERRAFORM_URL='https://releases.hashicorp.com/terraform/0.13.6/terraform_0.13.6_linux_amd64.zip'
 
 while true ; do
     case "$1" in
@@ -166,7 +180,7 @@ while true ; do
         --yes) ASK="no"; shift;;
         --frontend) FRONTEND='yes'; NODE="no"; NETWORKING="no"; shift;;
         --node) FRONTEND="no"; NODE="yes"; shift;;
-        --version) VERSION="$2" ; shift 2;;
+        --version) VERSION="$2"; VERSION_GIVEN="yes" ; shift 2;;
         --ssh-pubkey) SSH_PUBKEY="$2" ; shift 2;;
         --password) PASSWORD="$2" ; shift 2;;
         --bridge-interface) BRIDGE_INTERFACE="$2" ; shift 2;;
@@ -188,11 +202,16 @@ while true ; do
         --edge) EDGE="$2"; NETWORKING="no"; shift 2;;
         --edge-host-num) EDGE_HOST_NUM="$2"; shift 2;;
         --edge-marketapp-name) EDGE_MARKET_APP_NAME="$2"; EDGE_DEFAULT_APP='no'; shift 2;;
-        --edge-packet-token) EDGE_PACKET_TOKEN="$2"; shift 2;;
-        --edge-packet-project) EDGE_PACKET_PROJECT="$2"; shift 2;;
-        --edge-packet-facility) EDGE_PACKET_FACILITY="$2"; shift 2;;
-        --edge-packet-plan) EDGE_PACKET_PLAN="$2"; shift 2;;
-        --edge-packet-os) EDGE_PACKET_OS="$2"; shift 2;;
+        --aws-access-key) AWS_ACC_KEY="$2"; shift 2;;
+        --aws-secret-key) AWS_SEC_KEY="$2"; shift 2;;
+        --aws-region) AWS_REGION="$2"; shift 2;;
+        --aws-instance-type) AWS_INST_TYPE="$2"; shift 2;;
+        --aws-ami) AWS_AMI="$2"; shift 2;;
+        --packet-token) PACKET_TOKEN="$2"; shift 2;;
+        --packet-project) PACKET_PROJECT="$2"; shift 2;;
+        --packet-facility) PACKET_FACILITY="$2"; shift 2;;
+        --packet-plan) PACKET_PLAN="$2"; shift 2;;
+        --packet-os) PACKET_OS="$2"; shift 2;;
         --repo-base) REPO_BASE="$2"; shift 2;;
         --) shift ; break ;;
         *)  usage; exit 1 ;;
@@ -209,29 +228,39 @@ for I in 1 2 3 4; do
     STAR_NET=$(echo "${STAR_NET}" |sed -e 's/\(.*\)\.0\([0\.\*]*\)$/\1.*\2/')
 done
 
+# compare version strings
+verlte() {
+    [  "$1" = "$(echo -e "$1\n$2" | sort -V | head -n1)" ]
+}
+
 #-------------------------------------------------------------------------------
 # Options validation
 #-------------------------------------------------------------------------------
-if [[ $EDGE != no && $EDGE != packet ]]; then
-    echo 'Only "packet" type of edge installation is supported'
+if [[ $EDGE != no && $EDGE != packet && $EDGE != aws ]]; then
+    echo 'Only "aws" and "packet" type of edge installation is supported'
     exit 1
 fi
 
-if [[ $EDGE = packet ]]; then
+if [[ $EDGE != no ]]; then
     EXIT=0
-    [[ -z "$EDGE_PACKET_TOKEN" ]] && { echo "--edge-packet-token required"; EXIT=1; }
-    [[ -z "$EDGE_PACKET_PROJECT" ]] && { echo "--edge-packet-project required"; EXIT=1; }
-    [[ ! "$VERSION" =~ 5.10|5.12 ]] && { echo "Edge deployment only for 5.10 or 5.12"; EXIT=1; }
+    if [[ $EDGE = packet ]]; then
+        [[ -z "$PACKET_TOKEN" ]] && { echo "--packet-token required"; EXIT=1; }
+        [[ -z "$PACKET_PROJECT" ]] && { echo "--packet-project required"; EXIT=1; }
+    elif [[ $EDGE = aws ]]; then
+        [[ -z "$AWS_ACC_KEY" ]] && { echo "--aws-access-key required"; EXIT=1; }
+        [[ -z "$AWS_SEC_KEY" ]] && { echo "--aws-secret-key required"; EXIT=1; }
+    fi
+    ! verlte 5.12 $VERSION && { echo "New edge deployment only for 6.0+"; EXIT=1; }
     [[ $EXIT != 0 ]] && exit $EXIT
     MARKET_APP_NAME="$EDGE_MARKET_APP_NAME"
 fi
 
 if [[ $NODE = yes && $FRONTEND = no ]]; then
-    [[ $EDGE = "no" ]] && { echo "--node only valid with --edge packet";  exit 1; }
+    [[ $EDGE = "no" ]] && { echo "--node only valid with --edge";  exit 1; }
 fi
 
 if [[ $FRC == yes ]]; then
-    [[ ! "$VERSION" =~ 5.11|5.12 ]] && { echo "Firecracker only available for 5.11 or 5.12"; exit 1; }
+    ! verlte 5.11 $VERSION && { echo "Firecracker only available for 5.12 and newer"; exit 1; }
     PLAYBOOK="default_firecracker"
     HYPERVISOR="firecracker"
     MARKET_APP_NAME="$FRC_MARKET_APP_NAME"
@@ -399,6 +428,12 @@ check() {
     fi
 }
 
+fail() {
+    echo -ne "$1  "
+    red "FAILED"
+    exit 1
+}
+
 run_and_print_if_failed() {
     eval "$@" >/dev/null
     local RC=$?
@@ -421,6 +456,10 @@ debian() {
     [[ "$DISTNAME" =~ Ubuntu|Debian ]]
 }
 
+older_os() {
+    [[ "${DISTNAME}${DISTVER}" =~ ^(CentOS7|Debian9|Ubuntu16.04|Ubuntu18.04)$ ]]
+}
+
 firewalld_running() {
     systemctl -q is-active firewalld
 }
@@ -435,6 +474,14 @@ kvm() {
 
 packet() {
     [[ $EDGE == packet ]]
+}
+
+aws() {
+    [[ $EDGE == aws ]]
+}
+
+edge() {
+    aws || packet
 }
 
 lxd() {
@@ -473,9 +520,11 @@ repo_exists() {
     else
         URL="${REPO_BASE}/${DISTNAME}/${DISTVER}"
         if type -t curl >/dev/null; then
+            HAVE_CURL=true
             run_and_print_if_failed "curl -f -s -S $URL"
         elif type -t wget >/dev/null; then
-             wget "$URL"
+            HAVE_WGET=true
+            wget "$URL"
         else
             echo "Missing curl/wget to check repository" >&2
             return 2
@@ -730,35 +779,38 @@ enable_epel() {
 }
 
 install_opennebula_pkgs() {
-    if centos; then
-        install "opennebula-server opennebula-sunstone opennebula-ruby "\
-            "opennebula-gate opennebula-flow" || return 1
-
-    elif debian; then
-        install "opennebula opennebula-sunstone opennebula-gate "\
-            "opennebula-flow" || return 1
-    fi
+    install $ONE_FE_PKGS || return 1
     systemctl daemon-reload
 }
 
-install_opennebula_kvm_pkgs() {
+install_fireedge_deps() {
     if centos; then
-        install opennebula-node-kvm || return 1
+        install centos-release-scl-rh
+    else
+        local KEY='https://keyserver.ubuntu.com/pks/lookup?op=get&fingerprint=on&search=0x1655A0AB68576280'
+        local URL="https://deb.nodesource.com/node_$FIREEDGE_NODE_VER.x"
+        wget -q -O- $KEY | apt-key add - >/dev/null || return 1
+        add-apt-repository -s "deb $URL $(lsb_release -cs) main" || return 1
+        apt-get -q -y update >/dev/null || return 1
 
-        if redhat; then
-            subscription-manager repos --enable \
-                rhel-7-server-rhv-4-mgmt-agent-rpms || return 1
-            install qemu-kvm-rhev || return 1
-        else
-            if [[ "${DISTVER}" = 7 ]]; then
-                run_and_print_if_failed \
-                    "yum --quiet -y update centos-release"
-                install centos-release-qemu-ev || return 1
-                install qemu-kvm-ev || return 1
-            fi
+        install nodejs=${FIREEDGE_NODE_VER}*
+    fi
+}
+
+install_opennebula_kvm_pkgs() {
+    install opennebula-node-kvm || return 1
+
+    if redhat; then
+        subscription-manager repos --enable \
+            rhel-7-server-rhv-4-mgmt-agent-rpms || return 1
+        install qemu-kvm-rhev || return 1
+    elif centos; then
+        if [[ "${DISTVER}" = 7 ]]; then
+            run_and_print_if_failed \
+                "yum --quiet -y update centos-release"
+            install centos-release-qemu-ev || return 1
+            install qemu-kvm-ev || return 1
         fi
-    elif debian; then
-        install opennebula-node
     fi
 }
 
@@ -772,9 +824,7 @@ install_opennebula_frc_pkgs() {
 
 uninstall_opennebula_pkgs() {
     if centos; then
-        yum --quiet -y remove opennebula-node-kvm opennebula-server \
-            opennebula-sunstone  opennebula-ruby opennebula-gate \
-            opennebula-flow opennebula-common opennebula-rubygems
+        yum --quiet -y remove opennebula-node-kvm $ONE_FE_PKGS
         systemctl restart ${LIBVIRTD} || true
 
         if redhat; then
@@ -783,9 +833,8 @@ uninstall_opennebula_pkgs() {
             yum --quiet -y remove qemu-kvm-ev >/dev/null || true
         fi
     elif debian; then
-        apt-get purge -q -y opennebula-node opennebula \
-            opennebula-sunstone opennebula-gate opennebula-flow \
-            opennebula-common opennebula-rubygems >/dev/null
+        apt-get purge -q -y $ONE_FE_PKGS >/dev/null
+        apt-get purge -q -y opennebula-node-kvm >/dev/null
         systemctl restart ${LIBVIRTD} || true
     fi
 }
@@ -813,6 +862,23 @@ install_docker() {
     fi
 }
 
+detect_installed_version() {
+    if centos; then
+        if RPM_STR=$(rpm -q opennebula-sunstone 2>/dev/null); then
+            VERSION=$(echo $RPM_STR | awk -F- '{print $3}' | cut -d. -f1,2)
+        else
+            return 1
+        fi
+    else
+        if DEB_STR=$(dpkg-query -W opennebula-sunstone 2>/dev/null); then
+            VERSION=$(echo $DEB_STR | awk -F- '{print $3}' | cut -d. -f1,2)
+        else
+            return 1
+        fi
+    fi
+}
+
+
 # Initialize some usefull vars
 NETMASK_BITS=$(mask2cidr "${VNET_NETMASK}")
 read -r DISTNAME DISTVER <<<"$(get_distname_and_version)"
@@ -822,7 +888,31 @@ read -r DISTNAME DISTVER <<<"$(get_distname_and_version)"
 
 centos && AUGEAS_PKG='augeas'
 
+if [[ "$PURGE" = "yes" ]] && [[ "$VERSION_GIVEN" != "yes" ]]; then
+    check "detect_installed_version" "Detecting ONE installed version" 1 \
+        "SKIP Will try to uninstall default $VERSION"
+fi
 
+# 5.13 and newer
+if verlte 5.13 $VERSION; then
+    ONE_SERVICES='opennebula opennebula-sunstone opennebula-fireedge '
+    ONE_SERVICES+='opennebula-flow opennebula-gate'
+
+    ONE_FE_PKGS='opennebula opennebula-common opennebula-common-onecfg
+                 opennebula-flow opennebula-fireedge opennebula-gate
+                 opennebula-libs opennebula-rubygems opennebula-sunstone
+                 opennebula-tools opennebula-guacd'
+# up to 5.12
+else
+    ONE_SERVICES='opennebula opennebula-sunstone opennebula-flow opennebula-gate'
+
+    if centos; then
+        ONE_FE_PKGS='opennebula-server opennebula-sunstone opennebula-ruby
+                     opennebula-gate opennebula-flow'
+    else
+        ONE_FE_PKGS='opennebula opennebula-sunstone opennebula-gate opennebula-flow'
+    fi
+fi
 
 #-------------------------------------------------------------------------------
 # Uninstall
@@ -872,7 +962,7 @@ clean() {
 packet_req() {
     local URL="$1"
     shift
-    curl -H "X-Auth-Token: $EDGE_PACKET_TOKEN" -s "$@" "https://api.packet.net$URL"
+    curl -H "X-Auth-Token: $PACKET_TOKEN" -s "$@" "https://api.packet.net$URL"
 }
 
 validate_packet() {
@@ -901,24 +991,24 @@ validate_packet() {
 }
 
 validate_packet_plan_facility() {
-    URL="/projects/$EDGE_PACKET_PROJECT/plans/"
+    URL="/projects/$PACKET_PROJECT/plans/"
     DATA=$(packet_req "$URL")
-    AVAILABLE_FACILITY_IDS=$(echo "$DATA" | jq -r ".plans | .[] | select(.name==\"$EDGE_PACKET_PLAN.x86\") | .\"available_in\" | .[] | .href" | awk -F/ '{print $3}')
+    AVAILABLE_FACILITY_IDS=$(echo "$DATA" | jq -r ".plans | .[] | select(.name==\"$PACKET_PLAN.x86\") | .\"available_in\" | .[] | .href" | awk -F/ '{print $3}')
     if [ -z "$AVAILABLE_FACILITY_IDS" ]; then
         echo "Can not list Packet project plans"
         return 1
     fi
 
-    URL="/projects/$EDGE_PACKET_PROJECT/facilities/"
+    URL="/projects/$PACKET_PROJECT/facilities/"
     DATA=$(packet_req "$URL")
-    REQUIRED_FACILITY_ID=$(echo "$DATA" |jq -r ".facilities | .[] | select(.code==\"$EDGE_PACKET_FACILITY\") | .id")
+    REQUIRED_FACILITY_ID=$(echo "$DATA" |jq -r ".facilities | .[] | select(.code==\"$PACKET_FACILITY\") | .id")
     if [ -z "$REQUIRED_FACILITY_ID" ]; then
         echo "Can not list Packet project facilities"
         return 1
     fi
 
     if [[ ! $AVAILABLE_FACILITY_IDS =~ $REQUIRED_FACILITY_ID ]]; then
-        echo "Required Packet plan($EDGE_PACKET_PLAN) is not available in facility($EDGE_PACKET_FACILITY)"
+        echo "Required Packet plan($PACKET_PLAN) is not available in facility($PACKET_FACILITY)"
         return 1
     fi
 }
@@ -957,6 +1047,11 @@ check "type -t augtool >/dev/null" "Checking augeas is installed" 1 \
 
 check "type -t curl >/dev/null" "Checking curl is installed" 1 \
     "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} curl"
+
+debian && {
+    check "type -t add-apt-repository >/dev/null" "Checking add-apt-repository is available" 1 \
+       "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} software-properties-common"
+}
 
 frontend && {
     # check available disk space on /var
@@ -1062,11 +1157,11 @@ networking && {
 
 kvm || lxd && {
     # check if the requested app name exists on market place
-    if type -t curl >/dev/null; then
+    if $HAVE_CURL; then
         check "curl -s -H \"${JSON_HEADERS}\" ${APPS_URL} \
             | grep '\"name\":\"${MARKET_APP_NAME}\"' >/dev/null" \
             "Checking presence of the market app: \"$MARKET_APP_NAME\"" 3 "Not found"
-    elif type -t wget > /dev/null; then
+    elif $HAVE_WGET; then
         check "wget --quiet -O - --header \"${JSON_HEADERS}\" ${APPS_URL} \
             | grep '\"name\":\"${MARKET_APP_NAME}\"' >/dev/null" \
             "Checking presence of the market app: \"$MARKET_APP_NAME\"" 3 "Not found"
@@ -1078,14 +1173,14 @@ kvm || lxd && {
 
 frc && {
     # check if the requested app name exists on market place
-    if type -t curl >/dev/null; then
+    if $HAVE_CURL; then
         check "curl -s -H \"${JSON_HEADERS}\" -I ${DOCKERHUB_URL}/${FRC_MARKET_APP_NAME}/ \
             | grep  'HTTP.*OK' >/dev/null" \
             "Checking presence of the dockerhub image: \"${FRC_MARKET_APP_NAME}\"" 3 "Not found"
         check "curl -s -H \"${JSON_HEADERS}\" ${APPS_URL} \
             | grep '\"name\":\"${FRC_KERNEL_NAME}\"' >/dev/null" \
             "Checking presence of the market app: \"$FRC_KERNEL_NAME\"" 3 "Not found"
-    elif type -t wget > /dev/null; then
+    elif $HAVE_WGET; then
         check "wget -S -O /dev/null --header \
             \"${JSON_HEADERS}\" ${DOCKERHUB_URL}/${FRC_MARKET_APP_NAME}/ 2>&1 \
             | grep  'HTTP.*OK' >/dev/null" \
@@ -1097,48 +1192,45 @@ frc && {
         # Always fail, but continue with info when --force was given
         check "false" "Missing curl/wget to check market app" 1 "IGNORE Can't check"
     fi
-
-    debian && ! packet && {
-        check "type -t add-apt-repository >/dev/null" "Checking add-apt-repository is available" 1 \
-           "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} software-properties-common"
-    }
 }
 
-node && packet && {
-    if check "type -t curl" "Checking curl is installed" 1 "IGNORE can't validate Packet parameters" "Install curl package first"; then
+node && edge && {
+    if ! $HAVE_CURL; then
+        fail "Missing curl to validate edge paramters, install curl package first"
+    fi
+
+    packet && {
         if check "type -t jq" "Checking jq is installed" 1 "IGNORE can't validate Packet parameters" "Install jq package first"; then
-            check "validate_packet projects id $EDGE_PACKET_PROJECT" "Checking Packet token and project"
-            check "validate_packet facilities code $EDGE_PACKET_FACILITY /projects/$EDGE_PACKET_PROJECT" "Checking Packet facility"
-            check "validate_packet operating-systems slug $EDGE_PACKET_OS" "Checking Packet operating system"
-            check "validate_packet plans name ${EDGE_PACKET_PLAN}.x86 /projects/$EDGE_PACKET_PROJECT" "Checking Packet plan"
+            check "validate_packet projects id $PACKET_PROJECT" "Checking Packet token and project"
+            check "validate_packet facilities code $PACKET_FACILITY /projects/$PACKET_PROJECT" "Checking Packet facility"
+            check "validate_packet operating-systems slug $PACKET_OS" "Checking Packet operating system"
+            check "validate_packet plans name ${PACKET_PLAN}.x86 /projects/$PACKET_PROJECT" "Checking Packet plan"
             check "validate_packet_plan_facility" "Checking packet facility and plan"
         fi
+    }
 
-        ! frc && check "curl -s -H \"${JSON_HEADERS}\" ${APPS_URL} \
-            | grep '\"name\":\"${EDGE_MARKET_APP_NAME}\"' >/dev/null" \
-            "Checking presence of the market app: \"$EDGE_MARKET_APP_NAME\"" 3 "Not found"
-    fi
+    ! frc && check "curl -s -H \"${JSON_HEADERS}\" ${APPS_URL} \
+        | grep '\"name\":\"${EDGE_MARKET_APP_NAME}\"' >/dev/null" \
+        "Checking presence of the market app: \"$EDGE_MARKET_APP_NAME\"" 3 "Not found"
 
     check "type -t $PIP >/dev/null" "Checking ${PYTHON_PIP} is installed" 1 \
        "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} ${PYTHON_PIP}"
 
     if type -t ansible >/dev/null; then
         ANSIBLE_VERSION=$(ansible --version | head -1 | tr -cd '[:digit:]' | cut -c 1,2)
-        if [ "$VERSION" = "5.10" ]; then
-            check "[[ \"$ANSIBLE_VERSION\" =~ \"25\" ]]" \
-                "Checking ansible version (>=2.5.0, <2.6.0)"
-        elif [ "$VERSION" = "5.12" ]; then
-            check "[[ \"$ANSIBLE_VERSION\" =~ \"28\" ]]" \
-                "Checking ansible version (>=2.8.0, <2.9.0)"
-        fi
+        check "[[ \"$ANSIBLE_VERSION\" =~ \"29\" ]]" "Checking ansible version (2.9.*)"
     else
-        if [ "$VERSION" = "5.10" ]; then
-            check "false" "Checking ansible" 1 "SKIP will try to install" \
-                || MISSING_PIP_PKGS="'ansible>=2.5.0,<2.6.0'"
-        elif [ "$VERSION" = "5.12" ]; then
-            check "false" "Checking ansible" 1 "SKIP will try to install" \
-                || MISSING_PIP_PKGS="'ansible>=2.8.0,<2.9.0'"
-        fi
+        check "false" "Checking ansible" 1 "SKIP will try to install" \
+            || MISSING_PIP_PKGS="'ansible==2.9.9'"
+    fi
+
+    if type -t terraform >/dev/null; then
+        TERRAFORM_VERSION=$(terraform --version | head -1 | cut -d ' ' -f 2)
+        check "[[ \"$TERRAFORM_VERSION\" = \"v0.13.6\" ]]" \
+            "Checking terrafrom version (v0.13.6)"
+    else
+        check "false" "Checking terraform" 1 "SKIP will try to install"
+        INSTALL_TERRAFORM=true
     fi
 }
 
@@ -1150,7 +1242,7 @@ node && packet && {
 title "Main deployment steps:"
 frontend && echo "Install OpenNebula frontend version ${VERSION}"
 
-node && ! packet && {
+node && ! edge && {
     centos && firewalld_running     && echo "Disable_firewalld"
     echo "Configure bridge ${BRIDGE_INTERFACE} with IP ${VNET_GATEWAY}/${NETMASK_BITS}"
     echo "Enable NAT over ${NAT_INTERFACE}"
@@ -1161,16 +1253,17 @@ node && ! packet && {
     echo "Export appliance and update VM template"
 }
 
-packet && {
-    echo "Install ONEProvision"
-    echo "Configure IPAM Packet, alias IP mapping driver, VM hooks"
-    node && echo "Trigger oneprovision"
-    node && echo "Export appliance and update VM template"
-}
-
 [[ "${CLEAN}" = yes ]]            && echo "Clean oneadmin home"
 [[ "${DISABLE_SELINUX}" = yes ]]  && echo "Disable SELinux"
 [[ -n "${MISSING_PKGS}" ]]        && echo "Install ${MISSING_PKGS}"
+[[ -n "${MISSING_PIP_PKGS}" ]]    && echo "Install pip ${MISSING_PIP_PKGS}"
+
+edge && {
+    echo "Install ONEProvision"
+    node && $INSTALL_TERRAFORM && echo "Install Terraform"
+    node && echo "Run oneprovision"
+    node && echo "Export appliance and update VM template"
+}
 
 echo ""
 echo "Do you agree? [yes/no]:"
@@ -1218,6 +1311,7 @@ debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 frontend && {
     redhat && check "enable_rhel_extra_repos" "Enabling RHEL 7 extra & opt repositories"
     centos && check "enable_epel" "Installing EPEL"
+    older_os && check "install_fireedge_deps" "Installing FireEdge dependencies"
     check "install_opennebula_pkgs" "Installing OpenNebula packages" 3
 }
 
@@ -1227,11 +1321,11 @@ elif lxd && ! packet; then
     check "install_opennebula_lxd_pkgs" "Installing OpenNebula lxd node packages" 3
 elif frc && ! packet; then
     check "install_opennebula_frc_pkgs" "Installing OpenNebula firecracker node packages" 3
-elif packet; then
+elif edge; then
     check "install opennebula-provision" "Installing opennebula-provision package " 3
 fi
 
-if kvm || lxd && ! packet ; then
+if kvm || lxd && ! edge ; then
     [[ "${ENABLED_APPARMOR}" = 'yes' ]] && check "modify_apparmor" "Updating AppArmor"
     check "rm -f /etc/libvirt/qemu/networks/autostart/default.xml" \
         "Disable default libvirtd networking"
@@ -1296,6 +1390,12 @@ set_sunstone_port() {
         RUBY=$(readlink -f /usr/bin/ruby)
         setcap 'cap_net_bind_service=+ep' "$RUBY"
     fi
+}
+
+set_fireedge_endpoint() {
+    sed_subst ":public_fireedge_endpoint:.*" \
+        ":public_fireedge_endpoint: http:\/\/$(get_my_ip):2616" \
+        /etc/one/sunstone-server.conf
 }
 
 one_is_ready() {
@@ -1411,129 +1511,92 @@ ensure_hostname_resolvable() {
     set +e
 }
 
-packet_conf_oned() {
+install_terraform() {
     set -e -o pipefail
-    aug_set "MONITORING_INTERVAL_HOST" "1000"
-    aug_set "MONITORING_INTERVAL_VM" "300"
-    aug_set "IPAM_MAD/ARGUMENTS" '"-t 1 -i dummy,packet"'
-
-    aug_set "VN_MAD_CONF[NAME = '\"bridge\"']/BRIDGE_TYPE" '"linux"'
-
-    aug_set "VN_MAD_CONF[NAME = '\"alias_sdnat\"']/NAME" '"alias_sdnat"'
-    aug_set "VN_MAD_CONF[NAME = '\"alias_sdnat\"']/BRIDGE_TYPE" '"linux"'
+    curl -s -o /tmp/terraform.zip $TERRAFORM_URL
+    unzip /tmp/terraform.zip -d /usr/bin
+    rm /tmp/terraform.zip
     set +e
 }
 
-packet_conf_hooks() {
-    set -e -o pipefail
-    onehook show alias_ip_done    >/dev/null 2>&1 || onehook create /usr/share/one/examples/alias_ip/done_hook
-    onehook show alias_ip_hotplug >/dev/null 2>&1 || onehook create /usr/share/one/examples/alias_ip/hotplug_hook
-    onehook show alias_ip_running >/dev/null 2>&1 || onehook create /usr/share/one/examples/alias_ip/running_hook
-    set +e
-}
+create_oneprovider() {
+    local TMP_FILE
+    TMP_FILE=$(mktemp) || return 1
 
-get_next_packet_id() {
-    local ID
-    ID=$(onecluster list -l ID | grep -E '[0-9]+' | sort | tail -1)
-    if [[ -z "$ID" || "$ID" -lt 100 ]]; then
-        ID=100
-    else
-        ID=$(( ID + 1 ))
+    if packet; then
+        cat > "${TMP_FILE}"<< EOF
+name: 'packet'
+description: 'Elastic cluster on Packet'
+provider: 'packet'
+
+plain:
+  provision_type: 'hybrid+'
+  image: 'EQUINIX.webp'
+
+location_key: 'facility'
+connection:
+  token: '${PACKET_TOKEN}'
+  project: '${PACKET_PROJECT}'
+  facility: '${PACKET_FACILITY}'
+
+inputs:
+   - name: 'packet_os'
+   - name: 'packet_plan'
+EOF
+
+    elif aws; then
+        cat > "${TMP_FILE}"<< EOF
+name: 'aws'
+description: 'Elastic cluster on AWS'
+provider: 'aws'
+plain:
+  provision_type: 'hybrid+_qemu'
+  image: 'AWS.webp'
+location_key: 'region'
+connection:
+  access_key: '${AWS_ACC_KEY}'
+  secret_key: '${AWS_SEC_KEY}'
+  region: '${AWS_REGION}'
+inputs:
+   - name: 'aws_ami_image'
+   - name: 'aws_instance_type'
+EOF
     fi
-    echo $ID
+
+    oneprovider create $TMP_FILE
 }
 
-packet_template() {
-    PACKET_TEMPLATE=$(mktemp) || return 1
-    PACKET_LAST_ID=$(get_next_packet_id)
+validate_oneprovision() {
+    if aws;  then
+        cd /usr/share/one/oneprovision/provisions/hybrid+_qemu/provisions
+    elif packet; then
+        cd /usr/share/one/oneprovision/provisions/hybrid+/provisions
+    fi
 
-    cat >> "$PACKET_TEMPLATE" << EOF || return 1
----
-name: PacketProvision-${PACKET_LAST_ID}
-playbook: $PLAYBOOK
-
-defaults:
-  provision:
-    driver: packet
-    packet_project: $EDGE_PACKET_PROJECT
-    packet_token: $EDGE_PACKET_TOKEN
-    facility: $EDGE_PACKET_FACILITY
-    plan: $EDGE_PACKET_PLAN
-    os: $EDGE_PACKET_OS
-  connection:
-    remote_user: root
-  configuration:
-    opennebula_node_kvm_use_ev: true
-    iptables_masquerade_enabled: false
-
-hosts:
-EOF
-
-    # HOSTS
-    for I in $(seq 1 "$EDGE_HOST_NUM"); do
-        cat >> "$PACKET_TEMPLATE" << EOF || return 1
-  - reserved_cpu: 50
-    im_mad: $HYPERVISOR
-    vm_mad: $HYPERVISOR
-    provision:
-      hostname: packet-host-${PACKET_LAST_ID}-$I
-
-EOF
-    done
-
-    cat >> "$PACKET_TEMPLATE" << EOF || return 1
-cluster:
-  name: PacketCluster-${PACKET_LAST_ID}
-
-datastores:
-  - name: packet-${PACKET_LAST_ID}-default
-    ds_mad: fs
-    tm_mad: ssh
-  - name: packet-${PACKET_LAST_ID}-system
-    type: system_ds
-    tm_mad: ssh
-    safe_dirs: '/var/tmp /tmp'
-  - name: packet-${PACKET_LAST_ID}-files
-    type: file_ds
-    tm_mad: ssh
-    ds_mad: fs
-    safe_dirs: '/var/tmp /tmp'
-
-networks:
-  - name:        "packet-${PACKET_LAST_ID}-host-only"
-    vn_mad:      "dummy"
-    bridge:      "br0"
-    dns:         "8.8.8.8 8.8.4.4"
-    gateway:     "192.168.150.1"
-    description: "Host-only networking"
-    ar:
-      - ip:   "192.168.150.2"
-        size: "253"
-        type: "IP4"
-
-  - name: "packet-${PACKET_LAST_ID}-public"
-    vn_mad: alias_sdnat
-    external: yes
-    description: "Packet Public IP Networking"
-    ar:
-      - size: 2
-        type: IP4
-        ipam_mad: packet
-        packet_ip_type: public_ipv4
-        packet_token: $EDGE_PACKET_TOKEN
-        packet_project: $EDGE_PACKET_PROJECT
-        facility: $EDGE_PACKET_FACILITY
-EOF
-
+    oneprovision validate $EDGE.yml
 }
 
-packet_provision() {
+run_oneprovision() {
     echo "Running oneprovision"
+
     sudo -u oneadmin touch /var/lib/one/.ssh/known_hosts
-    chown oneadmin:oneadmin "$PACKET_TEMPLATE"
+
+    INPUTS="number_hosts=$EDGE_HOST_NUM,"
+
+    if aws; then
+        INPUTS+="aws_ami_image=$AWS_AMI,"
+        INPUTS+="aws_instance_type=$AWS_INST_TYPE,"
+        INPUTS+="number_public_ips=1"
+
+    elif packet; then
+        INPUTS+="packet_plan=$PACKET_PLAN,"
+        INPUTS+="packet_os=$PACKET_OS,"
+        INPUTS+="number_public_ips=1"
+    fi
 
     [[ ${VERBOSE} = 'yes' ]] && PARAMS="-D"
-    if sudo PATH="$PATH":/usr/local/bin -H -u oneadmin oneprovision create "$PACKET_TEMPLATE" --batch --fail-cleanup --ping-timeout 60 -d $PARAMS; then
+
+    if oneprovision create "$EDGE.yml" --batch --fail-cleanup --ping-timeout 60 --user-inputs=$INPUTS $PARAMS; then
         green "OK"
     else
         red "FAILED"
@@ -1563,9 +1626,10 @@ lxd && {
 }
 
 
-packet && {
-    check "packet_conf_oned" "Applying packet changes to oned.conf"
-    check "update_ssh_configs '*'" "Update ssh configs to accessing Packet hosts"
+edge && {
+    check "update_ssh_configs '*'" "Update ssh configs to accessing AWS/Packet hosts"
+    check "ssh-keygen -t rsa -P \"\" -f $HOME/.ssh-oneprovision/id_rsa >/dev/null"\
+        "Generating ssh keypair in $HOME/.ssh-oneprovision/id_rsa"
 }
 
 frc && {
@@ -1593,6 +1657,11 @@ frontend && {
     [[ ${SUNSTONE_PORT} != 9869 ]] && check "set_sunstone_port ${SUNSTONE_PORT}"\
         "Changing WebUI to listen on port ${SUNSTONE_PORT}"
 
+    if verlte 5.13 $VERSION; then
+        check "set_fireedge_endpoint ${SUNSTONE_PORT}"\
+            "Switching FireEdge public endpoint"
+    fi
+
     check "systemctl start $ONE_SERVICES" "Starting OpenNebula services"
     check "systemctl enable $ONE_SERVICES" "Enabling OpenNebula services"
     check "add_ssh_keys_to_oneadmin" "Add ssh key to oneadmin user"
@@ -1603,13 +1672,12 @@ frontend && {
 
 check "one_is_ready" "Checking OpenNebula is working"
 
-packet && check "packet_conf_hooks" "Configuring packet hooks"
-
-packet && node && {
+edge && node && {
     check "systemctl restart opennebula" "Restarting OpenNebula"
-    check "packet_template" "Prepare packet template"
-    check "oneprovision validate $PACKET_TEMPLATE" "Checking packet template [$PACKET_TEMPLATE]"
-    packet_provision
+    $INSTALL_TERRAFORM && check "install_terraform" "Installing TerraForm"
+    check "create_oneprovider" "Create oneprovider for $EDGE "
+    check "validate_oneprovision" "Validate $EDGE template"
+    run_oneprovision
 }
 
 networking && {
@@ -1646,6 +1714,7 @@ update_datastores() {
 <DATASTORE>
   $MAD
   <DISK_TYPE>FILE</DISK_TYPE>
+  <LIMIT_MB>50000></LIMIT_MB>
 </DATASTORE>
 EOF
 )
@@ -1759,7 +1828,7 @@ update_template() {
         > "${TMP_FILE}"
 
     # Add network
-    node && ! packet && echo 'NIC=[ NETWORK="vnet", NETWORK_UNAME="oneadmin", SECURITY_GROUPS="0" ]' >> "${TMP_FILE}"
+    node && ! edge && echo 'NIC=[ NETWORK="vnet", NETWORK_UNAME="oneadmin", SECURITY_GROUPS="0" ]' >> "${TMP_FILE}"
 
     # Add LXD_SECURITY_PRIVILEGED="true"
     lxd && echo 'LXD_SECURITY_PRIVILEGED="true"' >> "${TMP_FILE}"
@@ -1775,8 +1844,8 @@ update_template() {
         } >> "${TMP_FILE}"
     }
 
-    # Add Packet default appliance setup and networking
-    packet && {
+    # Add Edge default appliance setup and networking
+    edge && {
         if [ $EDGE_DEFAULT_APP = "yes" ]; then
             sed -i "/^ *ONEAPP_.*$/d" "${TMP_FILE}"
             sed -i "/^ *USER_INPUTS.*$/d" "${TMP_FILE}"
@@ -1786,11 +1855,10 @@ update_template() {
             sed -i "s/CONTEXT=\[/CONTEXT=[ ONEAPP_ADMIN_USERNAME=\"oneadmin\",/" "${TMP_FILE}"
             sed -i "s/CONTEXT=\[/CONTEXT=[ ONEAPP_ADMIN_PASSWORD=\"${PASSWORD}\",/" "${TMP_FILE}"
             sed -i "s/CONTEXT=\[/CONTEXT=[ ONEAPP_ADMIN_EMAIL=\"onedmin@localhost.localdomain\",/" "${TMP_FILE}"
-            sed -i "s/CONTEXT=\[/CONTEXT=[ ONEAPP_SITE_HOSTNAME=\"\$NIC_ALIAS[IP, NETWORK=\\\\\"packet-${PACKET_LAST_ID}-public\\\\\"]\",/" "${TMP_FILE}"
+            sed -i "s/CONTEXT=\[/CONTEXT=[ ONEAPP_SITE_HOSTNAME=\"\$NIC[IP, NETWORK=\\\\\"${EDGE}-cluster-public\\\\\"]\",/" "${TMP_FILE}"
         fi
 
-        echo "NIC = [ NETWORK = \"packet-${PACKET_LAST_ID}-host-only\", NETWORK_UNAME = \"oneadmin\", SECURITY_GROUPS = \"0\" ]" >> "${TMP_FILE}"
-        echo "NIC_ALIAS = [ NETWORK = \"packet-${PACKET_LAST_ID}-public\", PARENT = \"NIC0\", NETWORK_UNAME = \"oneadmin\", SECURITY_GROUPS = \"0\" ]" >> "${TMP_FILE}"
+        echo "NIC = [ NETWORK = \"${EDGE}-cluster-public\", NETWORK_UNAME = \"oneadmin\", SECURITY_GROUPS = \"0\" ]" >> "${TMP_FILE}"
     }
 
     onetemplate update "$ID" "${TMP_FILE}" >/dev/null
@@ -1822,20 +1890,18 @@ frc && ! packet && check "onehost create -i firecracker -v firecracker localhost
 networking && check "create_vnet" "Creating virtual network"
 
 DS_ID=1
-SUFFIX=''
 
-node && packet && {
-    DS_ID=$(onedatastore list --csv -l ID,NAME,TYPE -f TYPE=img -f NAME=packet-"${PACKET_LAST_ID}"-default | awk -F, '{print $1}' | tail -1)
-    SUFFIX="-${EDGE_PACKET_FACILITY}-${PACKET_LAST_ID}"
+node && edge && {
+    DS_ID=$(onedatastore list --csv -l ID,NAME,TYPE -f TYPE=img -f NAME=$EDGE-cluster-image | awk -F, '{print $1}' | tail -1)
 }
 
-check "export_marketapp \"$MARKET_APP_NAME\" \"${DS_ID}\" \"${SUFFIX}\"" "Exporting [${EDGE_MARKET_APP_NAME}] from Marketplace to local datastore"
+check "export_marketapp \"$MARKET_APP_NAME\" \"${DS_ID}\"" "Exporting [${EDGE_MARKET_APP_NAME}] from Marketplace to local datastore"
 check "image_is_ready" "Waiting until the image is ready"
 
 frc && {
     DS_ID=2
     if packet; then
-        DS_ID=$(onedatastore list --csv -l ID,NAME,TYPE -f TYPE=fil -f NAME=packet-"${PACKET_LAST_ID}"-files | awk -F, '{print $1}' | tail -1)
+        DS_ID=$(onedatastore list --csv -l ID,NAME,TYPE -f TYPE=fil -f | awk -F, '{print $1}' | tail -1)
     fi
 
     if ! node || ! oneimage show "kernel" >/dev/null; then
@@ -1863,17 +1929,12 @@ frontend && {
     echo "  password: ${PASSWORD}"
 }
 
-node && packet && {
+node && edge && {
     PROVISION_IDS=$(get_provision_ids)
     if [ -n "$PROVISION_IDS" ]; then
 
-        title "Packet provisioned"
+        title "$EDGE provisioned"
         onehost list
-
-        echo ""
-        echo "To extend the setup by additional hypervisor on Packet run following command:"
-        echo "./minione --edge packet --node --edge-packet-token [<token>] --edge-packet-project [<project>]"
-        echo ""
 
         echo "To cleanup (delete resources in OpenNebula and Packet) run:"
 
