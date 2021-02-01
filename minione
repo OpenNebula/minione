@@ -836,6 +836,7 @@ uninstall_opennebula_pkgs() {
         apt-get purge -q -y $ONE_FE_PKGS >/dev/null
         apt-get purge -q -y opennebula-node-kvm >/dev/null
         systemctl restart ${LIBVIRTD} || true
+        dpkg-statoverride --remove /var/lib/one || true
     fi
 }
 
@@ -870,8 +871,9 @@ detect_installed_version() {
             return 1
         fi
     else
-        if DEB_STR=$(dpkg-query -W opennebula-sunstone 2>/dev/null); then
-            VERSION=$(echo $DEB_STR | awk -F- '{print $3}' | cut -d. -f1,2)
+
+        if DEB_STR=$(dpkg -s opennebula-sunstone 2>/dev/null | grep '^Version:'); then
+            VERSION=$(echo $DEB_STR | awk '{print $2}' | cut -d. -f1,2)
         else
             return 1
         fi
