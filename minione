@@ -165,7 +165,6 @@ HYPERVISOR='kvm'
 AUGEAS_PKG='augeas-tools'
 PIP='pip'
 PYTHON_PIP='python-pip'
-VM_TEMPLATE_ID=''
 REPO_BASE=''
 HAVE_CURL=false
 HAVE_WGET=false
@@ -1036,9 +1035,11 @@ lxd && ! packet && check "supported_dist_ver \"$SUPPORTED_LXD_MAP\"" \
 
 # check cpu flgas for virtualizaton capabilities
 frontend && {
-    kvm && check 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
-        "Checking cpu virtualization capabilities" 1 \
-        "SKIP QEMU will be used" || USE_QEMU='yes';
+    if kvm; then
+        check 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
+            "Checking cpu virtualization capabilities" 1 \
+            "SKIP QEMU will be used" || USE_QEMU='yes'
+    fi
 
     frc && ! packet && check 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
         "Checking cpu virtualization capabilities"
@@ -1783,13 +1784,6 @@ export_marketapp() {
         return 1
     fi
 
-    TEMPLATE_ID=$(tail -1 < "$OUT" | awk '{print $2}')
-
-    # if -1 (kernel) don't update the VM_TEMPLATE_ID
-    if [ $TEMPLATE_ID != -1 ]; then
-        VM_TEMPLATE_ID=$TEMPLATE_ID
-    fi
-
     rm "$OUT"
 }
 
@@ -1814,16 +1808,17 @@ update_template() {
     local ID
     local TMP_FILE
 
-    ID=${1:-0}
+    # the last template
+    ID=$(onetemplate list --no-header -l ID|head -1)
     TMP_FILE=$(mktemp) 2>/dev/null || return 1
 
     # For firecracker delete OS=[...] template entry
     frc && {
-        onedb change-body template --id="$ID" /VMTEMPLATE/TEMPLATE/OS --delete
+        onedb change-body template --id=$ID /VMTEMPLATE/TEMPLATE/OS --delete
     }
 
     # Add root password, report_ready and token setting to context
-    onetemplate show "$ID" | grep CONTEXT -A1000 \
+    onetemplate show $ID | grep CONTEXT -A1000 \
         | sed -e "s/CONTEXT=\[/CONTEXT=[ PASSWORD=\"${VM_PASSWORD}\",/" \
         | sed -e "s/CONTEXT=\[/CONTEXT=[ REPORT_READY=\"YES\",/" \
         | sed -e "s/CONTEXT=\[/CONTEXT=[ TOKEN=\"YES\",/" \
@@ -1837,7 +1832,6 @@ update_template() {
 
     # Add kernel for firecracker
     frc && {
-        onedb change-body template --id=0 /VMTEMPLATE/TEMPLATE/OS --delete
 
         {   echo 'NIC_DEFAULT=[ MODEL="virtio" ]'
             echo "OS=["
@@ -1863,7 +1857,7 @@ update_template() {
         echo "NIC = [ NETWORK = \"${EDGE}-cluster-public\", NETWORK_UNAME = \"oneadmin\", SECURITY_GROUPS = \"0\" ]" >> "${TMP_FILE}"
     }
 
-    onetemplate update "$ID" "${TMP_FILE}" >/dev/null
+    onetemplate update $ID "${TMP_FILE}" >/dev/null
     RC=$?
     rm "${TMP_FILE}"
     return ${RC}
@@ -1914,7 +1908,7 @@ frc && {
     check "image_is_ready" "Waiting until the image is ready"
 }
 
-check "update_template ${VM_TEMPLATE_ID:-0}" "Updating VM template"
+check "update_template" "Updating VM template"
 
 #-------------------------------------------------------------------------------
 # Report
