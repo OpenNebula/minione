@@ -1897,7 +1897,7 @@ node && edge && {
     DS_ID=$(onedatastore list --csv -l ID,NAME,TYPE -f TYPE=img -f NAME=$EDGE-cluster-image | awk -F, '{print $1}' | tail -1)
 }
 
-check "export_marketapp \"$MARKET_APP_NAME\" \"${DS_ID}\"" "Exporting [${EDGE_MARKET_APP_NAME}] from Marketplace to local datastore"
+check "export_marketapp \"$MARKET_APP_NAME\" \"${DS_ID}\"" "Exporting [${MARKET_APP_NAME}] from Marketplace to local datastore"
 check "image_is_ready" "Waiting until the image is ready"
 
 frc && {
