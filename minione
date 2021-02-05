@@ -1814,7 +1814,7 @@ update_template() {
 
     # For firecracker delete OS=[...] template entry
     frc && {
-        onedb change-body template --id=$ID /VMTEMPLATE/TEMPLATE/OS --delete
+        onedb change-body template --id $ID /VMTEMPLATE/TEMPLATE/OS --delete
     }
 
     # Add root password, report_ready and token setting to context
