@@ -1014,6 +1014,16 @@ validate_packet_plan_facility() {
     fi
 }
 
+gen_ssh_key() {
+    local KEY=${1:-$HOME/.ssh/id_rsa}
+
+    mkdir -p "$(dirname $KEY)"
+    chmod 0700 "$(dirname $KEY)"
+    if [ ! -f $KEY ]; then
+        ssh-keygen -t rsa -P \"\" -f $KEY >/dev/null
+    fi
+}
+
 
 #-------------------------------------------------------------------------------
 # Checks & detection
@@ -1119,12 +1129,7 @@ frontend && {
         SSH_PUBKEY=$(get_first_ssh_key)
         if ! check "[[ -f \"${SSH_PUBKEY}\" ]]" "Checking for present ssh key" 1 \
             "SKIP" ; then
-            if [[ ! -d "$HOME/.ssh" ]]; then
-                mkdir "$HOME/.ssh/";
-                chmod 0700 "$HOME/.ssh/";
-            fi
-            check "ssh-keygen -t rsa -P \"\" -f $HOME/.ssh/id_rsa >/dev/null"\
-                "Generating ssh keypair in $HOME/.ssh/id_rsa"
+            check "gen_ssh_key" "Generating ssh keypair in $HOME/.ssh/id_rsa"
             SSH_PUBKEY="$HOME/.ssh/id_rsa.pub"
         fi
     fi
@@ -1234,6 +1239,9 @@ node && edge && {
     else
         check "false" "Checking terraform" 1 "SKIP will try to install"
         INSTALL_TERRAFORM=true
+
+        check "type -t unzip >/dev/null" "Checking unzip is installed" 1 \
+           "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} unzip"
     fi
 }
 
@@ -1515,11 +1523,9 @@ ensure_hostname_resolvable() {
 }
 
 install_terraform() {
-    set -e -o pipefail
-    curl -s -o /tmp/terraform.zip $TERRAFORM_URL
-    unzip /tmp/terraform.zip -d /usr/bin
+    curl -s -o /tmp/terraform.zip $TERRAFORM_URL || return 1
+    unzip /tmp/terraform.zip -d /usr/bin || return 1
     rm /tmp/terraform.zip
-    set +e
 }
 
 create_oneprovider() {
@@ -1631,7 +1637,7 @@ lxd && {
 
 edge && {
     check "update_ssh_configs '*'" "Update ssh configs to accessing AWS/Packet hosts"
-    check "ssh-keygen -t rsa -P \"\" -f $HOME/.ssh-oneprovision/id_rsa >/dev/null"\
+    check "gen_ssh_key $HOME/.ssh-oneprovision/id_rsa"  \
         "Generating ssh keypair in $HOME/.ssh-oneprovision/id_rsa"
 }
 
