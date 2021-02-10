@@ -1040,7 +1040,7 @@ check "supported_dist_ver \"$SUPPORTED_MAP\"" \
 check "repo_exists" "Checking if OpenNebula repository exists" 3
 
 # check if lxd is available for given distribution and version
-lxd && ! packet && check "supported_dist_ver \"$SUPPORTED_LXD_MAP\"" \
+lxd && ! edge && check "supported_dist_ver \"$SUPPORTED_LXD_MAP\"" \
     "Checking LXD support for given version"
 
 # check cpu flgas for virtualizaton capabilities
@@ -1051,7 +1051,7 @@ frontend && {
             "SKIP QEMU will be used" || USE_QEMU='yes'
     fi
 
-    frc && ! packet && check 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
+    frc && ! edge && check 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
         "Checking cpu virtualization capabilities"
 }
 
@@ -1335,9 +1335,9 @@ frontend && {
 
 if kvm; then
     check "install_opennebula_kvm_pkgs" "Installing OpenNebula kvm node packages" 3
-elif lxd && ! packet; then
+elif lxd && ! edge; then
     check "install_opennebula_lxd_pkgs" "Installing OpenNebula lxd node packages" 3
-elif frc && ! packet; then
+elif frc && ! edge; then
     check "install_opennebula_frc_pkgs" "Installing OpenNebula firecracker node packages" 3
 elif edge; then
     check "install opennebula-provision" "Installing opennebula-provision package " 3
@@ -1876,24 +1876,20 @@ update_template() {
     return ${RC}
 }
 
-get_provision_ids() {
-    oneprovision list --l ID  | grep '-'
-}
-
 
 #-------------------------------------------------------------------------------
 #  Bootstrap
 #-------------------------------------------------------------------------------
 
-node && ! packet && {
+node && ! edge && {
     check "update_datastores" "Updating datastores template"
 }
 
 kvm && check "onehost create -i kvm -v kvm localhost >/dev/null 2>&1" \
     "Creating KVM host"
-lxd && ! packet && check "onehost create -i lxd -v lxd localhost >/dev/null 2>&1" \
+lxd && ! edge && check "onehost create -i lxd -v lxd localhost >/dev/null 2>&1" \
     "Creating LXD host"
-frc && ! packet && check "onehost create -i firecracker -v firecracker localhost >/dev/null 2>&1" \
+frc && ! edge && check "onehost create -i firecracker -v firecracker localhost >/dev/null 2>&1" \
     "Creating Firecracker host"
 
 networking && check "create_vnet" "Creating virtual network"
@@ -1909,7 +1905,7 @@ check "image_is_ready" "Waiting until the image is ready"
 
 frc && {
     DS_ID=2
-    if packet; then
+    if edge; then
         DS_ID=$(onedatastore list --csv -l ID,NAME,TYPE -f TYPE=fil -f | awk -F, '{print $1}' | tail -1)
     fi
 
@@ -1939,7 +1935,7 @@ frontend && {
 }
 
 node && edge && {
-    PROVISION_IDS=$(get_provision_ids)
+    PROVISION_IDS=$(oneprovision list --no-header --l ID)
     if [ -n "$PROVISION_IDS" ]; then
 
         title "$EDGE provisioned"
