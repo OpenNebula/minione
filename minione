@@ -1133,6 +1133,13 @@ frontend && {
             SSH_PUBKEY="$HOME/.ssh/id_rsa.pub"
         fi
     fi
+
+    if [[ "${DISTNAME}${DISTVER}" = "CentOS8" ]]; then
+         check 'verlte 1.8.5 "$(rpm -q --qf %{VERSION} libgcrypt)"' \
+             "Checking libgcrypt version" 1 \
+             "SKIP will try to update" || \
+             MISSING_PKGS="${MISSING_PKGS} libgcrypt"
+    fi
 }
 
 networking && {
