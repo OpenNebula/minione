@@ -1020,7 +1020,7 @@ gen_ssh_key() {
     mkdir -p "$(dirname $KEY)"
     chmod 0700 "$(dirname $KEY)"
     if [ ! -f $KEY ]; then
-        ssh-keygen -t rsa -P \"\" -f $KEY >/dev/null
+        ssh-keygen -t rsa -P "" -f $KEY >/dev/null
     fi
 }
 
