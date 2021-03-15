@@ -551,7 +551,7 @@ disk_free() {
 
 disable_selinux() {
    setenforce 0 >/dev/null || return 1
-   sed -ie 's/^SELINUX=.*$/SELINUX=disabled/' /etc/sysconfig/selinux >/dev/null 2>&1
+   sed -ie 's/^SELINUX=.*$/SELINUX=permissive/' /etc/selinux/config >/dev/null 2>&1
 }
 
 modify_apparmor() {
