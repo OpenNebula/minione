@@ -124,6 +124,7 @@ HAVE_CURL=false
 HAVE_WGET=false
 INSTALL_TERRAFORM=false
 TERRAFORM_URL='https://releases.hashicorp.com/terraform/0.13.6/terraform_0.13.6_linux_amd64.zip'
+INSTALL_DOCKER=false
 
 while true ; do
     case "$1" in
@@ -704,6 +705,31 @@ uninstall_opennebula_pkgs() {
     fi
 }
 
+create_docker_repo() {
+    if centos; then
+        curl -s https://download.docker.com/linux/centos/docker-ce.repo \
+            -o /etc/yum.repos.d/docker-ce.repo
+    elif debian; then
+        curl -fsSL https://download.docker.com/linux/"${DISTNAME,,}"/gpg | sudo apt-key add
+        add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/${DISTNAME,,}
+(lsb_release -cs) stable"
+    fi
+}
+
+install_docker() {
+    if centos; then
+        if [[ ${DISTVER} = "8" ]]; then
+            yum install -y --nobest docker-ce
+        else
+            yum install -y docker-ce
+        fi
+
+    elif debian; then
+        apt-get -q -y install docker-ce
+    fi
+}
+
+
 detect_installed_version() {
     if centos; then
         if RPM_STR=$(rpm -q opennebula-sunstone 2>/dev/null); then
@@ -960,6 +986,9 @@ else
     check "false" "Missing curl/wget to check market app" 1 "IGNORE Can't check"
 fi
 
+# check for docker
+check "type -t docker >/dev/null" "Checking docker is installed" 1 \
+   "SKIP will try to install" || INSTALL_DOCKER=true
 
 # Install dependencies for ONEProvision
 check "type -t $PIP >/dev/null" "Checking ${PYTHON_PIP} is installed" 1 \
@@ -992,6 +1021,9 @@ fi
 
 title "Main deployment steps:"
 echo "Install OpenNebula frontend version ${VERSION}"
+
+$INSTALL_TERRAFORM && echo "Install Terraform"
+$INSTALL_DOCKER && echo "Install Docker"
 
 node && {
     centos && firewalld_running     && echo "Disable_firewalld"
@@ -1046,6 +1078,10 @@ networking && {
 
 check "configure_repos" "Configuring repositories"
 
+$INSTALL_DOCKER && {
+    check "create_docker_repo" "Create docker packages repository"
+}
+
 debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 
 redhat && check "enable_rhel_extra_repos" "Enabling RHEL 7 extra & opt repositories"
@@ -1054,6 +1090,13 @@ older_os && check "install_fireedge_deps" "Installing FireEdge dependencies"
 check "install_opennebula_pkgs" "Installing OpenNebula packages" 3
 check "install opennebula-provision" "Installing opennebula-provision package " 3
 $INSTALL_TERRAFORM && check "install_terraform" "Installing TerraForm"
+
+$INSTALL_DOCKER && {
+    check "create_docker_repo" "Create docker packages repository"
+    check "install_docker" "Install docker"
+    check "systemctl start docker" "Start docker service"
+    check "systemctl enable docker" "Enable docker service"
+}
 
 if node; then
     check "install_opennebula_kvm_pkgs" "Installing OpenNebula kvm node packages" 3
@@ -1259,6 +1302,8 @@ title "Configuration"
 
 check "gen_ssh_key $HOME/.ssh-oneprovision/id_rsa"  \
     "Generating ssh keypair in $HOME/.ssh-oneprovision/id_rsa"
+
+check "usermod -a -G docker oneadmin" "Add oneadmin to docker group"
 
 check "update_network_hooks" "Update network hooks"
 
