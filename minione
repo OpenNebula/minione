@@ -1162,7 +1162,7 @@ set_sunstone_port() {
 
 set_fireedge_endpoint() {
     sed_subst ":public_fireedge_endpoint:.*" \
-        ":public_fireedge_endpoint: http:\/\/$(get_my_ip):2616" \
+        ":public_fireedge_endpoint: http:\/\/${VNET_GATEWAY}:2616" \
         /etc/one/sunstone-server.conf
 }
 
