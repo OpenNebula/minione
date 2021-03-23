@@ -711,8 +711,7 @@ create_docker_repo() {
             -o /etc/yum.repos.d/docker-ce.repo
     elif debian; then
         curl -fsSL https://download.docker.com/linux/"${DISTNAME,,}"/gpg | sudo apt-key add
-        add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/${DISTNAME,,}
-(lsb_release -cs) stable"
+        add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/${DISTNAME,,} $(lsb_release -cs) stable"
     fi
 }
 
