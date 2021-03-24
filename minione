@@ -125,6 +125,8 @@ HAVE_WGET=false
 INSTALL_TERRAFORM=false
 TERRAFORM_URL='https://releases.hashicorp.com/terraform/0.13.6/terraform_0.13.6_linux_amd64.zip'
 INSTALL_DOCKER=false
+ETH0_IP=''
+PUBLIC_IP=''
 
 while true ; do
     case "$1" in
@@ -202,6 +204,10 @@ get_my_ip() {
     DEV=$(get_interface_name)
     IP=$(ip addr show dev "${DEV}" | grep inet | head -1 | awk '{print $2}')
     echo "${IP//\/[0-9]*/}"
+}
+
+get_public_ip() {
+    dig +short myip.opendns.com @resolver1.opendns.com 2>/dev/null
 }
 
 get_distname_and_version() {
@@ -797,6 +803,24 @@ else
     fi
 fi
 
+PUBLIC_IP=$(get_public_ip)
+ETH0_IP=$(get_my_ip)
+
+# FRONTEND + KVM NODE
+if node; then
+    ONEGATE_ENDPOINT=$VNET_GATEWAY
+    ONEGATE_SERVER=$VNET_GATWAY
+    FIREEDGE_ENDPOINT=$ETH0_IP
+    REPORT_IP=$ETH0_IP
+
+# FRONTEND + PREPARE FIREEDGE, ONEPROVISION
+else
+    ONEGATE_ENDPOINT=${PUBLIC_IP:-$ETH0_IP}
+    ONEGATE_SERVER=$ETH0_IP
+    FIREEDGE_ENDPOINT=${PUBLIC_IP:-$ETH0_IP}
+    REPORT_IP=${PUBLIC_IP:-$ETH0_IP}
+fi
+
 #-------------------------------------------------------------------------------
 # Uninstall
 #-------------------------------------------------------------------------------
@@ -1162,7 +1186,7 @@ set_sunstone_port() {
 
 set_fireedge_endpoint() {
     sed_subst ":public_fireedge_endpoint:.*" \
-        ":public_fireedge_endpoint: http:\/\/${VNET_GATEWAY}:2616" \
+        ":public_fireedge_endpoint: http:\/\/${FIREEDGE_ENDPOINT=}:2616" \
         /etc/one/sunstone-server.conf
 }
 
@@ -1250,7 +1274,7 @@ ensure_hostname_resolvable() {
     local IP
 
     HOSTNAME=$(hostname)
-    IP=$(get_my_ip)
+    IP=$ETH0_IP
 
     if getent hosts "$HOSTNAME" >/dev/null; then
         return 0
@@ -1306,10 +1330,10 @@ check "usermod -a -G docker oneadmin" "Add oneadmin to docker group"
 
 check "update_network_hooks" "Update network hooks"
 
-check "aug_set ONEGATE_ENDPOINT '\"http://${VNET_GATEWAY}:5030\"'" \
+check "aug_set ONEGATE_ENDPOINT '\"http://${ONEGATE_ENDPOINT}:5030\"'" \
     "Switching OneGate endpoint in oned.conf"
 
-check "sed_subst \":host: .*\" \":host: ${VNET_GATEWAY}\" \"/etc/one/onegate-server.conf\""\
+check "sed_subst \":host: .*\" \":host: ${ONEGATE_SERVER}\" \"/etc/one/onegate-server.conf\""\
     "Switching OneGate endpoint in onegate-server.conf"
 
 check "sed_subst \":keep_empty_bridge: .*\" \":keep_empty_bridge: true\" \"/var/lib/one/remotes/etc/vnm/OpenNebulaNetwork.conf\""\
@@ -1506,11 +1530,11 @@ check "update_template" "Updating VM template"
 title 'Report'
 echo "OpenNebula ${VERSION} was installed"
 echo "Sunstone is running on:"
-echo "  http://$(get_my_ip)${PORT_STR}/"
+echo "  http://${REPORT_IP}${PORT_STR}/"
 
 if verlte 5.13 "$VERSION"; then
     echo "FireEdge is running on:"
-    echo "  http://$(get_my_ip):2616/"
+    echo "  http://${REPORT_IP}:2616/"
 fi
 
 echo "Use following to login:"
