@@ -1,7 +1,0 @@
-======================== =================================
-Available VM Template    Evaluation Environment Type
-======================== =================================
-``CentOS 7``             KVM and LXD
-``alpine``               Firecracker
-``Service Wordpress``    Edge with KVM
-======================== =================================
