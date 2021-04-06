@@ -14,25 +14,24 @@ You’ll need a server (physical or virtual) to try out OpenNebula. The provided
 - operating system: CentOS 7 or 8, Debian 9 or 10, Ubuntu 18.04 or 20.04
 - open ports: 22 (SSH), 80 (Sunstone), 2616 (FireEdge)
 
-
 ## Quickstart
 
 Download the [latest release](https://github.com/OpenNebula/minione/releases/latest) of the **miniONE** tool, run it and follow the instructions on the terminal.
 
 ### Get Frontend Only
 
-Run the commands to deploy only the OpenNebula frontend:
+Run the following commands to deploy only the OpenNebula frontend:
 
 ```
 wget 'https://github.com/OpenNebula/minione/releases/latest/download/minione'
 sudo bash minione --frontend
 ```
 
-For frontend only installation either virtual machine or bare-metal host could be used.
+For frontend only installation either a virtual machine or bare-metal host could be used. Afterwards, you can  follow this [tutorial](http://docs.opennebula.io/6.0/quick_start/deployment_basics/try_opennebula_on_kvm.html) to deploy edge clusters on-premises or on-cloud.
 
 ### Get Frontend and KVM Node Cloud
 
-Run the commands to deploy an evaluation cloud with a front-end and a single KVM node:
+Run the following commands to deploy an evaluation cloud with a front-end and a single KVM node:
 
 ```
 wget 'https://github.com/OpenNebula/minione/releases/latest/download/minione'
