@@ -5,7 +5,7 @@
 **Follow the detailed [tutorial](http://docs.opennebula.io/6.0/quick_start/deployment_basics/try_opennebula_on_kvm.html)**.
 
 ## Requirements
-You’ll need a server to try out OpenNebula. The provided Host should have a fresh default installation of the required operating system with the latest updates and without any customizations.
+You’ll need a server (physical or virtual) to try out OpenNebula. The provided Host should have a fresh default installation of the required operating system with the latest updates and without any customizations.
 
 - 4 GiB RAM
 - 20 GiB free space on disk
@@ -19,18 +19,7 @@ You’ll need a server to try out OpenNebula. The provided Host should have a fr
 
 Download the [latest release](https://github.com/OpenNebula/minione/releases/latest) of the **miniONE** tool, run it and follow the instructions on the terminal.
 
-### Get KVM cloud
-
-Run the commands to deploy the evaluation cloud:
-
-```
-wget 'https://github.com/OpenNebula/minione/releases/latest/download/minione'
-sudo bash minione
-```
-
-This option is suitable for bare-metal hosts to utilize HW virtualization, however the deployment will fallback to emulation (QEMU) if running on virtual machine or CPU without the virt. capabilities.
-
-### Get Frontend only
+### Get Frontend Only
 
 Run the commands to deploy only the OpenNebula frontend:
 
@@ -40,6 +29,17 @@ sudo bash minione --frontend
 ```
 
 For frontend only installation either virtual machine or bare-metal host could be used.
+
+### Get Frontend and KVM Node Cloud
+
+Run the commands to deploy an evaluation cloud with a front-end and a single KVM node:
+
+```
+wget 'https://github.com/OpenNebula/minione/releases/latest/download/minione'
+sudo bash minione
+```
+
+This option is suitable for bare-metal hosts to utilize HW virtualization, however the deployment will fallback to emulation (QEMU) if running on virtual machine or CPU without the virt. capabilities.
 
 ## License
 
