@@ -166,6 +166,9 @@ done
 
 # compare version strings
 verlte() {
+    [[ $1. =~ ^([0-9][0-9]*\.){1,3}$ ]] || return 1
+    [[ $2. =~ ^([0-9][0-9]*\.){1,3}$ ]] || return 1
+
     [  "$1" = "$(echo -e "$1\n$2" | sort -V | head -n1)" ]
 }
 
@@ -807,7 +810,7 @@ ETH0_IP=$(get_my_ip)
 # FRONTEND + KVM NODE
 if node; then
     ONEGATE_ENDPOINT=$VNET_GATEWAY
-    ONEGATE_SERVER=$VNET_GATWAY
+    ONEGATE_SERVER=$VNET_GATEWAY
     FIREEDGE_ENDPOINT=$ETH0_IP
     REPORT_IP=$ETH0_IP
 
