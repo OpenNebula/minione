@@ -696,7 +696,7 @@ install_opennebula_kvm_pkgs() {
 
 uninstall_opennebula_pkgs() {
     if centos; then
-        yum --quiet -y remove opennebula-node-kvm "$ONE_FE_PKGS"
+        yum --quiet -y remove opennebula-node-kvm $ONE_FE_PKGS
         systemctl restart ${LIBVIRTD} || true
 
         if redhat; then
@@ -705,7 +705,7 @@ uninstall_opennebula_pkgs() {
             yum --quiet -y remove qemu-kvm-ev >/dev/null || true
         fi
     elif debian; then
-        apt-get purge -q -y "$ONE_FE_PKGS" >/dev/null
+        apt-get purge -q -y $ONE_FE_PKGS >/dev/null
         apt-get purge -q -y opennebula-node-kvm >/dev/null
         systemctl restart ${LIBVIRTD} || true
         dpkg-statoverride --remove /var/lib/one || true
@@ -840,6 +840,7 @@ purge() {
     check "configure_nat purge" "Unconfiguring NAT using iptables" 1 "SKIP"
     check "create_bridge purge" "Deleting bridge interface ${BRIDGE_INTERFACE}"
     check "rm -rf /etc/one $HOME/.one >/dev/null" "Deleting /etc/one"
+    check "rm -rf /var/log/one >/dev/null" "Deleting /var/log/one"
 
     if [[ "${DELETE_ONEADMIN}" = 'yes' ]]; then
         check "userdel -r -f oneadmin>/dev/null" "Deleting oneadmin user" 1 "SKIP"
