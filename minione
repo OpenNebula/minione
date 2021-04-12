@@ -1395,7 +1395,6 @@ update_datastores() {
 <DATASTORE>
   $MAD
   <DISK_TYPE>FILE</DISK_TYPE>
-  <LIMIT_MB>50000</LIMIT_MB>
 </DATASTORE>
 EOF
 )
@@ -1514,6 +1513,7 @@ node && {
     check "update_datastores" "Updating datastores template"
     check "onehost create -i kvm -v kvm localhost >/dev/null 2>&1" \
         "Creating KVM host"
+    check "systemctl restart opennebula" "Restarting OpenNebula"
 }
 
 networking && check "create_vnet" "Creating virtual network"
