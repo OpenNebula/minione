@@ -1080,8 +1080,11 @@ VERBOSE='yes'
 debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 [[ "${DISABLE_SELINUX}" = 'yes' ]] && check "disable_selinux" "Disabling SELinux"
 [[ -n "${MISSING_PKGS}" ]] && check "install ${MISSING_PKGS}" "Install ${MISSING_PKGS}" 3
-[[ -n "${MISSING_PIP_PKGS}" ]] && check "$PIP install ${MISSING_PIP_PKGS}" \
-    "Install from PyPI ${MISSING_PIP_PKGS}" 3
+if [[ -n "${MISSING_PIP_PKGS}" ]]; then
+    check "$PIP install --upgrade pip" "Updating PIP"
+    check "$PIP install ${MISSING_PIP_PKGS}" \
+        "Install from PyPI ${MISSING_PIP_PKGS}" 3
+fi
 
 centos && firewalld_running && check "disable_firewalld" "Disabling firewalld"
 
