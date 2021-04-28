@@ -774,7 +774,7 @@ NETMASK_BITS=$(mask2cidr "${VNET_NETMASK}")
 read -r DISTNAME DISTVER <<<"$(get_distname_and_version)"
 
 [[ "${DISTNAME}${DISTVER}" =~ Ubuntu16.04|Ubuntu18.04 ]] && LIBVIRTD="libvirt-bin"
-[[ "${DISTNAME}${DISTVER}" =~ CentOS8|RedHat8|Ubuntu20.04 ]] && PIP="pip3" && PYTHON_PIP="python3-pip"
+[[ "${DISTNAME}${DISTVER}" =~ CentOS8|RedHat8|Ubuntu20 ]] && PIP="pip3" && PYTHON_PIP="python3-pip"
 
 centos && AUGEAS_PKG='augeas'
 
