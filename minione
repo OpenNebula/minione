@@ -1106,10 +1106,6 @@ networking && {
 
 check "configure_repos" "Configuring repositories"
 
-$INSTALL_DOCKER && {
-    check "create_docker_repo" "Create docker packages repository"
-}
-
 debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 
 redhat && check "enable_rhel_extra_repos" "Enabling RHEL 7 extra & opt repositories"
