@@ -17,6 +17,7 @@
 #--------------------------------------------------------------------------- #
 
 # default parameters values
+EE='no'
 VERSION='5.12'
 FORCE='no'
 VERBOSE='no'
@@ -67,6 +68,7 @@ usage() {
     e "--lxd"                                     "Setup host to run LXD containers"
     e "--firecracker"                             "Setup host to run Firecracker micro-VMs"
     e "--frontend"                                "Install only frontend, skip node setup,"
+    e "--enterprise"                              "Evaluate enterprise edition. Requires auth token"
     e ""                                          "no networking configuration"
     e "--node"                                    "Install only node, edge(Packet) only"
     e ""
@@ -179,6 +181,7 @@ while true ; do
         --help) usage; exit 0;;
         --yes) ASK="no"; shift;;
         --frontend) FRONTEND='yes'; NODE="no"; NETWORKING="no"; shift;;
+        --enterprise) EE='yes'; EE_TOKEN="$2"; shift 2;;
         --node) FRONTEND="no"; NODE="yes"; shift;;
         --version) VERSION="$2"; VERSION_GIVEN="yes" ; shift 2;;
         --ssh-pubkey) SSH_PUBKEY="$2" ; shift 2;;
@@ -274,6 +277,12 @@ fi
 if [[ -z "$REPO_BASE" ]]; then
     REPO_BASE="$REPO_URL"/"$VERSION"
 fi
+
+if [[ $EE == yes ]]; then
+    REPO_URL="https://${EE_TOKEN}@enterprise.opennebula.io/repo"
+fi
+
+
 
 #-------------------------------------------------------------------------------
 # Helpers and detection functions
