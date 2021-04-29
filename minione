@@ -659,7 +659,7 @@ enable_epel() {
 }
 
 install_opennebula_pkgs() {
-    install "$ONE_FE_PKGS" || return 1
+    install "${ONE_FE_PKGS[@]}" || return 1
     systemctl daemon-reload
 }
 
@@ -696,7 +696,7 @@ install_opennebula_kvm_pkgs() {
 
 uninstall_opennebula_pkgs() {
     if centos; then
-        yum --quiet -y remove opennebula-node-kvm $ONE_FE_PKGS
+        yum --quiet -y remove opennebula-node-kvm "${ONE_FE_PKGS[@]}"
         systemctl restart ${LIBVIRTD} || true
 
         if redhat; then
@@ -705,7 +705,7 @@ uninstall_opennebula_pkgs() {
             yum --quiet -y remove qemu-kvm-ev >/dev/null || true
         fi
     elif debian; then
-        apt-get purge -q -y $ONE_FE_PKGS >/dev/null
+        apt-get purge -q -y "${ONE_FE_PKGS[@]}" >/dev/null
         apt-get purge -q -y opennebula-node-kvm >/dev/null
         systemctl restart ${LIBVIRTD} || true
         dpkg-statoverride --remove /var/lib/one || true
@@ -785,22 +785,22 @@ fi
 
 # 5.13 and newer
 if verlte 5.13 "$VERSION"; then
-    ONE_SERVICES='opennebula opennebula-sunstone opennebula-fireedge '
-    ONE_SERVICES+='opennebula-flow opennebula-gate'
+    ONE_SERVICES=(opennebula opennebula-sunstone opennebula-fireedge
+                  opennebula-flow opennebula-gate)
 
-    ONE_FE_PKGS='opennebula opennebula-common opennebula-common-onecfg '
-    ONE_FE_PKGS+='opennebula-flow opennebula-fireedge opennebula-gate '
-    ONE_FE_PKGS+='opennebula-libs opennebula-rubygems opennebula-sunstone '
-    ONE_FE_PKGS+='opennebula-tools opennebula-guacd'
+    ONE_FE_PKGS=(opennebula opennebula-common opennebula-common-onecfg
+                 opennebula-flow opennebula-fireedge opennebula-gate
+                 opennebula-libs opennebula-rubygems opennebula-sunstone
+                 opennebula-tools opennebula-guacd)
 # up to 5.12
 else
-    ONE_SERVICES='opennebula opennebula-sunstone opennebula-flow opennebula-gate'
+    ONE_SERVICES=(opennebula opennebula-sunstone opennebula-flow opennebula-gate)
 
     if centos; then
-        ONE_FE_PKGS='opennebula-server opennebula-sunstone opennebula-ruby '
-        ONE_FE_PKGS+='opennebula-gate opennebula-flow'
+        ONE_FE_PKGS=(opennebula-server opennebula-sunstone opennebula-ruby
+                     opennebula-gate opennebula-flow)
     else
-        ONE_FE_PKGS='opennebula opennebula-sunstone opennebula-gate opennebula-flow'
+        ONE_FE_PKGS=(opennebula opennebula-sunstone opennebula-gate opennebula-flow)
     fi
 fi
 
@@ -1355,8 +1355,8 @@ if verlte 5.13 "$VERSION"; then
         "Switching FireEdge public endpoint"
 fi
 
-check "systemctl start $ONE_SERVICES" "Starting OpenNebula services"
-check "systemctl enable $ONE_SERVICES" "Enabling OpenNebula services"
+check "systemctl start ${ONE_SERVICES[*]}" "Starting OpenNebula services"
+check "systemctl enable ${ONE_SERVICES[*]}" "Enabling OpenNebula services"
 check "add_ssh_keys_to_oneadmin" "Add ssh key to oneadmin user"
 check "update_ssh_configs" "Update ssh configs to allow VM addresses reusig"
 check "ensure_hostname_resolvable" "Ensure own hostname is resolvable"
