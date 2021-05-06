@@ -805,7 +805,7 @@ install_fireedge_deps() {
 }
 
 install_opennebula_kvm_pkgs() {
-    install opennebula-node-kvm || return 1
+    install $NODE_KVM_PKG || return 1
 
     if redhat; then
         subscription-manager repos --enable \
@@ -831,7 +831,7 @@ install_opennebula_frc_pkgs() {
 
 uninstall_opennebula_pkgs() {
     if centos; then
-        yum --quiet -y remove opennebula-node-kvm $ONE_FE_PKGS
+        yum --quiet -y remove $NODE_KVM_PKG $ONE_FE_PKGS
         systemctl restart ${LIBVIRTD} || true
 
         if redhat; then
@@ -841,7 +841,7 @@ uninstall_opennebula_pkgs() {
         fi
     elif debian; then
         apt-get purge -q -y $ONE_FE_PKGS >/dev/null
-        apt-get purge -q -y opennebula-node-kvm >/dev/null
+        apt-get purge -q -y $NODE_KVM_PKG >/dev/null
         systemctl restart ${LIBVIRTD} || true
     fi
 }
@@ -909,15 +909,19 @@ if verlte 5.13 $VERSION; then
                  opennebula-flow opennebula-fireedge opennebula-gate
                  opennebula-libs opennebula-rubygems opennebula-sunstone
                  opennebula-tools opennebula-guacd'
+    NODE_KVM_PKG='opennebula-node-kvm'
 # up to 5.12
 else
     ONE_SERVICES='opennebula opennebula-sunstone opennebula-flow opennebula-gate'
 
+
     if centos; then
         ONE_FE_PKGS='opennebula-server opennebula-sunstone opennebula-ruby
                      opennebula-gate opennebula-flow'
+        NODE_KVM_PKG='opennebula-node-kvm'
     else
         ONE_FE_PKGS='opennebula opennebula-sunstone opennebula-gate opennebula-flow'
+        NODE_KVM_PKG='opennebula-node'
     fi
 fi
 
