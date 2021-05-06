@@ -274,15 +274,13 @@ if [[ $LXD == yes ]]; then
     HYPERVISOR="lxd"
 fi
 
-if [[ -z "$REPO_BASE" ]]; then
-    REPO_BASE="$REPO_URL"/"$VERSION"
-fi
-
 if [[ $EE == yes ]]; then
     REPO_URL="https://${EE_TOKEN}@enterprise.opennebula.io/repo"
 fi
 
-
+if [[ -z "$REPO_BASE" ]]; then
+    REPO_BASE="$REPO_URL"/"$VERSION"
+fi
 
 #-------------------------------------------------------------------------------
 # Helpers and detection functions
