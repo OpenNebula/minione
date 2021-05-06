@@ -68,8 +68,8 @@ usage() {
     e "--lxd"                                     "Setup host to run LXD containers"
     e "--firecracker"                             "Setup host to run Firecracker micro-VMs"
     e "--frontend"                                "Install only frontend, skip node setup,"
-    e "--enterprise"                              "Evaluate enterprise edition. Requires auth token"
     e ""                                          "no networking configuration"
+    e "--enterprise"                              "Evaluate enterprise edition. Requires auth token"
     e "--node"                                    "Install only node, edge(Packet) only"
     e ""
     e "--password [random generated]"             "Initial password for oneadmin"
@@ -119,7 +119,7 @@ PARAMETERS=$(cat <<EOF
     bridge-interface:,nat-interface:,vnet-address:,vnet-netmask:,
     vnet-gateway:,vnet-ar-ip-start:,vnet-ar-ip-count:,marketapp-name:,
     vm-password:,lxd,firecracker,sunstone-port:,purge,preserve-user,edge:,
-    edge-host-num:,edge-marketapp-name:,
+    edge-host-num:,edge-marketapp-name:,enterprise:,
     aws-access-key:,aws-secret-key:,aws-region:,aws-instance-type:,aws-ami:,
     packet-token:,packet-project:,packet-facility:,packet-plan:,
     packet-os:,fc-marketapp-name:,fc-kernel-name:,repo-base:
