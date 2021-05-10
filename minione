@@ -18,6 +18,7 @@
 
 # default parameters values
 VERSION='6.0'
+EE='no'
 FORCE='no'
 VERBOSE='no'
 ASK='yes'
@@ -52,6 +53,7 @@ usage() {
     e ""
     e "--frontend"                                "Install only frontend, skip node setup,"
     e ""                                          "no networking configuration"
+    e "--enterprise [token]"                      "Evaluate enterprise edition"
     e ""
     e "--password [random generated]"             "Initial password for oneadmin"
     e "--ssh-pubkey [~/.ssh/id_rsa.pub]"          "User ssh public key"
@@ -79,7 +81,7 @@ PARAMETERS=$(cat <<EOF
     help,version:,force,verbose,yes,frontend,password:,ssh-pubkey:,
     bridge-interface:,nat-interface:,vnet-address:,vnet-netmask:,
     vnet-gateway:,vnet-ar-ip-start:,vnet-ar-ip-count:,marketapp-name:,
-    vm-password:,sunstone-port:,purge,preserve-user
+    vm-password:,sunstone-port:,purge,preserve-user,enterprise:
 EOF
 )
 
@@ -133,6 +135,7 @@ while true ; do
         --help) usage; exit 0;;
         --yes) ASK="no"; shift;;
         --frontend) NODE="no"; NETWORKING="no"; shift;;
+        --enterprise) EE='yes'; EE_TOKEN="$2"; shift 2;;
         --version) VERSION="$2"; VERSION_GIVEN="yes" ; shift 2;;
         --ssh-pubkey) SSH_PUBKEY="$2" ; shift 2;;
         --password) PASSWORD="$2" ; shift 2;;
@@ -175,6 +178,11 @@ verlte() {
 #-------------------------------------------------------------------------------
 # Options validation
 #-------------------------------------------------------------------------------
+
+if [[ $EE == yes ]]; then
+    REPO_URL="https://${EE_TOKEN}@enterprise.opennebula.io/repo"
+fi
+
 if [[ -z "$REPO_BASE" ]]; then
     REPO_BASE="$REPO_URL"/"$VERSION"
 fi
@@ -678,7 +686,7 @@ install_fireedge_deps() {
 }
 
 install_opennebula_kvm_pkgs() {
-    install opennebula-node-kvm || return 1
+    install "$NODE_KVM_PKG" || return 1
 
     if redhat; then
         subscription-manager repos --enable \
@@ -696,7 +704,7 @@ install_opennebula_kvm_pkgs() {
 
 uninstall_opennebula_pkgs() {
     if centos; then
-        yum --quiet -y remove opennebula-node-kvm "${ONE_FE_PKGS[@]}"
+        yum --quiet -y remove "$NODE_KVM_PKG" "${ONE_FE_PKGS[@]}"
         systemctl restart ${LIBVIRTD} || true
 
         if redhat; then
@@ -706,7 +714,7 @@ uninstall_opennebula_pkgs() {
         fi
     elif debian; then
         apt-get purge -q -y "${ONE_FE_PKGS[@]}" >/dev/null
-        apt-get purge -q -y opennebula-node-kvm >/dev/null
+        apt-get purge -q -y "$NODE_KVM_PKG" >/dev/null
         systemctl restart ${LIBVIRTD} || true
         dpkg-statoverride --remove /var/lib/one || true
     fi
@@ -792,6 +800,7 @@ if verlte 5.13 "$VERSION"; then
                  opennebula-flow opennebula-fireedge opennebula-gate
                  opennebula-libs opennebula-rubygems opennebula-sunstone
                  opennebula-tools opennebula-guacd)
+    NODE_KVM_PKG='opennebula-node-kvm'
 # up to 5.12
 else
     ONE_SERVICES=(opennebula opennebula-sunstone opennebula-flow opennebula-gate)
@@ -799,8 +808,10 @@ else
     if centos; then
         ONE_FE_PKGS=(opennebula-server opennebula-sunstone opennebula-ruby
                      opennebula-gate opennebula-flow)
+        NODE_KVM_PKG='opennebula-node-kvm'
     else
         ONE_FE_PKGS=(opennebula opennebula-sunstone opennebula-gate opennebula-flow)
+        NODE_KVM_PKG='opennebula-node'
     fi
 fi
 
