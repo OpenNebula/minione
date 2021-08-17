@@ -1372,7 +1372,7 @@ fi
 check "systemctl start ${ONE_SERVICES[*]}" "Starting OpenNebula services"
 check "systemctl enable ${ONE_SERVICES[*]}" "Enabling OpenNebula services"
 check "add_ssh_keys_to_oneadmin" "Add ssh key to oneadmin user"
-check "update_ssh_configs" "Update ssh configs to allow VM addresses reusig"
+check "update_ssh_configs" "Update ssh configs to allow VM addresses reusing"
 check "ensure_hostname_resolvable" "Ensure own hostname is resolvable"
 
 check "one_is_ready" "Checking OpenNebula is working"
