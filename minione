@@ -100,7 +100,8 @@ SUPPORTED_MAP+='Debian10 5.12|Debian10 6.0|'
 SUPPORTED_MAP+='Ubuntu16.04 5.12|Ubuntu16.04 6.0|'
 SUPPORTED_MAP+='Ubuntu18.04 5.12|Ubuntu18.04 6.0|'
 SUPPORTED_MAP+='Ubuntu20.04 5.12|Ubuntu20.04 6.0|'
-SUPPORTED_MAP+='Ubuntu20.10 5.12|Ubuntu20.10 6.0)$'
+SUPPORTED_MAP+='Ubuntu20.10 5.12|Ubuntu20.10 6.0|'
+SUPPORTED_MAP+='Ubuntu21.04 5.12|Ubuntu21.04 6.0)$'
 PURGE='no'
 DISABLE_SELINUX='no'
 ENABLED_APPARMOR='no'
@@ -784,7 +785,7 @@ NETMASK_BITS=$(mask2cidr "${VNET_NETMASK}")
 read -r DISTNAME DISTVER <<<"$(get_distname_and_version)"
 
 [[ "${DISTNAME}${DISTVER}" =~ Ubuntu16.04|Ubuntu18.04 ]] && LIBVIRTD="libvirt-bin"
-[[ "${DISTNAME}${DISTVER}" =~ CentOS8|RedHat8|Ubuntu20|Debian10 ]] \
+[[ "${DISTNAME}${DISTVER}" =~ CentOS8|RedHat8|Ubuntu20|Ubuntu21|Debian10 ]] \
     && PIP="pip3" && PYTHON_PIP="python3-pip"
 
 centos && AUGEAS_PKG='augeas'
