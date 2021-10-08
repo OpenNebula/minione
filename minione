@@ -247,6 +247,8 @@ get_distname_and_version() {
     elif [ -f /etc/SuSe-release ]; then
         DIST='SuSe'
     fi
+
+    [[ "${DIST}" =~ Rocky ]] && DIST="AlmaLinux"
     [[ "${DIST}" =~ AlmaLinux|CentOS|RedHat ]] && VER=$(echo "$VER" | cut -c1)
     [[ "${DIST}" =~ Debian ]] && VER=$(echo "$VER" | cut -d. -f1)
 
