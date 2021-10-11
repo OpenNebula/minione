@@ -81,7 +81,8 @@ PARAMETERS=$(cat <<EOF
     help,version:,force,verbose,yes,frontend,password:,ssh-pubkey:,
     bridge-interface:,nat-interface:,vnet-address:,vnet-netmask:,
     vnet-gateway:,vnet-ar-ip-start:,vnet-ar-ip-count:,marketapp-name:,
-    vm-password:,sunstone-port:,purge,preserve-user,enterprise:
+    vm-password:,sunstone-port:,purge,preserve-user,enterprise:,
+    repo-base:
 EOF
 )
 
