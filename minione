@@ -95,8 +95,8 @@ eval set -- "$OPTS"
 # global vars
 SUPPORTED_MAP='^(CentOS7 5.12|CentOS7 6.0|'
 SUPPORTED_MAP+='CentOS8 5.12|CentOS8 6.0|'
-SUPPORTED_MAP+='Debian9 5.12|Debian9 6.0|'
 SUPPORTED_MAP+='Debian10 5.12|Debian10 6.0|'
+SUPPORTED_MAP+='Debian11 5.12|Debian11 6.0|'
 SUPPORTED_MAP+='Ubuntu16.04 5.12|Ubuntu16.04 6.0|'
 SUPPORTED_MAP+='Ubuntu18.04 5.12|Ubuntu18.04 6.0|'
 SUPPORTED_MAP+='Ubuntu20.04 5.12|Ubuntu20.04 6.0|'
@@ -785,7 +785,7 @@ NETMASK_BITS=$(mask2cidr "${VNET_NETMASK}")
 read -r DISTNAME DISTVER <<<"$(get_distname_and_version)"
 
 [[ "${DISTNAME}${DISTVER}" =~ Ubuntu16.04|Ubuntu18.04 ]] && LIBVIRTD="libvirt-bin"
-[[ "${DISTNAME}${DISTVER}" =~ CentOS8|RedHat8|Ubuntu20|Ubuntu21|Debian10 ]] \
+[[ "${DISTNAME}${DISTVER}" =~ CentOS8|RedHat8|Ubuntu20|Ubuntu21|Debian10|Debian11 ]] \
     && PIP="pip3" && PYTHON_PIP="python3-pip"
 
 centos && AUGEAS_PKG='augeas'
