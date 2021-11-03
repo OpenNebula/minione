@@ -17,7 +17,7 @@
 #--------------------------------------------------------------------------- #
 
 # default parameters values
-VERSION='6.0'
+VERSION='6.2'
 EE='no'
 FORCE='no'
 VERBOSE='no'
@@ -94,15 +94,14 @@ fi
 eval set -- "$OPTS"
 
 # global vars
-SUPPORTED_MAP='^(CentOS7 5.12|CentOS7 6.0|'
-SUPPORTED_MAP+='CentOS8 5.12|CentOS8 6.0|'
-SUPPORTED_MAP+='Debian10 5.12|Debian10 6.0|'
-SUPPORTED_MAP+='Debian11 5.12|Debian11 6.0|'
-SUPPORTED_MAP+='Ubuntu16.04 5.12|Ubuntu16.04 6.0|'
-SUPPORTED_MAP+='Ubuntu18.04 5.12|Ubuntu18.04 6.0|'
-SUPPORTED_MAP+='Ubuntu20.04 5.12|Ubuntu20.04 6.0|'
-SUPPORTED_MAP+='Ubuntu20.10 5.12|Ubuntu20.10 6.0|'
-SUPPORTED_MAP+='Ubuntu21.04 5.12|Ubuntu21.04 6.0)$'
+SUPPORTED_MAP='^(CentOS7 6.0|CentOS7 6.2|'
+SUPPORTED_MAP+='CentOS8 6.0|CentOS8 6.2|'
+SUPPORTED_MAP+='Debian10 6.0|Debian10 6.2|'
+SUPPORTED_MAP+='Debian11 6.0|Debian11 6.2|'
+SUPPORTED_MAP+='Ubuntu18.04 6.0|Ubuntu18.04 6.2|'
+SUPPORTED_MAP+='Ubuntu20.04 6.0|Ubuntu20.04 6.2|'
+SUPPORTED_MAP+='Ubuntu20.10 6.0|'
+SUPPORTED_MAP+='Ubuntu21.04 6.0)'
 PURGE='no'
 DISABLE_SELINUX='no'
 ENABLED_APPARMOR='no'
