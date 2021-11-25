@@ -954,6 +954,12 @@ debian && {
         "Checking if gnupg is installed" 1 \
         "SKIP will try to install" || \
         MISSING_PKGS="${MISSING_PKGS} gnupg"
+
+    # check if ca-certificates is up-to-date
+    check "[[ -z \"$(apt list --upgradable 2>&1 | grep ca-certificates)\" ]]" \
+        "Checking if ca-certificates is up-to-date" 1 \
+        "SKIP will try to update" || \
+        MISSING_PKGS="${MISSING_PKGS} ca-certificates"
 }
 
 # Check SELinux or AppArmor
