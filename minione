@@ -617,7 +617,7 @@ start_dnsmasq() {
             mv /etc/dnsmasq.conf.bk /etc/dnsmasq.conf
         else
             rm -f /etc/dnsmasq.conf
-            systemct stop dnsmasq
+            systemctl stop dnsmasq
         fi
     else
         cp /etc/dnsmasq.conf /etc/dnsmasq.conf.bk 2>/dev/null
