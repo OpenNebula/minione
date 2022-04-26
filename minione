@@ -17,7 +17,7 @@
 #--------------------------------------------------------------------------- #
 
 # default parameters values
-VERSION='6.2'
+VERSION='6.3'
 EE='no'
 FORCE='no'
 VERBOSE='no'
@@ -31,7 +31,7 @@ VNET_NETMASK='255.255.255.0'
 VNET_GATEWAY='172.16.100.1'
 VNET_AR_IP_START='172.16.100.2'
 VNET_AR_IP_COUNT='100'
-MARKET_APP_NAME='CentOS 7'
+MARKET_APP_NAME='Alpine Linux 3.14'
 VM_PASSWORD='opennebula'
 SUNSTONE_PORT='80'
 NODE='yes'
@@ -94,12 +94,12 @@ fi
 eval set -- "$OPTS"
 
 # global vars
-SUPPORTED_MAP='^(CentOS7 6.0|CentOS7 6.2|'
-SUPPORTED_MAP+='CentOS8 6.0|CentOS8 6.2|'
-SUPPORTED_MAP+='Debian10 6.0|Debian10 6.2|'
-SUPPORTED_MAP+='Debian11 6.0|Debian11 6.2|'
-SUPPORTED_MAP+='Ubuntu18.04 6.0|Ubuntu18.04 6.2|'
-SUPPORTED_MAP+='Ubuntu20.04 6.0|Ubuntu20.04 6.2|'
+SUPPORTED_MAP='^(CentOS7 6.2|CentOS7 6.3|'
+SUPPORTED_MAP+='AlmaLinux8 6.2|AlmaLinux8 6.3|'
+SUPPORTED_MAP+='Debian10 6.2|Debian10 6.3|'
+SUPPORTED_MAP+='Debian11 6.2|Debian11 6.3|'
+SUPPORTED_MAP+='Ubuntu18.04 6.2|Ubuntu18.04 6.3|'
+SUPPORTED_MAP+='Ubuntu20.04 6.2|Ubuntu20.04 6.3|'
 SUPPORTED_MAP+='Ubuntu20.10 6.0|'
 SUPPORTED_MAP+='Ubuntu21.04 6.0)'
 PURGE='no'
@@ -125,7 +125,7 @@ REPO_BASE=''
 HAVE_CURL=false
 HAVE_WGET=false
 INSTALL_TERRAFORM=false
-TERRAFORM_URL='https://releases.hashicorp.com/terraform/0.13.6/terraform_0.13.6_linux_amd64.zip'
+TERRAFORM_URL='https://releases.hashicorp.com/terraform/1.1.9/terraform_1.1.9_linux_amd64.zip'
 INSTALL_DOCKER=false
 ETH0_IP=''
 PUBLIC_IP=''
@@ -171,8 +171,8 @@ done
 
 # compare version strings
 verlte() {
-    [[ $1. =~ ^([0-9][0-9]*\.){1,3}$ ]] || return 1
-    [[ $2. =~ ^([0-9][0-9]*\.){1,3}$ ]] || return 1
+    [[ $1. =~ ^v*([0-9][0-9]*\.){1,3}$ ]] || return 1
+    [[ $2. =~ ^v*([0-9][0-9]*\.){1,3}$ ]] || return 1
 
     [  "$1" = "$(echo -e "$1\n$2" | sort -V | head -n1)" ]
 }
@@ -244,7 +244,7 @@ get_distname_and_version() {
     elif [ -f /etc/SuSe-release ]; then
         DIST='SuSe'
     fi
-    [[ "${DIST}" =~ CentOS|RedHat ]] && VER=$(echo "$VER" | cut -c1)
+    [[ "${DIST}" =~ AlmaLinux|CentOS|RedHat ]] && VER=$(echo "$VER" | cut -c1)
     [[ "${DIST}" =~ Debian ]] && VER=$(echo "$VER" | cut -d. -f1)
 
     echo "${DIST} ${VER}"
@@ -263,7 +263,7 @@ get_first_ssh_key() {
 mask2cidr() {
    local X=${1##*255.}
    set -- 0^^^128^192^224^240^248^252^254^ $(( (${#1} - ${#X})*2 )) "${X%%.*}"
-   X=${1%%$3*}
+   X=${1%%"$3"*}
    echo $(( $2 + (${#X}/4) ))
 }
 
@@ -353,7 +353,8 @@ fail() {
 }
 
 run_and_print_if_failed() {
-    eval "$@" >/dev/null
+    $1 >/dev/null
+
     local RC=$?
     local MSG=$*
 
@@ -363,7 +364,7 @@ run_and_print_if_failed() {
 }
 
 centos() {
-    [[ "$DISTNAME" =~ CentOS|RedHat ]]
+    [[ "$DISTNAME" =~ CentOS|RedHat|AlmaLinux ]]
 }
 
 redhat() {
@@ -404,7 +405,7 @@ supported_dist_ver() {
 }
 
 repo_exists() {
-    if [[ ! "$DISTNAME" =~ CentOS|Ubuntu|Debian ]]; then
+    if [[ ! "$DISTNAME" =~ AlmaLinux|CentOS|Ubuntu|Debian ]]; then
         echo "Currently only CentOS, Ubuntu or Debian are supported" >&2
         return 1
     else
@@ -785,7 +786,7 @@ NETMASK_BITS=$(mask2cidr "${VNET_NETMASK}")
 read -r DISTNAME DISTVER <<<"$(get_distname_and_version)"
 
 [[ "${DISTNAME}${DISTVER}" =~ Ubuntu16.04|Ubuntu18.04 ]] && LIBVIRTD="libvirt-bin"
-[[ "${DISTNAME}${DISTVER}" =~ CentOS8|RedHat8|Ubuntu20|Ubuntu21|Debian10|Debian11 ]] \
+[[ "${DISTNAME}${DISTVER}" =~ AlmaLinux8|RedHat8|Ubuntu20|Ubuntu21|Debian10|Debian11 ]] \
     && PIP="pip3" && PYTHON_PIP="python3-pip"
 
 centos && AUGEAS_PKG='augeas'
@@ -1050,8 +1051,8 @@ fi
 
 if type -t terraform >/dev/null; then
     TERRAFORM_VERSION=$(terraform --version | head -1 | cut -d ' ' -f 2)
-    check "[[ \"$TERRAFORM_VERSION\" = \"v0.13.6\" ]]" \
-        "Checking terrafrom version (v0.13.6)"
+    check "verlte v0.13.6 $TERRAFORM_VERSION"  \
+        "Checking terrafrom version (>= v0.13.6)"
 else
     check "false" "Checking terraform" 1 "SKIP will try to install"
     INSTALL_TERRAFORM=true
