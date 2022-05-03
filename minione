@@ -35,6 +35,7 @@ MARKET_APP_NAME='Alpine Linux 3.14'
 VM_PASSWORD='opennebula'
 SUNSTONE_PORT='80'
 NODE='yes'
+LXC='no'
 NETWORKING='yes'
 DELETE_ONEADMIN='yes'
 
@@ -50,10 +51,10 @@ usage() {
     e "--yes"                                     "Don't ask"
     e ""
     e "--version [$VERSION]"                      "OpenNebula version to install"
-    e ""
-    e "--frontend"                                "Install only frontend, skip node setup,"
-    e ""                                          "no networking configuration"
     e "--enterprise [token]"                      "Evaluate enterprise edition"
+    e ""
+    e "--lxc"                                     "Setup host to run LXC containers"
+    e "--frontend"                                "Install only frontend, skip node setup,"
     e ""
     e "--password [random generated]"             "Initial password for oneadmin"
     e "--ssh-pubkey [~/.ssh/id_rsa.pub]"          "User ssh public key"
@@ -81,7 +82,7 @@ PARAMETERS=$(cat <<EOF
     help,version:,force,verbose,yes,frontend,password:,ssh-pubkey:,
     bridge-interface:,nat-interface:,vnet-address:,vnet-netmask:,
     vnet-gateway:,vnet-ar-ip-start:,vnet-ar-ip-count:,marketapp-name:,
-    vm-password:,sunstone-port:,purge,preserve-user,enterprise:,
+    vm-password:,lxc,sunstone-port:,purge,preserve-user,enterprise:,
     repo-base:
 EOF
 )
@@ -150,6 +151,7 @@ while true ; do
         --vnet-ar-ip-count) VNET_AR_IP_COUNT="$2" ; shift 2;;
         --marketapp-name) MARKET_APP_NAME="$2" ; shift 2;;
         --vm-password) VM_PASSWORD="$2" ; shift 2;;
+        --lxc) LXC="yes"; MARKET_APP_NAME="alpine_edge - LXD";shift;;
         --sunstone-port) SUNSTONE_PORT="$2"; shift 2;;
         --purge) PURGE="yes"; shift;;
         --preserve-user) DELETE_ONEADMIN="no"; shift;;
@@ -188,6 +190,7 @@ fi
 if [[ -z "$REPO_BASE" ]]; then
     REPO_BASE="$REPO_URL"/"$VERSION"
 fi
+
 
 #-------------------------------------------------------------------------------
 # Helpers and detection functions
@@ -389,6 +392,14 @@ netplan_on() {
 
 node() {
     [[ $NODE == yes ]]
+}
+
+kvm() {
+    [[ $NODE == yes && $LXC == no ]]
+}
+
+lxc() {
+    [[ $NODE == yes && $LXC == yes ]]
 }
 
 networking() {
@@ -703,6 +714,10 @@ install_opennebula_kvm_pkgs() {
             install qemu-kvm-ev || return 1
         fi
     fi
+}
+
+install_opennebula_lxc_pkgs() {
+    install opennebula-node-lxc || return 1
 }
 
 uninstall_opennebula_pkgs() {
@@ -1020,17 +1035,19 @@ networking && {
 }
 
 # check if the requested app name exists on market place
-if $HAVE_CURL; then
-    check "curl -s -H \"${JSON_HEADERS}\" ${APPS_URL} \
-        | grep '\"name\":\"${MARKET_APP_NAME}\"' >/dev/null" \
-        "Checking presence of the market app: \"$MARKET_APP_NAME\"" 3 "Not found"
-elif $HAVE_WGET; then
-    check "wget --quiet -O - --header \"${JSON_HEADERS}\" ${APPS_URL} \
-        | grep '\"name\":\"${MARKET_APP_NAME}\"' >/dev/null" \
-        "Checking presence of the market app: \"$MARKET_APP_NAME\"" 3 "Not found"
-else
-    # Always fail, but continue with info when --force was given
-    check "false" "Missing curl/wget to check market app" 1 "IGNORE Can't check"
+if kvm; then
+    if $HAVE_CURL; then
+        check "curl -s -H \"${JSON_HEADERS}\" ${APPS_URL} \
+            | grep '\"name\":\"${MARKET_APP_NAME}\"' >/dev/null" \
+            "Checking presence of the market app: \"$MARKET_APP_NAME\"" 3 "Not found"
+    elif $HAVE_WGET; then
+        check "wget --quiet -O - --header \"${JSON_HEADERS}\" ${APPS_URL} \
+            | grep '\"name\":\"${MARKET_APP_NAME}\"' >/dev/null" \
+            "Checking presence of the market app: \"$MARKET_APP_NAME\"" 3 "Not found"
+    else
+        # Always fail, but continue with info when --force was given
+        check "false" "Missing curl/wget to check market app" 1 "IGNORE Can't check"
+    fi
 fi
 
 # check for docker
@@ -1077,7 +1094,8 @@ node && {
     echo "Configure bridge ${BRIDGE_INTERFACE} with IP ${VNET_GATEWAY}/${NETMASK_BITS}"
     echo "Enable NAT over ${NAT_INTERFACE}"
     [[ "${ENABLED_APPARMOR}" = yes ]] && echo "Modify AppArmor"
-    node && echo "Install OpenNebula KVM node"
+    kvm && echo "Install OpenNebula KVM node"
+    lxc && echo "Install OpenNebula LXC node"
     echo "Export appliance and update VM template"
 }
 
@@ -1144,7 +1162,7 @@ $INSTALL_DOCKER && {
     check "systemctl enable docker" "Enable docker service"
 }
 
-if node; then
+if kvm; then
     check "install_opennebula_kvm_pkgs" "Installing OpenNebula kvm node packages" 3
 
     [[ "${ENABLED_APPARMOR}" = 'yes' ]] && check "modify_apparmor" "Updating AppArmor"
@@ -1153,6 +1171,8 @@ if node; then
         "Disable default libvirtd networking"
 
     check "systemctl restart ${LIBVIRTD}" "Restart libvirtd"
+elif lxc; then
+    check "install_opennebula_lxc_pkgs" "Installing OpenNebula lxc node packages" 3
 fi
 
 #-------------------------------------------------------------------------------
@@ -1533,8 +1553,19 @@ update_template() {
 
 node && {
     check "update_datastores" "Updating datastores template"
+}
+
+kvm && {
     check "onehost create -i kvm -v kvm localhost >/dev/null 2>&1" \
         "Creating KVM host"
+}
+
+lxc && {
+    check "onehost create -i lxc -v lxc localhost >/dev/null 2>&1" \
+        "Creating LXC host"
+}
+
+node && {
     check "systemctl restart opennebula" "Restarting OpenNebula"
 }
 
