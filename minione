@@ -638,6 +638,7 @@ interface=${BRIDGE_INTERFACE},lo
 bind-interfaces
 EOT
         systemctl start dnsmasq
+        systemctl enable dnsmasq
     fi
 }
 
