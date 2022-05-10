@@ -17,7 +17,7 @@
 #--------------------------------------------------------------------------- #
 
 # default parameters values
-VERSION='6.3'
+VERSION='6.4'
 EE='no'
 FORCE='no'
 VERBOSE='no'
@@ -95,14 +95,14 @@ fi
 eval set -- "$OPTS"
 
 # global vars
-SUPPORTED_MAP='^(CentOS7 6.2|CentOS7 6.3|'
-SUPPORTED_MAP+='AlmaLinux8 6.2|AlmaLinux8 6.3|'
-SUPPORTED_MAP+='Debian10 6.2|Debian10 6.3|'
-SUPPORTED_MAP+='Debian11 6.2|Debian11 6.3|'
-SUPPORTED_MAP+='Ubuntu18.04 6.2|Ubuntu18.04 6.3|'
-SUPPORTED_MAP+='Ubuntu20.04 6.2|Ubuntu20.04 6.3|'
-SUPPORTED_MAP+='Ubuntu20.10 6.0|'
-SUPPORTED_MAP+='Ubuntu21.04 6.0)'
+SUPPORTED_MAP='^(CentOS7 6.2|CentOS7 6.4|'
+SUPPORTED_MAP+='AlmaLinux8 6.2|AlmaLinux8 6.4|'
+SUPPORTED_MAP+='Debian10 6.2|Debian10 6.4|'
+SUPPORTED_MAP+='Debian11 6.2|Debian11 6.4|'
+SUPPORTED_MAP+='Ubuntu18.04 6.2|Ubuntu18.04 6.4|'
+SUPPORTED_MAP+='Ubuntu20.04 6.2|Ubuntu20.04 6.4|'
+SUPPORTED_MAP+='Ubuntu20.10 6.2|'
+SUPPORTED_MAP+='Ubuntu21.04 6.2)'
 PURGE='no'
 DISABLE_SELINUX='no'
 ENABLED_APPARMOR='no'
@@ -638,6 +638,7 @@ interface=${BRIDGE_INTERFACE},lo
 bind-interfaces
 EOT
         systemctl start dnsmasq
+        systemctl enable dnsmasq
     fi
 }
 
