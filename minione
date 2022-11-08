@@ -654,7 +654,7 @@ configure_repos() {
 name=opennebula
 baseurl=${REPO_BASE}/${DISTNAME}/${DISTVER}/x86_64
 enabled=1
-gpgkey=https://downloads.opennebula.io/repo/repo.key
+gpgkey=https://downloads.opennebula.io/repo/repo2.key
 gpgcheck=1
 EOT
         fi
@@ -662,7 +662,7 @@ EOT
         if [[ $1 = 'purge' ]]; then
             rm -f /etc/apt/sources.list.d/opennebula.list
         else
-            ( wget -q -O- https://downloads.opennebula.io/repo/repo.key | \
+            ( wget -q -O- https://downloads.opennebula.io/repo/repo2.key | \
                 apt-key add - >/dev/null ) || return 1
             echo "deb ${REPO_BASE}/${DISTNAME}/${DISTVER} stable opennebula" \
                 > /etc/apt/sources.list.d/opennebula.list  || return 1
