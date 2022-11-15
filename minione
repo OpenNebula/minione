@@ -130,6 +130,14 @@ TERRAFORM_URL='https://releases.hashicorp.com/terraform/1.1.9/terraform_1.1.9_li
 INSTALL_DOCKER=false
 ETH0_IP=''
 PUBLIC_IP=''
+ONE_SERVICES=(opennebula opennebula-sunstone opennebula-fireedge
+              opennebula-flow opennebula-gate)
+ONE_FE_PKGS=(opennebula opennebula-common opennebula-common-onecfg
+             opennebula-flow opennebula-fireedge opennebula-gate
+             opennebula-libs opennebula-rubygems opennebula-sunstone
+             opennebula-tools opennebula-guacd)
+NODE_KVM_PKG='opennebula-node-kvm'
+REPO_KEY='repo.key'
 
 while true ; do
     case "$1" in
@@ -654,7 +662,7 @@ configure_repos() {
 name=opennebula
 baseurl=${REPO_BASE}/${DISTNAME}/${DISTVER}/x86_64
 enabled=1
-gpgkey=https://downloads.opennebula.io/repo/repo.key
+gpgkey=https://downloads.opennebula.io/repo/${REPO_KEY}
 gpgcheck=1
 EOT
         fi
@@ -662,7 +670,7 @@ EOT
         if [[ $1 = 'purge' ]]; then
             rm -f /etc/apt/sources.list.d/opennebula.list
         else
-            ( wget -q -O- https://downloads.opennebula.io/repo/repo.key | \
+            ( wget -q -O- https://downloads.opennebula.io/repo/${REPO_KEY} | \
                 apt-key add - >/dev/null ) || return 1
             echo "deb ${REPO_BASE}/${DISTNAME}/${DISTVER} stable opennebula" \
                 > /etc/apt/sources.list.d/opennebula.list  || return 1
@@ -814,18 +822,16 @@ if [[ "$PURGE" = "yes" ]] && [[ "$VERSION_GIVEN" != "yes" ]]; then
         "SKIP Will try to uninstall default $VERSION"
 fi
 
-# 5.13 and newer
-if verlte 5.13 "$VERSION"; then
-    ONE_SERVICES=(opennebula opennebula-sunstone opennebula-fireedge
-                  opennebula-flow opennebula-gate)
+# 6.4+
+if verlte 6.4 "$VERSION"; then
 
-    ONE_FE_PKGS=(opennebula opennebula-common opennebula-common-onecfg
-                 opennebula-flow opennebula-fireedge opennebula-gate
-                 opennebula-libs opennebula-rubygems opennebula-sunstone
-                 opennebula-tools opennebula-guacd)
-    NODE_KVM_PKG='opennebula-node-kvm'
-# up to 5.12
-else
+    # 6.4.2 is EE only release
+    if [[ $EE == yes ]]; then
+        REPO_KEY='repo2.key'
+    fi
+
+# 5.12 and older
+elif verlte "$VERSION" 5.12; then
     ONE_SERVICES=(opennebula opennebula-sunstone opennebula-flow opennebula-gate)
 
     if centos; then
