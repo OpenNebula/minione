@@ -17,7 +17,7 @@
 #--------------------------------------------------------------------------- #
 
 # default parameters values
-VERSION='6.4'
+VERSION='6.6'
 EE='no'
 FORCE='no'
 VERBOSE='no'
@@ -95,14 +95,13 @@ fi
 eval set -- "$OPTS"
 
 # global vars
-SUPPORTED_MAP='^(CentOS7 6.2|CentOS7 6.4|'
-SUPPORTED_MAP+='AlmaLinux8 6.2|AlmaLinux8 6.4|'
-SUPPORTED_MAP+='Debian10 6.2|Debian10 6.4|'
-SUPPORTED_MAP+='Debian11 6.2|Debian11 6.4|'
-SUPPORTED_MAP+='Ubuntu18.04 6.2|Ubuntu18.04 6.4|'
-SUPPORTED_MAP+='Ubuntu20.04 6.2|Ubuntu20.04 6.4|'
-SUPPORTED_MAP+='Ubuntu20.10 6.2|'
-SUPPORTED_MAP+='Ubuntu21.04 6.2)'
+SUPPORTED_MAP='^(CentOS7 6.4|'
+SUPPORTED_MAP+='AlmaLinux8 6.4|AlmaLinux8 6.6|AlmaLinux9 6.6|'
+SUPPORTED_MAP+='Debian10 6.4|Debian10 6.6|'
+SUPPORTED_MAP+='Debian11 6.4|Debian11 6.6|'
+SUPPORTED_MAP+='Ubuntu18.04 6.4|'
+SUPPORTED_MAP+='Ubuntu20.04 6.4|Ubuntu20.04 6.6|'
+SUPPORTED_MAP+='Ubuntu22.04 6.4|Ubuntu22.04 6.6)'
 PURGE='no'
 DISABLE_SELINUX='no'
 ENABLED_APPARMOR='no'
@@ -822,8 +821,12 @@ if [[ "$PURGE" = "yes" ]] && [[ "$VERSION_GIVEN" != "yes" ]]; then
         "SKIP Will try to uninstall default $VERSION"
 fi
 
+# 6.6+
+if verlte 6.6 "$VERSION"; then
+        REPO_KEY='repo2.key'
+
 # 6.4+
-if verlte 6.4 "$VERSION"; then
+elif verlte 6.4 "$VERSION"; then
 
     # 6.4.2 is EE only release
     if [[ $EE == yes ]]; then
