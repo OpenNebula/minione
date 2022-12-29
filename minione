@@ -119,8 +119,8 @@ IMAGE_WAIT_TIMEOUT=300
 STAR_NET=''
 FIREEDGE_NODE_VER='12'
 AUGEAS_PKG='augeas-tools'
-PIP='pip'
-PYTHON_PIP='python-pip'
+PIP='pip3'
+PYTHON_PIP='python3-pip'
 REPO_BASE=''
 HAVE_CURL=false
 HAVE_WGET=false
@@ -811,8 +811,7 @@ NETMASK_BITS=$(mask2cidr "${VNET_NETMASK}")
 read -r DISTNAME DISTVER <<<"$(get_distname_and_version)"
 
 [[ "${DISTNAME}${DISTVER}" =~ Ubuntu16.04|Ubuntu18.04 ]] && LIBVIRTD="libvirt-bin"
-[[ "${DISTNAME}${DISTVER}" =~ AlmaLinux8|RedHat8|Ubuntu20|Ubuntu21|Debian10|Debian11 ]] \
-    && PIP="pip3" && PYTHON_PIP="python3-pip"
+[[ "${DISTNAME}${DISTVER}" =~ CentOS7 ]] && PIP="pip" && PYTHON_PIP="python-pip"
 
 centos && AUGEAS_PKG='augeas'
 
