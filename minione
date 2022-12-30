@@ -426,7 +426,7 @@ supported_dist_ver() {
 
 repo_exists() {
     if [[ ! "$DISTNAME" =~ AlmaLinux|CentOS|Ubuntu|Debian ]]; then
-        echo "Currently only CentOS, Ubuntu or Debian are supported" >&2
+        echo "Currently only CentOS, AlmaLinux, Ubuntu or Debian are supported" >&2
         return 1
     else
         URL="${REPO_BASE}/${DISTNAME}/${DISTVER}"
@@ -578,7 +578,12 @@ ifup_bridge() {
         netplan apply
     else
         debian && ifup tap0
-        ifup "${BRIDGE_INTERFACE}"
+
+        if type -t ifup >/dev/null; then
+            ifup "${BRIDGE_INTERFACE}"
+        else
+            true # not needed when NM is used
+        fi
     fi
 }
 
