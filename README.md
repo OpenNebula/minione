@@ -11,7 +11,7 @@ You’ll need a server (physical or virtual) to try out OpenNebula. The provided
 - 20 GiB free space on disk
 - privileged user access (root)
 - openssh-server package installed
-- operating system: CentOS 7, AlmaLinux 8, Debian 10 or 11, Ubuntu 18.04 or 20.04
+- operating system: AlmaLinux 8 or 9, Debian 10 or 11, Ubuntu 18.04, 20.04 or 22.04
 - open ports: 22 (SSH), 80 (Sunstone), 2616 (FireEdge)
 
 ## Quickstart
@@ -42,7 +42,7 @@ This option is suitable for bare-metal hosts to utilize HW virtualization, howev
 
 ## License
 
-Copyright 2002-2022, OpenNebula Systems (formerly C12G Labs)
+Copyright 2002-2023, OpenNebula Systems (formerly C12G Labs)
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License. You may obtain
