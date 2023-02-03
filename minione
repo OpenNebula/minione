@@ -806,7 +806,7 @@ gen_ssh_key() {
 }
 
 install_terraform() {
-    curl -s -o /tmp/terraform.zip $TERRAFORM_URL || return 1
+    curl --retry 3 -s -o /tmp/terraform.zip $TERRAFORM_URL || return 1
     unzip /tmp/terraform.zip -d /usr/bin || return 1
     rm /tmp/terraform.zip
 }
@@ -1360,12 +1360,6 @@ ensure_hostname_resolvable() {
         rm "$AUG_CMD"
     fi
     set +e
-}
-
-install_terraform() {
-    curl -s -o /tmp/terraform.zip $TERRAFORM_URL || return 1
-    unzip /tmp/terraform.zip -d /usr/bin || return 1
-    rm /tmp/terraform.zip
 }
 
 update_network_hooks() {
