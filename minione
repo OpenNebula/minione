@@ -492,7 +492,7 @@ install() {
 
 
 create_bridge() {
-    if centos; then
+    if centos && [[ $DISTVER -le 8 ]]; then
         if [[ $1 = purge ]]; then
             rm -f /etc/sysconfig/network-scripts/ifcfg-minionebr
             ip link set down dev "${BRIDGE_INTERFACE}" || true
@@ -510,6 +510,20 @@ IPV6_AUTOCONF=no
 NM_CONTROLLED=no
 EOF
         fi
+
+    # AlmaLinux(or similar) 9+
+    elif centos; then
+        if [[ $1 = purge ]]; then
+            nmcli con delete tap0 || true
+            nmcli con del bridge-slave-tap0 || true
+            nmcli con delete ${BRIDGE_INTERFACE} || true
+        else
+            nmcli con add type bridge ifname ${BRIDGE_INTERFACE} con-name ${BRIDGE_INTERFACE} ipv4.method manual ipv4.addresses "${VNET_GATEWAY}/${NETMASK_BITS}"
+            nmcli con add type tun ifname tap0 con-name tap0 mode tap
+            nmcli con add type bridge-slave ifname tap0 master ${BRIDGE_INTERFACE}
+            nmcli con up ${BRIDGE_INTERFACE}
+        fi
+
     elif debian; then
         if netplan_on; then
             if [[ $1 = purge ]]; then
@@ -968,9 +982,6 @@ networking && {
     if [[ "${DISTNAME}${DISTVER}" =~ CentOS8|RedHat8 ]]; then
         check "rpm -q network-scripts >/dev/null" "Checking network-scripts are installed" 1 \
             "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} network-scripts"
-    else
-        check "type -t brctl >/dev/null" "Checking bridge-utils are installed" 1 \
-            "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} bridge-utils"
     fi
 }
 
