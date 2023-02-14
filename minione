@@ -705,6 +705,10 @@ enable_epel() {
     if redhat; then
         rpm -ivh 'https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm'
     elif centos ; then
+        if [[ "${DISTNAME}" =~ AlmaLinux ]] && [[ "${DISTVER}" -ge 9 ]]; then
+            dnf config-manager --set-enabled crb || return 1
+        fi
+
         install "epel-release"
     fi
 }
