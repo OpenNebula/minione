@@ -136,7 +136,7 @@ ONE_FE_PKGS=(opennebula opennebula-common opennebula-common-onecfg
              opennebula-libs opennebula-rubygems opennebula-sunstone
              opennebula-tools opennebula-guacd)
 NODE_KVM_PKG='opennebula-node-kvm'
-REPO_KEY='repo.key'
+REPO_KEY='repo2.key'
 
 while true ; do
     case "$1" in
@@ -843,20 +843,8 @@ if [[ "$PURGE" = "yes" ]] && [[ "$VERSION_GIVEN" != "yes" ]]; then
         "SKIP Will try to uninstall default $VERSION"
 fi
 
-# 6.6+
-if verlte 6.6 "$VERSION"; then
-        REPO_KEY='repo2.key'
-
-# 6.4+
-elif verlte 6.4 "$VERSION"; then
-
-    # 6.4.2 is EE only release
-    if [[ $EE == yes ]]; then
-        REPO_KEY='repo2.key'
-    fi
-
 # 5.12 and older
-elif verlte "$VERSION" 5.12; then
+if verlte "$VERSION" 5.12; then
     ONE_SERVICES=(opennebula opennebula-sunstone opennebula-flow opennebula-gate)
 
     if centos; then
