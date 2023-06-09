@@ -951,6 +951,8 @@ else
     REPORT_IP=${PUBLIC_IP:-$ETH0_IP}
 fi
 
+lxc && MARKET_APP_NAME='alpine'
+
 #-------------------------------------------------------------------------------
 # Uninstall
 #-------------------------------------------------------------------------------
@@ -1661,6 +1663,7 @@ node && {
 
 networking && check "create_vnet" "Creating virtual network"
 
+lxc && check "onemarket enable DockerHub" "Enabling DockerHub Marketplace"
 check "export_marketapp \"$MARKET_APP_NAME\"" "Exporting [${MARKET_APP_NAME}] from Marketplace to local datastore"
 check "image_is_ready" "Waiting until the image is ready"
 
