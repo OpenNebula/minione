@@ -482,6 +482,11 @@ node() {
     [[ $NODE == yes ]]
 }
 
+aws() {
+    # try detect AWS instance by seeing 'Server: EC2ws' in headers
+    curl --connect-timeout 1 http://169.254.169.254 -v 2>&1 | grep -q EC2
+}
+
 kvm() {
     [[ $NODE == yes && $LXC == no ]]
 }
@@ -948,6 +953,11 @@ else
     ONEGATE_ENDPOINT=${PUBLIC_IP:-$ETH0_IP}
     ONEGATE_SERVER=$ETH0_IP
     FIREEDGE_ENDPOINT=${PUBLIC_IP:-$ETH0_IP}
+    REPORT_IP=${PUBLIC_IP:-$ETH0_IP}
+fi
+
+# On AWS always report PUBLIC_IP, if exists
+if aws; then
     REPORT_IP=${PUBLIC_IP:-$ETH0_IP}
 fi
 
