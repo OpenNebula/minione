@@ -320,6 +320,7 @@ get_distname_and_version() {
     elif [ -f /etc/redhat-release ]; then
         DIST=$(cut -d ' ' -f1 </etc/redhat-release)
         VER=$(sed -e 's/[^0-9\.]*//g' </etc/redhat-release)
+        [[ "${DIST}" = Red ]] && DIST="RedHat"
     elif [ -f /etc/os-release ]; then
         DIST=$(grep ^NAME= /etc/os-release | cut -d\" -f2)
         DIST=$(echo $DIST | sed 's/ .*//')
