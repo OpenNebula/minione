@@ -98,6 +98,7 @@ eval set -- "$OPTS"
 # global vars
 SUPPORTED_MAP='^(CentOS7 6.4|'
 SUPPORTED_MAP+='AlmaLinux8 6.4|AlmaLinux8 6.6|AlmaLinux9 6.4|AlmaLinux9 6.6|'
+SUPPORTED_MAP+='RedHat8 6.4|RedHat8 6.6|RedHat9 6.4|RedHat9 6.6|'
 SUPPORTED_MAP+='Debian10 6.4|Debian10 6.6|'
 SUPPORTED_MAP+='Debian11 6.4|Debian11 6.6|'
 SUPPORTED_MAP+='Ubuntu18.04 6.4|'
@@ -510,8 +511,8 @@ supported_dist_ver() {
 }
 
 repo_exists() {
-    if [[ ! "$DISTNAME" =~ AlmaLinux|CentOS|Ubuntu|Debian ]]; then
-        echo "Currently only CentOS, AlmaLinux, Ubuntu or Debian are supported" >&2
+    if [[ ! "$DISTNAME" =~ AlmaLinux|CentOS|RedHat|Ubuntu|Debian ]]; then
+        echo "Currently only CentOS, RedHat, AlmaLinux, Ubuntu or Debian are supported" >&2
         return 1
     else
         URL="${REPO_BASE}/${DISTNAME}/${DISTVER}"
@@ -786,7 +787,7 @@ enable_rhel_extra_repos() {
 
 enable_epel() {
     if redhat; then
-        rpm -ivh 'https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm'
+        rpm -ivh "https://dl.fedoraproject.org/pub/epel/epel-release-latest-${DIST}.noarch.rpm"
     elif centos; then
         if [[ "${DISTNAME}" =~ AlmaLinux ]] && [[ "${DISTVER}" -ge 9 ]]; then
             dnf config-manager --set-enabled crb || return 1
