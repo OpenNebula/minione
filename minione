@@ -466,10 +466,6 @@ debian() {
     [[ "$DISTNAME" =~ Ubuntu|Debian ]]
 }
 
-older_os() {
-    [[ "${DISTNAME}${DISTVER}" =~ ^(CentOS7|Debian9|Ubuntu16.04|Ubuntu18.04)$ ]]
-}
-
 firewalld_running() {
     systemctl -q is-active firewalld
 }
@@ -778,14 +774,9 @@ EOT
     fi
 }
 
-enable_rhel_extra_repos() {
-    subscription-manager repos --enable rhel-7-server-optional-rpms &&
-        subscription-manager repos --enable rhel-7-server-extras-rpms >/dev/null
-}
-
 enable_epel() {
     if redhat; then
-        rpm -ivh "https://dl.fedoraproject.org/pub/epel/epel-release-latest-${DIST}.noarch.rpm"
+        dnf install "https://dl.fedoraproject.org/pub/epel/epel-release-latest-${DISTVER}.noarch.rpm"
     elif centos; then
         if [[ "${DISTNAME}" =~ AlmaLinux ]] && [[ "${DISTVER}" -ge 9 ]]; then
             dnf config-manager --set-enabled crb || return 1
@@ -816,19 +807,6 @@ install_fireedge_deps() {
 
 install_opennebula_kvm_pkgs() {
     install "$NODE_KVM_PKG" || return 1
-
-    if redhat; then
-        subscription-manager repos --enable \
-            rhel-7-server-rhv-4-mgmt-agent-rpms || return 1
-        install qemu-kvm-rhev || return 1
-    elif centos; then
-        if [[ "${DISTVER}" = 7 ]]; then
-            run_and_print_if_failed \
-                "yum --quiet -y update centos-release"
-            install centos-release-qemu-ev || return 1
-            install qemu-kvm-ev || return 1
-        fi
-    fi
 }
 
 install_opennebula_lxc_pkgs() {
@@ -913,9 +891,6 @@ install_terraform() {
 # Initialize some usefull vars
 NETMASK_BITS=$(mask2cidr "${VNET_NETMASK}")
 read -r DISTNAME DISTVER <<<"$(get_distname_and_version)"
-
-[[ "${DISTNAME}${DISTVER}" =~ Ubuntu16.04|Ubuntu18.04 ]] && LIBVIRTD="libvirt-bin"
-[[ "${DISTNAME}${DISTVER}" =~ CentOS7 ]] && PIP="pip" && PYTHON_PIP="python-pip"
 
 centos && AUGEAS_PKG='augeas'
 
@@ -1105,7 +1080,7 @@ else
     fi
 fi
 
-if [[ "${DISTNAME}${DISTVER}" = "CentOS8" ]]; then
+if [[ "${DISTNAME}${DISTVER}" = "RedHat8" ]]; then
     check "verlte 1.8.5 $(rpm -q --qf '%{VERSION}' libgcrypt)" \
         "Checking libgcrypt version" 1 \
         "SKIP will try to update" ||
@@ -1252,9 +1227,7 @@ check "configure_repos" "Configuring repositories"
 
 debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 
-redhat && check "enable_rhel_extra_repos" "Enabling RHEL 7 extra & opt repositories"
 centos && check "enable_epel" "Installing EPEL"
-older_os && check "install_fireedge_deps" "Installing FireEdge dependencies"
 check "install_opennebula_pkgs" "Installing OpenNebula packages" 3
 check "install opennebula-provision" "Installing opennebula-provision package " 3
 $INSTALL_TERRAFORM && check "install_terraform" "Installing TerraForm"
