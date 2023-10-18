@@ -17,7 +17,7 @@
 #--------------------------------------------------------------------------- #
 
 # default parameters values
-VERSION='6.6'
+VERSION='6.8'
 EE='no'
 FORCE='no'
 VERBOSE='no'
