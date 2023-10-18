@@ -96,14 +96,12 @@ fi
 eval set -- "$OPTS"
 
 # global vars
-SUPPORTED_MAP='^(CentOS7 6.4|'
-SUPPORTED_MAP+='AlmaLinux8 6.4|AlmaLinux8 6.6|AlmaLinux9 6.4|AlmaLinux9 6.6|'
-SUPPORTED_MAP+='RedHat8 6.4|RedHat8 6.6|RedHat9 6.4|RedHat9 6.6|'
-SUPPORTED_MAP+='Debian10 6.4|Debian10 6.6|'
-SUPPORTED_MAP+='Debian11 6.4|Debian11 6.6|'
-SUPPORTED_MAP+='Ubuntu18.04 6.4|'
-SUPPORTED_MAP+='Ubuntu20.04 6.4|Ubuntu20.04 6.6|'
-SUPPORTED_MAP+='Ubuntu22.04 6.4|Ubuntu22.04 6.6)'
+SUPPORTED_MAP+='AlmaLinux8 6.6|AlmaLinux8 6.8|AlmaLinux9 6.6|AlmaLinux9 6.8|'
+SUPPORTED_MAP+='RedHat8 6.6|RedHat8 6.8|RedHat9 6.6|RedHat9 6.8|'
+SUPPORTED_MAP+='Debian10 6.6|Debian10 6.8|'
+SUPPORTED_MAP+='Debian11 6.6|Debian11 6.8|'
+SUPPORTED_MAP+='Ubuntu20.04 6.6|Ubuntu20.04 6.8|'
+SUPPORTED_MAP+='Ubuntu22.04 6.6|Ubuntu22.04 6.8)'
 PURGE='no'
 DISABLE_SELINUX='no'
 ENABLED_APPARMOR='no'
