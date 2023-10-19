@@ -776,7 +776,7 @@ EOT
 
 enable_epel() {
     if redhat; then
-        dnf install "https://dl.fedoraproject.org/pub/epel/epel-release-latest-${DISTVER}.noarch.rpm"
+        dnf install -y "https://dl.fedoraproject.org/pub/epel/epel-release-latest-${DISTVER}.noarch.rpm"
     elif centos; then
         if [[ "${DISTNAME}" =~ AlmaLinux ]] && [[ "${DISTVER}" -ge 9 ]]; then
             dnf config-manager --set-enabled crb || return 1
