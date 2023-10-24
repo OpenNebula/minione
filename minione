@@ -107,7 +107,7 @@ DISABLE_SELINUX='no'
 ENABLED_APPARMOR='no'
 MISSING_PKGS=''
 MISSING_PIP_PKGS=''
-USE_QEMU='no'
+LOCALHOST_VM_MAD='kvm'
 CLEAN='no'
 APPS_URL='https://marketplace.opennebula.io/appliance'
 REPO_URL='https://downloads.opennebula.io/repo'
@@ -998,7 +998,7 @@ check "repo_exists" "Checking if OpenNebula repository exists" 3
 node && {
     check 'grep flags /proc/cpuinfo | grep vmx\\\|svm > /dev/null' \
         "Checking cpu virtualization capabilities" 1 \
-        "SKIP QEMU will be used" || USE_QEMU='yes'
+        "SKIP QEMU will be used" || LOCALHOST_VM_MAD='qemu'
 }
 
 check "type -t augtool >/dev/null" "Checking augeas is installed" 1 \
@@ -1456,8 +1456,6 @@ check "sed_subst \":keep_empty_bridge: .*\" \":keep_empty_bridge: true\" \"/var/
 check "aug_set SCHED_INTERVAL 10 /etc/one/sched.conf" \
     "Switching scheduler interval in oned.conf"
 
-[[ ${USE_QEMU} = 'yes' ]] && check "switch_to_qemu" "Switching to QEMU emulation"
-
 check "set_init_password" "Setting initial password for current user and oneadmin"
 
 [[ ${SUNSTONE_PORT} != 9869 ]] && check "set_sunstone_port ${SUNSTONE_PORT}" \
@@ -1631,8 +1629,8 @@ node && {
 }
 
 kvm && {
-    check "onehost create -i kvm -v kvm localhost >/dev/null 2>&1" \
-        "Creating KVM host"
+    check "onehost create -i kvm -v $LOCALHOST_VM_MAD localhost >/dev/null 2>&1" \
+        "Creating $LOCALHOST_VM_MAD host"
 }
 
 lxc && {
