@@ -322,7 +322,7 @@ get_distname_and_version() {
         [[ "${DIST}" = Red ]] && DIST="RedHat"
     elif [ -f /etc/os-release ]; then
         DIST=$(grep ^NAME= /etc/os-release | cut -d\" -f2)
-        DIST=$(echo $DIST | sed 's/ .*//')
+        DIST=${DIST%% *} # remove everything after a space
         VER=$(grep ^VERSION_ID= /etc/os-release | cut -d\" -f2)
     elif [ -f /etc/lsb-release ]; then
         DIST=$(grep ^DISTRIB_ID= /etc/lsb-release | cut -d= -f2)
