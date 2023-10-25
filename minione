@@ -1281,12 +1281,6 @@ aug_set() {
     augtool -s set "/files$CONF/$KEY" "'$VALUE'" >/dev/null
 }
 
-switch_to_qemu() {
-    LINE_NUM=$(grep -n '^VM_MAD =' -A 10 /etc/one/oned.conf |
-        grep -E '^[0-9]+-\s*TYPE' | grep kvm | awk -F- '{print $1}')
-    sed -i "${LINE_NUM}s/kvm/qemu/" /etc/one/oned.conf
-}
-
 set_init_password() {
     [[ ! -d $HOME/.one ]] && { mkdir "$HOME"/.one || return 1; }
     echo "oneadmin:$PASSWORD" >"$HOME"/.one/one_auth || return 1
