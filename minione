@@ -767,8 +767,8 @@ EOT
             rm -f /etc/apt/sources.list.d/opennebula.list
         else
             (wget -q -O- https://downloads.opennebula.io/repo/"${REPO_KEY}" |
-                apt-key add - >/dev/null) || return 1
-            echo "deb ${REPO_BASE}/${DISTNAME}/${DISTVER} stable opennebula" \
+                gpg --dearmor --yes --output /etc/apt/keyrings/opennebula.gpg) || return 1
+            echo "deb [signed-by=/etc/apt/keyrings/opennebula.gpg] ${REPO_BASE}/${DISTNAME}/${DISTVER} stable opennebula" \
                 >/etc/apt/sources.list.d/opennebula.list || return 1
         fi
     fi
@@ -789,20 +789,6 @@ enable_epel() {
 install_opennebula_pkgs() {
     install "${ONE_FE_PKGS[@]}" || return 1
     systemctl daemon-reload
-}
-
-install_fireedge_deps() {
-    if centos; then
-        install centos-release-scl-rh
-    else
-        local KEY='https://keyserver.ubuntu.com/pks/lookup?op=get&fingerprint=on&search=0x1655A0AB68576280'
-        local URL="https://deb.nodesource.com/node_$FIREEDGE_NODE_VER.x"
-        wget -q -O- "$KEY" | apt-key add - >/dev/null || return 1
-        add-apt-repository -s "deb $URL $(lsb_release -cs) main" || return 1
-        apt-get -q -y update >/dev/null || return 1
-
-        install "nodejs=${FIREEDGE_NODE_VER}*"
-    fi
 }
 
 install_opennebula_kvm_pkgs() {
@@ -836,8 +822,9 @@ create_docker_repo() {
         curl -s https://download.docker.com/linux/centos/docker-ce.repo \
             -o /etc/yum.repos.d/docker-ce.repo
     elif debian; then
-        curl -fsSL https://download.docker.com/linux/"${DISTNAME,,}"/gpg | sudo apt-key add
-        add-apt-repository --yes "deb [arch=amd64] https://download.docker.com/linux/${DISTNAME,,} $(lsb_release -cs) stable"
+        curl -fsSL https://download.docker.com/linux/"${DISTNAME,,}"/gpg -o /etc/apt/keyrings/docker.asc || return 1
+	echo "deb [signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/${DISTNAME,,} "\
+            "$(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
     fi
 }
 
@@ -1046,7 +1033,7 @@ debian && {
         "SKIP will try to install" ||
         MISSING_PKGS="${MISSING_PKGS} apt-transport-https"
 
-    # check if gnupg is installed (required for apt-key add)
+    # check if gnupg is installed
     check "dpkg -L gnupg >/dev/null 2>&1" \
         "Checking if gnupg is installed" 1 \
         "SKIP will try to install" ||
