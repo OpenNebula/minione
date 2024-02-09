@@ -734,7 +734,37 @@ start_dnsmasq() {
             mv /etc/dnsmasq.conf.bk /etc/dnsmasq.conf
         else
             rm -f /etc/dnsmasq.conf
-            systemctl stop dnsmasq
+            systemctl stop dnsmasqconfigure_repos() {
+    if centos; then
+        if [[ $1 = 'purge' ]]; then
+            rm -f /etc/yum.repos.d/opennebula.repo
+        else
+            cat <<EOT >/etc/yum.repos.d/opennebula.repo
+[opennebula]
+name=opennebula
+baseurl=${REPO_BASE}/${DISTNAME}/${DISTVER}/x86_64
+enabled=1
+gpgkey=https://downloads.opennebula.io/repo/${REPO_KEY}
+gpgcheck=1
+EOT
+        fi
+    elif debian; then
+        if [[ $1 = 'purge' ]]; then
+            rm -f /etc/apt/sources.list.d/opennebula.list
+        else
+            # Check if /etc/apt/keyrings directory exists, if not, create it
+            if [ ! -d /etc/apt/keyrings ]; then
+                install -m 0755 -d /etc/apt/keyrings
+            fi
+
+            (wget -q -O- https://downloads.opennebula.io/repo/"${REPO_KEY}" |
+                gpg --dearmor --yes --output /etc/apt/keyrings/opennebula.gpg) || return 1
+            echo "deb [signed-by=/etc/apt/keyrings/opennebula.gpg] ${REPO_BASE}/${DISTNAME}/${DISTVER} >
+                >/etc/apt/sources.list.d/opennebula.list || return 1
+        fi
+    fi
+}
+
         fi
     else
         cp /etc/dnsmasq.conf /etc/dnsmasq.conf.bk 2>/dev/null
