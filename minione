@@ -731,7 +731,7 @@ EOF
 start_dnsmasq() {
     if [[ $1 = 'purge' ]]; then
         if [[ -f /etc/dnsmasq.conf.bk ]]; then
-            mv /etc/dnsmasq.conf.bk /etc/dnsmasq.c>
+            mv /etc/dnsmasq.conf.bk /etc/dnsmasq.conf>
         else
             rm -f /etc/dnsmasq.conf
             systemctl stop dnsmasq
