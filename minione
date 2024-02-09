@@ -765,6 +765,11 @@ EOT
         if [[ $1 = 'purge' ]]; then
             rm -f /etc/apt/sources.list.d/opennebula.list
         else
+	    # Check if /etc/apt/keyrings directory exists, if not, create it
+            if [ ! -d /etc/apt/keyrings ]; then
+                install -m 0755 -d /etc/apt/keyrings
+            fi
+
             (wget -q -O- https://downloads.opennebula.io/repo/"${REPO_KEY}" |
                 gpg --dearmor --yes --output /etc/apt/keyrings/opennebula.gpg) || return 1
             echo "deb [signed-by=/etc/apt/keyrings/opennebula.gpg] ${REPO_BASE}/${DISTNAME}/${DISTVER} stable opennebula" \
