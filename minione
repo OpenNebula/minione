@@ -731,13 +731,13 @@ EOF
 start_dnsmasq() {
     if [[ $1 = 'purge' ]]; then
         if [[ -f /etc/dnsmasq.conf.bk ]]; then
-            mv /etc/dnsmasq.conf.bk /etc/dnsmasq.conf>
+            mv /etc/dnsmasq.conf.bk /etc/dnsmasq.conf
         else
             rm -f /etc/dnsmasq.conf
             systemctl stop dnsmasq
         fi
     else
-        cp /etc/dnsmasq.conf /etc/dnsmasq.conf.bk >
+        cp /etc/dnsmasq.conf /etc/dnsmasq.conf.bk 2>/dev/null
         cat <<EOT >/etc/dnsmasq.conf || return 1
 interface=${BRIDGE_INTERFACE},lo
 bind-interfaces
