@@ -556,7 +556,7 @@ modify_apparmor() {
     fi
 }
 
-install() {
+install_pkg() {
     if centos; then
         run_and_print_if_failed "yum -y install $*"
     elif debian; then
@@ -786,21 +786,21 @@ enable_epel() {
             dnf config-manager --set-enabled crb || return 1
         fi
 
-        install "epel-release"
+        install_pkg "epel-release"
     fi
 }
 
 install_opennebula_pkgs() {
-    install "${ONE_FE_PKGS[@]}" || return 1
+    install_pkg "${ONE_FE_PKGS[@]}" || return 1
     systemctl daemon-reload
 }
 
 install_opennebula_kvm_pkgs() {
-    install "$NODE_KVM_PKG" || return 1
+    install_pkg "$NODE_KVM_PKG" || return 1
 }
 
 install_opennebula_lxc_pkgs() {
-    install opennebula-node-lxc || return 1
+    install_pkg opennebula-node-lxc || return 1
 }
 
 uninstall_opennebula_pkgs() {
@@ -1189,7 +1189,7 @@ VERBOSE='yes'
 [[ "${CLEAN}" = yes ]] && clean
 debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 [[ "${DISABLE_SELINUX}" = 'yes' ]] && check "disable_selinux" "Disabling SELinux"
-[[ -n "${MISSING_PKGS}" ]] && check "install ${MISSING_PKGS}" "Install ${MISSING_PKGS}" 3
+[[ -n "${MISSING_PKGS}" ]] && check "install_pkg ${MISSING_PKGS}" "Install ${MISSING_PKGS}" 3
 if [[ -n "${MISSING_PIP_PKGS}" ]]; then
     check "$PIP install --upgrade pip" "Updating PIP"
     check "$PIP install ${MISSING_PIP_PKGS}" \
@@ -1210,7 +1210,7 @@ networking && {
     check "configure_nat" "Configuring NAT using iptables"
     centos && check "iptables-save > /etc/sysconfig/iptables" "Saving iptables changes"
     debian && check "netfilter-persistent save" "Saving iptables changes"
-    check "install dnsmasq" "Installing DNSMasq" 3
+    check "install_pkg dnsmasq" "Installing DNSMasq" 3
     check "start_dnsmasq" "Starting DNSMasq"
 }
 
@@ -1220,7 +1220,7 @@ debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 
 centos && check "enable_epel" "Installing EPEL"
 check "install_opennebula_pkgs" "Installing OpenNebula packages" 3
-check "install opennebula-provision" "Installing opennebula-provision package " 3
+check "install_pkg opennebula-provision" "Installing opennebula-provision package " 3
 $INSTALL_TERRAFORM && check "install_terraform" "Installing TerraForm"
 
 $INSTALL_DOCKER && {
