@@ -136,6 +136,7 @@ ONE_FE_PKGS=(opennebula opennebula-common opennebula-common-onecfg
     opennebula-tools opennebula-guacd)
 NODE_KVM_PKG='opennebula-node-kvm'
 REPO_KEY='repo2.key'
+SSHD_SERVICE='sshd'
 
 while true; do
     case "$1" in
@@ -929,6 +930,10 @@ fi
 
 lxc && MARKET_APP_NAME='alpine'
 
+if [[ "${DISTNAME}${DISTVER}" == Ubuntu2404 ]]; then
+    SSHD_SERVCE='ssh'
+fi
+
 #-------------------------------------------------------------------------------
 # Uninstall
 #-------------------------------------------------------------------------------
@@ -1016,8 +1021,8 @@ check "! id oneadmin  >/dev/null" \
     "Checking user from previous installation" 1 "IGNORE"
 
 # check if sshd service is running
-check "systemctl status -n0 sshd >/dev/null" \
-    "Checking sshd service is running"
+check "systemctl status -n0 ${SSHD_SERVICE} >/dev/null" \
+    "Checking ${SSHD_SERVCIE} service is running"
 
 # check if we have networking tools
 networking && {
