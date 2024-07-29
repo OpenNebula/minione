@@ -1432,7 +1432,9 @@ check "gen_ssh_key $HOME/.ssh-oneprovision/id_rsa" \
 
 check "usermod -a -G docker oneadmin" "Add oneadmin to docker group"
 
-check "update_network_hooks" "Update network hooks"
+if verlte "$VERSION" 6.8.99; then
+    check "update_network_hooks" "Update network hooks"
+fi
 
 check "aug_set ONEGATE_ENDPOINT '\"http://${ONEGATE_ENDPOINT}:5030\"'" \
     "Switching OneGate endpoint in oned.conf"
