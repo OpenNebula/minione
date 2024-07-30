@@ -931,7 +931,7 @@ fi
 lxc && MARKET_APP_NAME='alpine'
 
 if [[ "${DISTNAME}${DISTVER}" == Ubuntu2404 ]]; then
-    SSHD_SERVCE='ssh'
+    SSHD_SERVICE='ssh'
 fi
 
 #-------------------------------------------------------------------------------
@@ -1022,7 +1022,7 @@ check "! id oneadmin  >/dev/null" \
 
 # check if sshd service is running
 check "systemctl status -n0 ${SSHD_SERVICE} >/dev/null" \
-    "Checking ${SSHD_SERVCIE} service is running"
+    "Checking ${SSHD_SERVICE} service is running"
 
 # check if we have networking tools
 networking && {
