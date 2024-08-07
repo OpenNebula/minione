@@ -17,7 +17,7 @@
 #--------------------------------------------------------------------------- #
 
 # default parameters values
-VERSION='6.8'
+VERSION='6.10'
 EE='no'
 FORCE='no'
 VERBOSE='no'
@@ -96,12 +96,12 @@ fi
 eval set -- "$OPTS"
 
 # global vars
-SUPPORTED_MAP+='^(AlmaLinux8 6.6|AlmaLinux8 6.8|AlmaLinux9 6.6|AlmaLinux9 6.8|'
-SUPPORTED_MAP+='RedHat8 6.6|RedHat8 6.8|RedHat9 6.6|RedHat9 6.8|'
-SUPPORTED_MAP+='Debian10 6.6|Debian10 6.8|'
-SUPPORTED_MAP+='Debian11 6.6|Debian11 6.8|'
-SUPPORTED_MAP+='Ubuntu20.04 6.6|Ubuntu20.04 6.8|'
-SUPPORTED_MAP+='Ubuntu22.04 6.6|Ubuntu22.04 6.8)'
+SUPPORTED_MAP+='^(AlmaLinux8 6.8|AlmaLinux8 6.10|AlmaLinux9 6.8|AlmaLinux9 6.10|'
+SUPPORTED_MAP+='RedHat8 6.8|RedHat8 6.10|RedHat9 6.8|RedHat9 6.10|'
+SUPPORTED_MAP+='Debian11 6.8|Debian11 6.10|'
+SUPPORTED_MAP+='Debian12 6.8|Debian11 6.10|'
+SUPPORTED_MAP+='Ubuntu22.04 6.8|Ubuntu22.04 6.10|'
+SUPPORTED_MAP+='Ubuntu24.04 6.8|Ubuntu24.04 6.10)'
 PURGE='no'
 DISABLE_SELINUX='no'
 ENABLED_APPARMOR='no'
