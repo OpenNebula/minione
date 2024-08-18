@@ -1320,7 +1320,7 @@ deny_ssh_from_vnet() {
         echo "" >>/etc/ssh/sshd_config
         echo "DenyUsers ${STAR_NET}" >>/etc/ssh/sshd_config
     fi
-    systemctl restart ${SSHD_SERVICE}
+    systemctl restart "${SSHD_SERVICE}"
 }
 
 add_keys_to_known_hosts() {
