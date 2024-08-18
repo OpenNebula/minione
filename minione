@@ -930,7 +930,7 @@ fi
 
 lxc && MARKET_APP_NAME='alpine'
 
-if [[ "${DISTNAME}${DISTVER}" == Ubuntu2404 ]]; then
+if [[ "${DISTNAME}${DISTVER}" == Ubuntu24.04 ]]; then
     SSHD_SERVICE='ssh'
 fi
 
@@ -1094,12 +1094,16 @@ networking && {
             "Checking local interface [${NAT_INTERFACE}]"
     fi
 
-    # check if we have iptables-persistent netfilter-persistent
+    # check if we have iptables-persistent and netfilter-persistent
     if debian; then
-        check "dpkg -l iptables-persistent netfilter-persistent > /dev/null" \
-            "Checking (iptables|netfilter)-persistent are installed" 1 \
+        check "type -t iptables-persistent > /dev/null" \
+            "Checking iptables-persistent is installed" 1 \
             "SKIP will try to install" ||
-            MISSING_PKGS="${MISSING_PKGS} iptables-persistent netfilter-persistent"
+            MISSING_PKGS="${MISSING_PKGS} iptables-persistent"
+        check "type -t  netfilter-persistent > /dev/null" \
+            "Checking netfilter-persistent is installed" 1 \
+            "SKIP will try to install" ||
+            MISSING_PKGS="${MISSING_PKGS} netfilter-persistent"
     fi
 
     #check if birdge iface is not already present
@@ -1140,7 +1144,7 @@ if type -t ansible >/dev/null; then
     check "[[ \"$ANSIBLE_VERSION\" =~ \"216\" ]]" "Checking ansible version (2.16.*)"
 else
     check "false" "Checking ansible" 1 "SKIP will try to install" ||
-        MISSING_PIP_PKGS="'ansible==2.9.9'"
+        MISSING_PIP_PKGS="'ansible==9.9.0'"
 fi
 
 if type -t terraform >/dev/null; then
@@ -1198,7 +1202,7 @@ debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 if [[ -n "${MISSING_PIP_PKGS}" ]]; then
     # it's evaluation tool, we can do ugly things
     export PIP_BREAK_SYSTEM_PACKAGES=1
-    check "$PIP install --upgrade pip" "Updating PIP"
+    check "$PIP install --upgrade pip || true" "Updating PIP"
     check "$PIP install ${MISSING_PIP_PKGS}" \
         "Install from PyPI ${MISSING_PIP_PKGS}" 3
 fi
@@ -1316,7 +1320,7 @@ deny_ssh_from_vnet() {
         echo "" >>/etc/ssh/sshd_config
         echo "DenyUsers ${STAR_NET}" >>/etc/ssh/sshd_config
     fi
-    systemctl restart sshd
+    systemctl restart ${SSHD_SERVICE}
 }
 
 add_keys_to_known_hosts() {
