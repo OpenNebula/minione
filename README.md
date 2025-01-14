@@ -11,7 +11,7 @@ You’ll need a server (physical or virtual) to try out OpenNebula. The provided
 - 20 GiB free space on disk
 - privileged user access (root)
 - openssh-server package installed
-- operating system: RHEL/AlmaLinux 8 or 9, Debian 10 or 11, Ubuntu 20.04 or 22.04
+- **operating system**: AlmaLinux 8 or 9, Debian 11, Ubuntu 22.04 or 24.04
 - open ports: 22 (SSH), 80 (Sunstone), 2616 (FireEdge)
 
 ## Quickstart
