@@ -99,7 +99,7 @@ eval set -- "$OPTS"
 SUPPORTED_MAP+='^(AlmaLinux8 6.8|AlmaLinux8 6.10|AlmaLinux9 6.8|AlmaLinux9 6.10|'
 SUPPORTED_MAP+='RedHat8 6.8|RedHat8 6.10|RedHat9 6.8|RedHat9 6.10|'
 SUPPORTED_MAP+='Debian11 6.8|Debian11 6.10|'
-SUPPORTED_MAP+='Debian12 6.8|Debian11 6.10|'
+SUPPORTED_MAP+='Debian12 6.8|Debian12 6.10|'
 SUPPORTED_MAP+='Ubuntu22.04 6.8|Ubuntu22.04 6.10|'
 SUPPORTED_MAP+='Ubuntu24.04 6.8|Ubuntu24.04 6.10)'
 PURGE='no'
