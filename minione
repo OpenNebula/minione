@@ -39,6 +39,8 @@ LXC='no'
 NETWORKING='yes'
 DELETE_ONEADMIN='yes'
 
+[ "$(arch)" == 'aarch64' ] && MARKET_APP_NAME='Alpine Linux 3.20 (aarch64)'
+
 e() {
     SPACE_NUM=$((35 + ${#2} - ${#1}))
     printf "%s %${SPACE_NUM}s\n" "$1" "$2"
@@ -756,7 +758,7 @@ configure_repos() {
             cat <<EOT >/etc/yum.repos.d/opennebula.repo
 [opennebula]
 name=opennebula
-baseurl=${REPO_BASE}/${DISTNAME}/${DISTVER}/x86_64
+baseurl=${REPO_BASE}/${DISTNAME}/${DISTVER}/$(arch)
 enabled=1
 gpgkey=https://downloads.opennebula.io/repo/${REPO_KEY}
 gpgcheck=1
