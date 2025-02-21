@@ -1626,7 +1626,7 @@ update_template() {
 
 update_kvm_host() {
     TMP_FILE=$(mktemp) 2>/dev/null || return 1
-    cat >$TMP_FILE <<EOF
+    cat >"$TMP_FILE" <<EOF
 IM_MAD="kvm"
 VM_MAD="kvm"
 OS=[
