@@ -1454,8 +1454,15 @@ check "sed_subst \":host: .*\" \":host: ${ONEGATE_SERVER}\" \"/etc/one/onegate-s
 check "sed_subst \":keep_empty_bridge: .*\" \":keep_empty_bridge: true\" \"/var/lib/one/remotes/etc/vnm/OpenNebulaNetwork.conf\"" \
     "Switching keep_empty_bridge on in OpenNebulaNetwork.conf"
 
-check "aug_set SCHED_INTERVAL 10 /etc/one/sched.conf" \
-    "Switching scheduler interval in oned.conf"
+
+# new scheduler in 6.99+
+if verlte "$VERSION" 6.10.99; then
+	check "aug_set SCHED_INTERVAL 10 /etc/one/sched.conf" \
+		"Switching scheduler interval in oned.conf"
+else
+	check "aug_set SCHED_RETRY_TIME 10 /etc/one/sched.conf" \
+		"Switching scheduler interval in oned.conf"
+fi
 
 check "set_init_password" "Setting initial password for current user and oneadmin"
 
