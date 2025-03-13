@@ -277,6 +277,8 @@ fi
 
 if [[ -z "$REPO_BASE" ]]; then
     REPO_BASE="$REPO_URL"/"$VERSION"
+else
+	VERSION=$(echo $REPO_BASE | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?')
 fi
 
 #-------------------------------------------------------------------------------
