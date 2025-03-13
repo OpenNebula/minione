@@ -278,7 +278,7 @@ fi
 if [[ -z "$REPO_BASE" ]]; then
     REPO_BASE="$REPO_URL"/"$VERSION"
 else
-	VERSION=$(echo $REPO_BASE | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?')
+    VERSION=$(echo $REPO_BASE | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?')
 fi
 
 #-------------------------------------------------------------------------------
@@ -770,7 +770,7 @@ EOT
         if [[ $1 = 'purge' ]]; then
             rm -f /etc/apt/sources.list.d/opennebula.list
         else
-	    # Check if /etc/apt/keyrings directory exists, if not, create it
+        # Check if /etc/apt/keyrings directory exists, if not, create it
             if [ ! -d /etc/apt/keyrings ]; then
                 install -m 0755 -d /etc/apt/keyrings
             fi
@@ -832,7 +832,7 @@ create_docker_repo() {
             -o /etc/yum.repos.d/docker-ce.repo
     elif debian; then
         curl -fsSL https://download.docker.com/linux/"${DISTNAME,,}"/gpg -o /etc/apt/keyrings/docker.asc || return 1
-	echo "deb [signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/${DISTNAME,,} "\
+    echo "deb [signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/${DISTNAME,,} "\
             "$(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
     fi
 }
@@ -1148,7 +1148,7 @@ if [[ "${DISTNAME}${DISTVER}" =~ Ubuntu2204|Debian10 ]] || verlte "$VERSION" 6.8
         check "[ $ANSIBLE_VERSION -ge 215 ]" "Checking ansible version (2.15+)" 1 \
             "SKIP will try to install" || MISSING_PIP_PKGS="'ansible==8.7.0'"
     else
-	check "false" "Checking ansible" 1 "SKIP will try to install" || MISSING_PIP_PKGS="'ansible==8.7.0'"
+    check "false" "Checking ansible" 1 "SKIP will try to install" || MISSING_PIP_PKGS="'ansible==8.7.0'"
     fi
 fi
 
@@ -1459,11 +1459,11 @@ check "sed_subst \":keep_empty_bridge: .*\" \":keep_empty_bridge: true\" \"/var/
 
 # new scheduler in 6.99+
 if verlte "$VERSION" 6.10.99; then
-	check "aug_set SCHED_INTERVAL 10 /etc/one/sched.conf" \
-		"Switching scheduler interval in sched.conf"
+    check "aug_set SCHED_INTERVAL 10 /etc/one/sched.conf" \
+        "Switching scheduler interval in sched.conf"
 else
-	check "aug_set SCHED_RETRY_TIME 10 /etc/one/oned.conf" \
-		"Switching scheduler interval in oned.conf"
+    check "aug_set SCHED_RETRY_TIME 10 /etc/one/oned.conf" \
+        "Switching scheduler interval in oned.conf"
 fi
 
 check "set_init_password" "Setting initial password for current user and oneadmin"
