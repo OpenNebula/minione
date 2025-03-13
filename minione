@@ -1458,9 +1458,9 @@ check "sed_subst \":keep_empty_bridge: .*\" \":keep_empty_bridge: true\" \"/var/
 # new scheduler in 6.99+
 if verlte "$VERSION" 6.10.99; then
 	check "aug_set SCHED_INTERVAL 10 /etc/one/sched.conf" \
-		"Switching scheduler interval in oned.conf"
+		"Switching scheduler interval in sched.conf"
 else
-	check "aug_set SCHED_RETRY_TIME 10 /etc/one/sched.conf" \
+	check "aug_set SCHED_RETRY_TIME 10 /etc/one/oned.conf" \
 		"Switching scheduler interval in oned.conf"
 fi
 
