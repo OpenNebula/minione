@@ -130,12 +130,10 @@ TERRAFORM_URL='https://releases.hashicorp.com/terraform/1.6.3/terraform_1.6.3_li
 INSTALL_DOCKER=false
 ETH0_IP=''
 PUBLIC_IP=''
-ONE_SERVICES=(opennebula opennebula-sunstone opennebula-fireedge
-    opennebula-flow opennebula-gate)
+ONE_SERVICES=(opennebula opennebula-fireedge opennebula-flow opennebula-gate)
 ONE_FE_PKGS=(opennebula opennebula-common opennebula-common-onecfg
     opennebula-flow opennebula-fireedge opennebula-gate
-    opennebula-libs opennebula-rubygems opennebula-sunstone
-    opennebula-tools opennebula-guacd)
+    opennebula-libs opennebula-rubygems opennebula-tools opennebula-guacd)
 NODE_KVM_PKG='opennebula-node-kvm'
 REPO_KEY='repo2.key'
 SSHD_SERVICE='sshd'
@@ -853,14 +851,14 @@ install_docker() {
 
 detect_installed_version() {
     if centos; then
-        if RPM_STR=$(rpm -q opennebula-sunstone 2>/dev/null); then
+        if RPM_STR=$(rpm -q opennebula 2>/dev/null); then
             VERSION=$(echo "$RPM_STR" | awk -F- '{print $3}' | cut -d. -f1,2)
         else
             return 1
         fi
     else
 
-        if DEB_STR=$(dpkg -s opennebula-sunstone 2>/dev/null | grep '^Version:'); then
+        if DEB_STR=$(dpkg -s opennebula 2>/dev/null | grep '^Version:'); then
             VERSION=$(echo "$DEB_STR" | awk '{print $2}' | cut -d. -f1,2)
         else
             return 1
@@ -895,20 +893,6 @@ if [[ "$PURGE" = "yes" ]] && [[ "$VERSION_GIVEN" != "yes" ]]; then
         "SKIP Will try to uninstall default $VERSION"
 fi
 
-# 5.12 and older
-if verlte "$VERSION" 5.12; then
-    ONE_SERVICES=(opennebula opennebula-sunstone opennebula-flow opennebula-gate)
-
-    if centos; then
-        ONE_FE_PKGS=(opennebula-server opennebula-sunstone opennebula-ruby
-            opennebula-gate opennebula-flow)
-        NODE_KVM_PKG='opennebula-node-kvm'
-    else
-        ONE_FE_PKGS=(opennebula opennebula-sunstone opennebula-gate opennebula-flow)
-        NODE_KVM_PKG='opennebula-node'
-    fi
-fi
-
 PUBLIC_IP=$(get_public_ip)
 ETH0_IP=$(get_my_ip)
 
@@ -916,14 +900,12 @@ ETH0_IP=$(get_my_ip)
 if node; then
     ONEGATE_ENDPOINT=$VNET_GATEWAY
     ONEGATE_SERVER=$VNET_GATEWAY
-    FIREEDGE_ENDPOINT=$ETH0_IP
     REPORT_IP=$ETH0_IP
 
 # FRONTEND + PREPARE FIREEDGE, ONEPROVISION
 else
     ONEGATE_ENDPOINT=${PUBLIC_IP:-$ETH0_IP}
     ONEGATE_SERVER=$ETH0_IP
-    FIREEDGE_ENDPOINT=${PUBLIC_IP:-$ETH0_IP}
     REPORT_IP=${PUBLIC_IP:-$ETH0_IP}
 fi
 
@@ -948,7 +930,7 @@ purge() {
     FORCE='yes'
 
     title "Uninstalling"
-    check "systemctl stop opennebula opennebula-sunstone" "Stopping OpenNebula" 1 "SKIP"
+    check "systemctl stop opennebula" "Stopping OpenNebula" 1 "SKIP"
     [[ "${ENABLED_APPARMOR}" = 'yes' ]] && check "modify_apparmor" "Restoring AppArmor"
     check "uninstall_opennebula_pkgs" "Uninstalling OpenNebula packages" 1 "SKIP"
     check "start_dnsmasq purge" "Stopping DNSMasq" 1 "SKIP"
@@ -1294,21 +1276,9 @@ set_init_password() {
     echo "oneadmin:$PASSWORD" >/var/lib/one/.one/one_auth
 }
 
-set_sunstone_port() {
-    local PORT=$1
-
-    sed_subst ":port: 9869" ":port: $PORT" /etc/one/sunstone-server.conf
-
-    if [[ $PORT -lt 1024 ]]; then
-        RUBY=$(readlink -f /usr/bin/ruby)
-        setcap 'cap_net_bind_service=+ep' "$RUBY"
-    fi
-}
-
-set_fireedge_endpoint() {
-    sed_subst ":public_fireedge_endpoint:.*" \
-        ":public_fireedge_endpoint: http:\/\/${FIREEDGE_ENDPOINT=}:2616" \
-        /etc/one/sunstone-server.conf
+set_fireedge_port() {
+    local FIREEDGE_PORT="$1"
+    sed_subst "port:.*" "port: ${FIREEDGE_PORT}" /etc/one/fireedge-server.conf
 }
 
 one_is_ready() {
@@ -1471,13 +1441,7 @@ check "set_init_password" "Setting initial password for current user and oneadmi
 check "aug_set DEFAULT_CDROM_DEVICE_PREFIX '\"sd\"'" \
     "Switching DEFAULT_CDROM_DEVICE_PREFIX in oned.conf"
 
-[[ ${SUNSTONE_PORT} != 9869 ]] && check "set_sunstone_port ${SUNSTONE_PORT}" \
-    "Changing WebUI to listen on port ${SUNSTONE_PORT}"
-
-if verlte 5.13 "$VERSION"; then
-    check "set_fireedge_endpoint ${SUNSTONE_PORT}" \
-        "Switching FireEdge public endpoint"
-fi
+[[ ${SUNSTONE_PORT} != 2616 ]] && check "set_fireedge_port ${SUNSTONE_PORT}" "Switching FireEdge port"
 
 check "systemctl start ${ONE_SERVICES[*]}" "Starting OpenNebula services"
 check "systemctl enable ${ONE_SERVICES[*]}" "Enabling OpenNebula services"
@@ -1694,10 +1658,8 @@ echo "OpenNebula ${VERSION} was installed"
 echo "Sunstone is running on:"
 echo "  http://${REPORT_IP}${PORT_STR}/"
 
-if verlte 5.13 "$VERSION"; then
-    echo "FireEdge is running on:"
-    echo "  http://${REPORT_IP}:2616/"
-fi
+echo "FireEdge is running on:"
+echo "  http://${REPORT_IP}:${SUNSTONE_PORT}/"
 
 echo "Use following to login:"
 echo "  user: oneadmin"
