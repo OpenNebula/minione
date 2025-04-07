@@ -127,7 +127,6 @@ HAVE_CURL=false
 HAVE_WGET=false
 INSTALL_TERRAFORM=false
 TERRAFORM_URL='https://releases.hashicorp.com/terraform/1.6.3/terraform_1.6.3_linux_amd64.zip'
-INSTALL_DOCKER=false
 ETH0_IP=''
 PUBLIC_IP=''
 ONE_SERVICES=(opennebula opennebula-fireedge opennebula-flow opennebula-gate)
@@ -824,31 +823,6 @@ uninstall_opennebula_pkgs() {
     fi
 }
 
-create_docker_repo() {
-    if centos; then
-        curl -s https://download.docker.com/linux/centos/docker-ce.repo \
-            -o /etc/yum.repos.d/docker-ce.repo
-    elif debian; then
-        curl -fsSL https://download.docker.com/linux/"${DISTNAME,,}"/gpg -o /etc/apt/keyrings/docker.asc || return 1
-    echo "deb [signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/${DISTNAME,,} "\
-            "$(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
-    fi
-}
-
-install_docker() {
-    if centos; then
-        if [[ ${DISTVER} = "8" ]]; then
-            yum install -y --nobest docker-ce
-        else
-            yum install -y docker-ce
-        fi
-
-    elif debian; then
-        apt-get update
-        apt-get -q -y install docker-ce
-    fi
-}
-
 detect_installed_version() {
     if centos; then
         if RPM_STR=$(rpm -q opennebula 2>/dev/null); then
@@ -1117,10 +1091,6 @@ if kvm; then
     fi
 fi
 
-# check for docker
-check "type -t docker >/dev/null" "Checking docker is installed" 1 \
-    "SKIP will try to install" || INSTALL_DOCKER=true
-
 # Install newer then system ansible using PIP for some distros or for <=6.8
 if [[ "${DISTNAME}${DISTVER}" =~ Ubuntu2204|Debian10 ]] || verlte "$VERSION" 6.8; then
     check "type -t $PIP >/dev/null" "Checking ${PYTHON_PIP} is installed" 1 \
@@ -1154,7 +1124,6 @@ title "Main deployment steps:"
 echo "Install OpenNebula frontend version ${VERSION}"
 
 $INSTALL_TERRAFORM && echo "Install Terraform"
-$INSTALL_DOCKER && echo "Install Docker"
 
 node && {
     centos && firewalld_running && echo "Disable_firewalld"
@@ -1218,15 +1187,7 @@ debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 
 centos && check "enable_epel" "Installing EPEL"
 check "install_opennebula_pkgs" "Installing OpenNebula packages" 3
-check "install_pkg opennebula-provision" "Installing opennebula-provision package " 3
 $INSTALL_TERRAFORM && check "install_terraform" "Installing TerraForm"
-
-$INSTALL_DOCKER && {
-    check "create_docker_repo" "Create docker packages repository"
-    check "install_docker" "Install docker"
-    check "systemctl start docker" "Start docker service"
-    check "systemctl enable docker" "Enable docker service"
-}
 
 if kvm; then
     check "install_opennebula_kvm_pkgs" "Installing OpenNebula kvm node packages" 3
@@ -1407,11 +1368,6 @@ update_network_hooks() {
 # Configuration
 #-------------------------------------------------------------------------------
 title "Configuration"
-
-check "gen_ssh_key $HOME/.ssh-oneprovision/id_rsa" \
-    "Generating ssh keypair in $HOME/.ssh-oneprovision/id_rsa"
-
-check "usermod -a -G docker oneadmin" "Add oneadmin to docker group"
 
 if verlte "$VERSION" 6.8.99; then
     check "update_network_hooks" "Update network hooks"
@@ -1642,7 +1598,6 @@ node && {
 
 networking && check "create_vnet" "Creating virtual network"
 
-lxc && check "onemarket enable DockerHub" "Enabling DockerHub Marketplace"
 check "export_marketapp \"$MARKET_APP_NAME\"" "Exporting [${MARKET_APP_NAME}] from Marketplace to local datastore"
 check "image_is_ready" "Waiting until the image is ready"
 
