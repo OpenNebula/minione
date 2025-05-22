@@ -1594,6 +1594,7 @@ lxc && {
 
 node && {
     check "systemctl restart opennebula" "Restarting OpenNebula"
+    check "sudo -u oneadmin onehost sync -f" "Ensure host is synced"
 }
 
 networking && check "create_vnet" "Creating virtual network"
