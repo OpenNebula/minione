@@ -2,7 +2,7 @@
 
 **miniONE** is an easy to use deployment tool to build an evaluation OpenNebula cloud based on virtual machines (KVM). All necessary components to manage and run the virtual machines are installed and configured on your dedicated system with just a single command run.
 
-**Follow the detailed [tutorial](https://docs.opennebula.io/7.0/quick_start/try_opennebula/opennebula_on-prem_with_minione/)**.
+**Follow the detailed [tutorial](https://docs.opennebula.io/stable/quick_start/try_opennebula/opennebula_on-prem_with_minione/)**.
 
 ## Requirements
 You’ll need a server (physical or virtual) to try out OpenNebula. The provided Host should have a fresh default installation of the required operating system with the latest updates and without any customizations.
@@ -27,7 +27,7 @@ wget 'https://github.com/OpenNebula/minione/releases/latest/download/minione'
 sudo bash minione --frontend
 ```
 
-For frontend only installation either a virtual machine or bare-metal host could be used. Afterwards, you can  follow this [tutorial](https://docs.opennebula.io/7.0/quick_start/try_opennebula/opennebula_on-prem_with_minione/) to deploy edge clusters on-premises or on-cloud.
+For frontend only installation either a virtual machine or bare-metal host could be used. Afterwards, you can  follow this [tutorial](https://docs.opennebula.io/stable/quick_start/try_opennebula/opennebula_on-prem_with_minione/) to deploy edge clusters on-premises or on-cloud.
 
 ### Get Frontend and KVM Node Cloud
 
