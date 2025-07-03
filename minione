@@ -17,7 +17,7 @@
 #--------------------------------------------------------------------------- #
 
 # default parameters values
-VERSION='6.10'
+VERSION='7.0'
 EE='no'
 FORCE='no'
 VERBOSE='no'
@@ -98,12 +98,12 @@ fi
 eval set -- "$OPTS"
 
 # global vars
-SUPPORTED_MAP+='^(AlmaLinux8 6.8|AlmaLinux8 6.10|AlmaLinux9 6.8|AlmaLinux9 6.10|'
-SUPPORTED_MAP+='RedHat8 6.8|RedHat8 6.10|RedHat9 6.8|RedHat9 6.10|'
-SUPPORTED_MAP+='Debian11 6.8|Debian11 6.10|'
-SUPPORTED_MAP+='Debian12 6.8|Debian12 6.10|'
-SUPPORTED_MAP+='Ubuntu22.04 6.8|Ubuntu22.04 6.10|'
-SUPPORTED_MAP+='Ubuntu24.04 6.8|Ubuntu24.04 6.10)'
+SUPPORTED_MAP+='^(AlmaLinux8 6.8|AlmaLinux8 6.10|AlmaLinux9 6.8|AlmaLinux9 6.10|AlmaLinux9 7.0|'
+SUPPORTED_MAP+='RedHat8 6.8|RedHat8 6.10|RedHat9 6.8|RedHat9 6.10|RedHat9 7.0|'
+SUPPORTED_MAP+='Debian11 6.8|Debian11 6.10|Debian11 7.0|'
+SUPPORTED_MAP+='Debian12 6.8|Debian12 6.10|Debian12 7.0|'
+SUPPORTED_MAP+='Ubuntu22.04 6.8|Ubuntu22.04 6.10|Ubuntu22.04 7.0|'
+SUPPORTED_MAP+='Ubuntu24.04 6.8|Ubuntu24.04 6.10|Ubuntu24.04 7.0)'
 PURGE='no'
 DISABLE_SELINUX='no'
 ENABLED_APPARMOR='no'
@@ -1613,9 +1613,6 @@ title 'Report'
 echo "OpenNebula ${VERSION} was installed"
 echo "Sunstone is running on:"
 echo "  http://${REPORT_IP}${PORT_STR}/"
-
-echo "FireEdge is running on:"
-echo "  http://${REPORT_IP}:${SUNSTONE_PORT}/"
 
 echo "Use following to login:"
 echo "  user: oneadmin"
