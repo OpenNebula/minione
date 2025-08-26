@@ -38,6 +38,12 @@ NODE='yes'
 LXC='no'
 NETWORKING='yes'
 DELETE_ONEADMIN='yes'
+MYSQL='no'
+MYSQL_USER='oneadmin'
+MYSQL_DATABASE='opennebula'
+MYSQL_PASSWORD=''
+MYSQL_HOST='localhost'
+MYSQL_PORT='3306'
 
 [ "$(arch)" == 'aarch64' ] && MARKET_APP_NAME='Alpine Linux 3.20 (aarch64)'
 
@@ -63,6 +69,11 @@ usage() {
     e "--vm-password [${VM_PASSWORD}]" "Root password for virtual machine"
     e "--sunstone-port [${SUNSTONE_PORT}]" "Setup sunstone port"
     e "--marketapp-name [${MARKET_APP_NAME}]" "Name of Marketplace appliance to import"
+    e "--mysql" "Use MySQL instead of default SQLite"
+    e "--mysql-user [${MYSQL_USER}]" "MySQL user for OpenNebula"
+    e "--mysql-password" "MySQL password for OpenNebula"
+    e "--mysql-host [${MYSQL_HOST}]" "MySQL host"
+    e "--mysql-port [${MYSQL_PORT}]" "MySQL port"
     e ""
     e "--bridge-interface [${BRIDGE_INTERFACE}]" "Bridge interface for private networking"
     e "--nat-interface [first net device]" "Interface to configure for NAT"
@@ -86,7 +97,8 @@ PARAMETERS=$(
     bridge-interface:,nat-interface:,vnet-address:,vnet-netmask:,
     vnet-gateway:,vnet-ar-ip-start:,vnet-ar-ip-count:,marketapp-name:,
     vm-password:,lxc,sunstone-port:,purge,preserve-user,enterprise:,
-    repo-base:
+    repo-base:,mysql,mysql-host:,mysql-port:,mysql-user:,mysql-password:,
+    mysql-database:
 EOF
 )
 
@@ -235,6 +247,30 @@ while true; do
         REPO_BASE="$2"
         shift 2
         ;;
+    --mysql)
+        MYSQL="yes"
+        shift
+        ;;
+    --mysql-host)
+        MYSQL_HOST="$2"
+        shift 2
+        ;;
+    --mysql-port)
+        MYSQL_PORT="$2"
+        shift 2
+        ;;
+    --mysql-user)
+        MYSQL_USER="$2"
+        shift 2
+        ;;
+    --mysql-password)
+        MYSQL_PASSWORD="$2"
+        shift 2
+        ;;
+    --mysql-database)
+        MYSQL_DATABASE="$2"
+        shift 2
+        ;;
     --)
         shift
         break
@@ -276,6 +312,11 @@ if [[ -z "$REPO_BASE" ]]; then
     REPO_BASE="$REPO_URL"/"$VERSION"
 else
     VERSION=$(echo "$REPO_BASE" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?')
+fi
+
+if [[ "$MYSQL" == "yes" && -z "$MYSQL_PASSWORD" ]]; then
+    echo "MySQL password must be specified."
+    exit 1
 fi
 
 #-------------------------------------------------------------------------------
@@ -1116,6 +1157,9 @@ else
         "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} unzip"
 fi
 
+check "mysql -h ${MYSQL_HOST} -P ${MYSQL_PORT} -u ${MYSQL_USER} -p${MYSQL_PASSWORD} -D ${MYSQL_DATABASE} -e 'SELECT 1'" \
+    "Checking MySQL connection" 2 "MySQL connection failed" "" || exit 1
+
 #-------------------------------------------------------------------------------
 # Pre-installation report
 #-------------------------------------------------------------------------------
@@ -1371,6 +1415,25 @@ title "Configuration"
 
 if verlte "$VERSION" 6.8.99; then
     check "update_network_hooks" "Update network hooks"
+fi
+
+if [ "$MYSQL" == "yes" ]; then
+    check "aug_set DB/BACKEND mysql" \
+        "Setting MySQL BACKEND in oned.conf"
+    check "aug_set DB/SERVER ${MYSQL_HOST}" \
+        "Setting MySQL SERVER in oned.conf"
+    check "aug_set DB/PORT ${MYSQL_PORT}" \
+        "Setting MySQL PORT in oned.conf"
+    check "aug_set DB/USER ${MYSQL_USER}" \
+        "Setting MySQL USER in oned.conf"
+    check "aug_set DB/PASSWD ${MYSQL_PASSWORD}" \
+        "Setting MySQL PASSWD in oned.conf"
+    check "aug_set DB/DB_NAME ${MYSQL_DATABASE}" \
+        "Setting MySQL DB_NAME in oned.conf"
+    check "aug_set DB/CONNECTIONS 50" \
+        "Setting MySQL CONNECTIONS in oned.conf"
+    check "aug_set DB/COMPARE_BINARY no" \
+        "Setting MySQL COMPARE_BINARY in oned.conf"
 fi
 
 check "aug_set ONEGATE_ENDPOINT '\"http://${ONEGATE_ENDPOINT}:5030\"'" \
