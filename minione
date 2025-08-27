@@ -1157,8 +1157,10 @@ else
         "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} unzip"
 fi
 
-check "mysql -h ${MYSQL_HOST} -P ${MYSQL_PORT} -u ${MYSQL_USER} -p${MYSQL_PASSWORD} -D ${MYSQL_DATABASE} -e 'SELECT 1'" \
-    "Checking MySQL connection" 2 "MySQL connection failed" "" || exit 1
+if [[ $MYSQL == 'yes' && ! -z $MYSQL_PASSWORD ]]; then
+    check "mysql -h ${MYSQL_HOST} -P ${MYSQL_PORT} -u ${MYSQL_USER} -p${MYSQL_PASSWORD} -D ${MYSQL_DATABASE} -e 'SELECT 1'" \
+        "Checking MySQL connection" 2 "MySQL connection failed" "" || exit 1
+fi
 
 #-------------------------------------------------------------------------------
 # Pre-installation report
@@ -1183,6 +1185,7 @@ node && {
 [[ "${DISABLE_SELINUX}" = yes ]] && echo "Disable SELinux"
 [[ -n "${MISSING_PKGS}" ]] && echo "Install ${MISSING_PKGS}"
 [[ -n "${MISSING_PIP_PKGS}" ]] && echo "Install pip ${MISSING_PIP_PKGS}"
+[[ "${MYSQL}" == yes ]] && echo "Bootstraping database '${MYSQL_DATABASE}' on ${MYSQL_HOST}:${MYSQL_PORT}"
 
 echo ""
 echo "Do you agree? [yes/no]:"
