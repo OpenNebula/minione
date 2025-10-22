@@ -98,8 +98,8 @@ fi
 eval set -- "$OPTS"
 
 # global vars
-SUPPORTED_MAP+='^(AlmaLinux8 6.8|AlmaLinux8 6.10|AlmaLinux9 6.8|AlmaLinux9 6.10|AlmaLinux9 7.0|'
-SUPPORTED_MAP+='RedHat8 6.8|RedHat8 6.10|RedHat9 6.8|RedHat9 6.10|RedHat9 7.0|'
+SUPPORTED_MAP+='^(AlmaLinux8 6.8|AlmaLinux8 6.10|AlmaLinux9 6.8|AlmaLinux9 6.10|AlmaLinux9 7.0|AlmaLinux10 7.0|'
+SUPPORTED_MAP+='RedHat8 6.8|RedHat8 6.10|RedHat9 6.8|RedHat9 6.10|RedHat9 7.0|RedHat10 7.0|'
 SUPPORTED_MAP+='Debian11 6.8|Debian11 6.10|Debian11 7.0|'
 SUPPORTED_MAP+='Debian12 6.8|Debian12 6.10|Debian12 7.0|'
 SUPPORTED_MAP+='Ubuntu22.04 6.8|Ubuntu22.04 6.10|Ubuntu22.04 7.0|'
@@ -275,7 +275,7 @@ fi
 if [[ -z "$REPO_BASE" ]]; then
     REPO_BASE="$REPO_URL"/"$VERSION"
 else
-    VERSION=$(echo "$REPO_BASE" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?')
+    VERSION=$(echo "$REPO_BASE" | grep -oE 'build/[0-9]+\.[0-9]+(\.[0-9]+)?' | sed 's/build\///')
 fi
 
 #-------------------------------------------------------------------------------
@@ -336,7 +336,7 @@ get_distname_and_version() {
     fi
 
     [[ "${DIST}" =~ Rocky ]] && DIST="AlmaLinux"
-    [[ "${DIST}" =~ AlmaLinux|CentOS|RedHat ]] && VER=$(echo "$VER" | cut -c1)
+    [[ "${DIST}" =~ AlmaLinux|CentOS|RedHat ]] && VER=$(echo "$VER" | cut -d. -f1)
     [[ "${DIST}" =~ Debian ]] && VER=$(echo "$VER" | cut -d. -f1)
 
     echo "${DIST} ${VER}"
