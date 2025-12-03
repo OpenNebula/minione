@@ -952,11 +952,6 @@ check "type -t augtool >/dev/null" "Checking augeas is installed" 1 \
 check "type -t curl >/dev/null" "Checking curl is installed" 1 \
     "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} curl"
 
-debian && {
-    check "type -t add-apt-repository >/dev/null" "Checking add-apt-repository is available" 1 \
-        "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} software-properties-common"
-}
-
 # check available disk space on /var
 check 'disk_free 20 /var' 'Checking free disk space' 1 'IGNORE'
 
