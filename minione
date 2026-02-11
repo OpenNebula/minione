@@ -475,6 +475,10 @@ firewalld_running() {
     systemctl -q is-active firewalld
 }
 
+unattended_upgrades_running() {
+    systemctl -q is-active unattended-upgrades 2>/dev/null
+}
+
 netplan_on() {
     [ ! -s /run/network/ifstate ] && type -t netplan >/dev/null
 }
@@ -687,6 +691,20 @@ ifup_bridge() {
 disable_firewalld() {
     systemctl stop firewalld >/dev/null &&
         systemctl disable firewalld >/dev/null
+}
+
+disable_unattended_upgrades() {
+    systemctl stop unattended-upgrades >/dev/null 2>&1
+    systemctl disable unattended-upgrades >/dev/null 2>&1
+
+    # wait for any running dpkg/apt process to finish
+    for I in $(seq 60); do
+        fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || return 0
+        sleep 5
+    done
+
+    echo "Timed out waiting for dpkg lock to be released" >&2
+    return 1
 }
 
 configure_nat() {
@@ -1116,6 +1134,7 @@ $INSTALL_TERRAFORM && echo "Install Terraform"
 
 node && {
     centos && firewalld_running && echo "Disable_firewalld"
+    debian && unattended_upgrades_running && echo "Disable unattended-upgrades"
     echo "Configure bridge ${BRIDGE_INTERFACE} with IP ${VNET_GATEWAY}/${NETMASK_BITS}"
     echo "Enable NAT over ${NAT_INTERFACE}"
     [[ "${ENABLED_APPARMOR}" = yes ]] && echo "Modify AppArmor"
@@ -1141,6 +1160,8 @@ title "Installation"
 VERBOSE='yes'
 
 [[ "${CLEAN}" = yes ]] && clean
+debian && unattended_upgrades_running && \
+    check "disable_unattended_upgrades" "Disabling unattended-upgrades"
 debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 [[ "${DISABLE_SELINUX}" = 'yes' ]] && check "disable_selinux" "Disabling SELinux"
 [[ -n "${MISSING_PKGS}" ]] && check "install_pkg ${MISSING_PKGS}" "Install ${MISSING_PKGS}" 3
