@@ -134,7 +134,7 @@ ETH0_IP=''
 PUBLIC_IP=''
 ONE_SERVICES=(opennebula opennebula-fireedge opennebula-flow opennebula-gate)
 ONE_FE_PKGS=(opennebula opennebula-common opennebula-common-onecfg
-    opennebula-flow opennebula-fireedge opennebula-gate
+    opennebula-flow opennebula-fireedge opennebula-gate opennebula-form
     opennebula-libs opennebula-rubygems opennebula-tools opennebula-guacd)
 NODE_KVM_PKG='opennebula-node-kvm'
 REPO_KEY='repo2.key'
