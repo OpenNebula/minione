@@ -533,7 +533,7 @@ repo_exists() {
             curl -K "$CURL_CFG" >/dev/null
             local RC=$?
             rm -f "$CURL_CFG"
-            return $RC
+            return "$RC"
         elif type -t wget >/dev/null; then
             HAVE_WGET=true
             # use --input-file to avoid leaking EE token in process list
