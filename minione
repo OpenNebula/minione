@@ -99,12 +99,13 @@ fi
 eval set -- "$OPTS"
 
 # global vars
-SUPPORTED_MAP+='^(AlmaLinux8 6.8|AlmaLinux8 6.10|AlmaLinux9 6.8|AlmaLinux9 6.10|AlmaLinux9 7.0|AlmaLinux10 7.0|'
-SUPPORTED_MAP+='RedHat8 6.8|RedHat8 6.10|RedHat9 6.8|RedHat9 6.10|RedHat9 7.0|RedHat10 7.0|'
+SUPPORTED_MAP+='^(AlmaLinux8 6.8|AlmaLinux8 6.10|AlmaLinux9 6.8|AlmaLinux9 6.10|AlmaLinux9 7.0|AlmaLinux9 7.1|AlmaLinux10 7.0|AlmaLinux10 7.1|'
+SUPPORTED_MAP+='RedHat8 6.8|RedHat8 6.10|RedHat9 6.8|RedHat9 6.10|RedHat9 7.0|RedHat9 7.1|RedHat10 7.0|RedHat10 7.1|'
 SUPPORTED_MAP+='Debian11 6.8|Debian11 6.10|Debian11 7.0|'
-SUPPORTED_MAP+='Debian12 6.8|Debian12 6.10|Debian12 7.0|'
-SUPPORTED_MAP+='Ubuntu22.04 6.8|Ubuntu22.04 6.10|Ubuntu22.04 7.0|'
-SUPPORTED_MAP+='Ubuntu24.04 6.8|Ubuntu24.04 6.10|Ubuntu24.04 7.0)'
+SUPPORTED_MAP+='Debian12 6.8|Debian12 6.10|Debian12 7.0|Debian12 7.1|'
+SUPPORTED_MAP+='Debian13 7.1|'
+SUPPORTED_MAP+='Ubuntu22.04 6.8|Ubuntu22.04 6.10|Ubuntu22.04 7.0|Ubuntu22.04 7.1|'
+SUPPORTED_MAP+='Ubuntu24.04 6.8|Ubuntu24.04 6.10|Ubuntu24.04 7.0|Ubuntu24.04 7.1)'
 PURGE='no'
 DISABLE_SELINUX='no'
 ENABLED_APPARMOR='no'
@@ -1110,29 +1111,32 @@ if kvm; then
     fi
 fi
 
-# Install newer then system ansible using PIP for some distros or for <=6.8
-if [[ "${DISTNAME}${DISTVER}" =~ Ubuntu2204|Debian10 ]] || verlte "$VERSION" 6.8; then
-    check "type -t $PIP >/dev/null" "Checking ${PYTHON_PIP} is installed" 1 \
-        "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} ${PYTHON_PIP}"
-    if type -t ansible >/dev/null; then
-        ANSIBLE_VERSION=$(ansible --version | head -1 | tr -cd '[:digit:]' | cut -c 1-3)
-        check "[ $ANSIBLE_VERSION -ge 215 ]" "Checking ansible version (2.15+)" 1 \
-            "SKIP will try to install" || MISSING_PIP_PKGS="'ansible==8.7.0'"
-    else
-    check "false" "Checking ansible" 1 "SKIP will try to install" || MISSING_PIP_PKGS="'ansible==8.7.0'"
+# Terraform and Ansible are not needed since OpenNebula 7.1
+if ! verlte 7.1 "$VERSION"; then
+    # Install newer then system ansible using PIP for some distros or for <=6.8
+    if [[ "${DISTNAME}${DISTVER}" =~ Ubuntu2204|Debian10 ]] || verlte "$VERSION" 6.8; then
+        check "type -t $PIP >/dev/null" "Checking ${PYTHON_PIP} is installed" 1 \
+            "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} ${PYTHON_PIP}"
+        if type -t ansible >/dev/null; then
+            ANSIBLE_VERSION=$(ansible --version | head -1 | tr -cd '[:digit:]' | cut -c 1-3)
+            check "[ $ANSIBLE_VERSION -ge 215 ]" "Checking ansible version (2.15+)" 1 \
+                "SKIP will try to install" || MISSING_PIP_PKGS="'ansible==8.7.0'"
+        else
+        check "false" "Checking ansible" 1 "SKIP will try to install" || MISSING_PIP_PKGS="'ansible==8.7.0'"
+        fi
     fi
-fi
 
-if type -t terraform >/dev/null; then
-    TERRAFORM_VERSION=$(terraform --version | head -1 | cut -d ' ' -f 2)
-    check "verlte v0.13.6 $TERRAFORM_VERSION" \
-        "Checking terraform version (>= v0.13.6)"
-else
-    check "false" "Checking terraform" 1 "SKIP will try to install"
-    INSTALL_TERRAFORM=true
+    if type -t terraform >/dev/null; then
+        TERRAFORM_VERSION=$(terraform --version | head -1 | cut -d ' ' -f 2)
+        check "verlte v0.13.6 $TERRAFORM_VERSION" \
+            "Checking terraform version (>= v0.13.6)"
+    else
+        check "false" "Checking terraform" 1 "SKIP will try to install"
+        INSTALL_TERRAFORM=true
 
-    check "type -t unzip >/dev/null" "Checking unzip is installed" 1 \
-        "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} unzip"
+        check "type -t unzip >/dev/null" "Checking unzip is installed" 1 \
+            "SKIP will try to install" || MISSING_PKGS="${MISSING_PKGS} unzip"
+    fi
 fi
 
 #-------------------------------------------------------------------------------
