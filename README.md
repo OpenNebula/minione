@@ -42,7 +42,7 @@ This option is suitable for bare-metal hosts to utilize HW virtualization, howev
 
 ## License
 
-Copyright 2002-2023, OpenNebula Systems (formerly C12G Labs)
+Copyright 2002-2024, OpenNebula Systems (formerly C12G Labs)
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may
 not use this file except in compliance with the License. You may obtain
