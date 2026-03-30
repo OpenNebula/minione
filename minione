@@ -22,7 +22,7 @@ fi
 #--------------------------------------------------------------------------- #
 
 # default parameters values
-VERSION='7.1'
+VERSION='7.2'
 EE='no'
 FORCE='no'
 VERBOSE='no'
@@ -99,13 +99,13 @@ fi
 eval set -- "$OPTS"
 
 # global vars
-SUPPORTED_MAP+='^(AlmaLinux8 6.8|AlmaLinux8 6.10|AlmaLinux9 6.8|AlmaLinux9 6.10|AlmaLinux9 7.0|AlmaLinux9 7.1|AlmaLinux10 7.0|AlmaLinux10 7.1|'
-SUPPORTED_MAP+='RedHat8 6.8|RedHat8 6.10|RedHat9 6.8|RedHat9 6.10|RedHat9 7.0|RedHat9 7.1|RedHat10 7.0|RedHat10 7.1|'
+SUPPORTED_MAP+='^(AlmaLinux8 6.8|AlmaLinux8 6.10|AlmaLinux9 6.8|AlmaLinux9 6.10|AlmaLinux9 7.0|AlmaLinux9 7.2|AlmaLinux10 7.0|AlmaLinux10 7.2|'
+SUPPORTED_MAP+='RedHat8 6.8|RedHat8 6.10|RedHat9 6.8|RedHat9 6.10|RedHat9 7.0|RedHat9 7.2|RedHat10 7.0|RedHat10 7.2|'
 SUPPORTED_MAP+='Debian11 6.8|Debian11 6.10|Debian11 7.0|'
-SUPPORTED_MAP+='Debian12 6.8|Debian12 6.10|Debian12 7.0|Debian12 7.1|'
-SUPPORTED_MAP+='Debian13 7.1|'
-SUPPORTED_MAP+='Ubuntu22.04 6.8|Ubuntu22.04 6.10|Ubuntu22.04 7.0|Ubuntu22.04 7.1|'
-SUPPORTED_MAP+='Ubuntu24.04 6.8|Ubuntu24.04 6.10|Ubuntu24.04 7.0|Ubuntu24.04 7.1|'
+SUPPORTED_MAP+='Debian12 6.8|Debian12 6.10|Debian12 7.0|Debian12 7.2|'
+SUPPORTED_MAP+='Debian13 7.2|'
+SUPPORTED_MAP+='Ubuntu22.04 6.8|Ubuntu22.04 6.10|Ubuntu22.04 7.0|Ubuntu22.04 7.2|'
+SUPPORTED_MAP+='Ubuntu24.04 6.8|Ubuntu24.04 6.10|Ubuntu24.04 7.0|Ubuntu24.04 7.2|'
 SUPPORTED_MAP+='SLES15 7.2|'
 SUPPORTED_MAP+='openSUSE16 7.2)'
 PURGE='no'
@@ -1197,8 +1197,8 @@ if kvm; then
     fi
 fi
 
-# Terraform and Ansible are not needed since OpenNebula 7.1
-if ! verlte 7.1 "$VERSION"; then
+# Terraform and Ansible are not needed since OpenNebula 7.2
+if ! verlte 7.2 "$VERSION"; then
     # Install newer then system ansible using PIP for some distros or for <=6.8
     if [[ "${DISTNAME}${DISTVER}" =~ Ubuntu2204|Debian10 ]] || verlte "$VERSION" 6.8; then
         check "type -t $PIP >/dev/null" "Checking ${PYTHON_PIP} is installed" 1 \
