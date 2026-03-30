@@ -105,7 +105,9 @@ SUPPORTED_MAP+='Debian11 6.8|Debian11 6.10|Debian11 7.0|'
 SUPPORTED_MAP+='Debian12 6.8|Debian12 6.10|Debian12 7.0|Debian12 7.1|'
 SUPPORTED_MAP+='Debian13 7.1|'
 SUPPORTED_MAP+='Ubuntu22.04 6.8|Ubuntu22.04 6.10|Ubuntu22.04 7.0|Ubuntu22.04 7.1|'
-SUPPORTED_MAP+='Ubuntu24.04 6.8|Ubuntu24.04 6.10|Ubuntu24.04 7.0|Ubuntu24.04 7.1)'
+SUPPORTED_MAP+='Ubuntu24.04 6.8|Ubuntu24.04 6.10|Ubuntu24.04 7.0|Ubuntu24.04 7.1|'
+SUPPORTED_MAP+='SLES15 7.2|'
+SUPPORTED_MAP+='openSUSE16 7.2)'
 PURGE='no'
 DISABLE_SELINUX='no'
 ENABLED_APPARMOR='no'
@@ -335,12 +337,13 @@ get_distname_and_version() {
     elif [ -f /etc/debian_version ]; then
         DIST='Debian'
         VER=$(cat /etc/debian_version)
-    elif [ -f /etc/SuSe-release ]; then
-        DIST='SuSe'
+    elif [ -f /etc/SuSE-release ]; then
+        DIST='SLES'
     fi
 
     [[ "${DIST}" =~ Rocky ]] && DIST="AlmaLinux"
-    [[ "${DIST}" =~ AlmaLinux|RedHat ]] && VER=$(echo "$VER" | cut -d. -f1)
+    [[ "${DIST}" =~ ^SUSE$ ]] && DIST="SLES"
+    [[ "${DIST}" =~ AlmaLinux|RedHat|SLES|openSUSE ]] && VER=$(echo "$VER" | cut -d. -f1)
     [[ "${DIST}" =~ Debian ]] && VER=$(echo "$VER" | cut -d. -f1)
 
     echo "${DIST} ${VER}"
@@ -476,6 +479,14 @@ debian() {
     [[ "$DISTNAME" =~ Ubuntu|Debian ]]
 }
 
+suse() {
+    [[ "$DISTNAME" =~ SLES|openSUSE ]]
+}
+
+opensuse() {
+    [[ "$DISTNAME" =~ openSUSE ]]
+}
+
 firewalld_running() {
     systemctl -q is-active firewalld
 }
@@ -520,8 +531,8 @@ supported_dist_ver() {
 }
 
 repo_exists() {
-    if [[ ! "$DISTNAME" =~ AlmaLinux|RedHat|Ubuntu|Debian ]]; then
-        echo "Currently only RedHat, AlmaLinux, Ubuntu or Debian are supported" >&2
+    if [[ ! "$DISTNAME" =~ AlmaLinux|RedHat|Ubuntu|Debian|SLES|openSUSE ]]; then
+        echo "Currently only RedHat, AlmaLinux, Ubuntu, Debian, SLES or openSUSE are supported" >&2
         return 1
     else
         URL="${REPO_BASE}/${DISTNAME}/${DISTVER}"
@@ -589,6 +600,8 @@ install_pkg() {
         RC=$?
         unset DEBIAN_FRONTEND
         return "$RC"
+    elif suse; then
+        run_and_print_if_failed "zypper --non-interactive install $*"
     fi
 }
 
@@ -623,6 +636,37 @@ EOF
             nmcli con add type tun ifname tap0 con-name tap0 mode tap
             nmcli con add type bridge-slave ifname tap0 master "${BRIDGE_INTERFACE}"
             nmcli con up "${BRIDGE_INTERFACE}"
+        fi
+
+    # SUSE 16+ (NetworkManager)
+    elif suse && [[ "$DISTVER" -ge 16 ]]; then
+        if [[ $1 = purge ]]; then
+            nmcli con delete tap0 || true
+            nmcli con del bridge-slave-tap0 || true
+            nmcli con delete "${BRIDGE_INTERFACE}" || true
+        else
+            nmcli con add type bridge ifname "${BRIDGE_INTERFACE}" con-name "${BRIDGE_INTERFACE}" ipv4.method manual ipv4.addresses "${VNET_GATEWAY}/${NETMASK_BITS}"
+            nmcli con add type tun ifname tap0 con-name tap0 mode tap
+            nmcli con add type bridge-slave ifname tap0 master "${BRIDGE_INTERFACE}"
+            nmcli con up "${BRIDGE_INTERFACE}"
+        fi
+
+    # SUSE 15 (wicked)
+    elif suse; then
+        if [[ $1 = purge ]]; then
+            rm -f /etc/sysconfig/network/ifcfg-"${BRIDGE_INTERFACE}"
+            ip link set down dev "${BRIDGE_INTERFACE}" || true
+            ip link del "${BRIDGE_INTERFACE}" || true
+        else
+            cat >/etc/sysconfig/network/ifcfg-"${BRIDGE_INTERFACE}" <<EOF
+STARTMODE='auto'
+BOOTPROTO='static'
+IPADDR='${VNET_GATEWAY}/${NETMASK_BITS}'
+BRIDGE='yes'
+BRIDGE_PORTS=''
+BRIDGE_STP='off'
+BRIDGE_FORWARDDELAY='0'
+EOF
         fi
 
     elif debian; then
@@ -689,7 +733,11 @@ EOF
 }
 
 ifup_bridge() {
-    if netplan_on; then
+    if suse && [[ "$DISTVER" -lt 16 ]]; then
+        wicked ifup "${BRIDGE_INTERFACE}"
+    elif suse; then
+        true # not needed when NM is used
+    elif netplan_on; then
         netplan apply
     else
         debian && ifup tap0
@@ -794,7 +842,41 @@ EOT
             echo "deb [signed-by=/etc/apt/keyrings/opennebula.gpg] ${REPO_BASE}/${DISTNAME}/${DISTVER} stable opennebula" \
                 >/etc/apt/sources.list.d/opennebula.list || return 1
         fi
+    elif suse; then
+        if [[ $1 = 'purge' ]]; then
+            zypper removerepo opennebula 2>/dev/null || true
+            if opensuse; then zypper removerepo science 2>/dev/null || true; fi
+            rm -f /etc/zypp/credentials.d/opennebula.conf
+        else
+            if [[ $EE == yes ]]; then
+                local SUSE_EE_BASE
+                # shellcheck disable=SC2001
+                SUSE_EE_BASE=$(echo "$REPO_BASE" | sed 's|//[^@]*@|//|')
+                mkdir -p /etc/zypp/credentials.d
+                cat <<EOT >/etc/zypp/credentials.d/opennebula.conf
+username=${EE_TOKEN%%:*}
+password=${EE_TOKEN#*:}
+EOT
+                chmod 600 /etc/zypp/credentials.d/opennebula.conf
+                zypper ar -f "${SUSE_EE_BASE}/${DISTNAME}/${DISTVER}/$(arch)?credentials=opennebula.conf" opennebula || true
+            else
+                zypper ar -f "${REPO_BASE}/${DISTNAME}/${DISTVER}/$(arch)" opennebula || true
+            fi
+            if opensuse; then zypper ar -f "https://download.opensuse.org/repositories/science/openSUSE_Leap_${DISTVER}.0/" science || true; fi
+            rpm --import "https://downloads.opennebula.io/repo/${REPO_KEY}" || return 1
+            zypper --gpg-auto-import-keys refresh || return 1
+        fi
     fi
+}
+
+enable_sles_modules() {
+    local SP_VER
+    SP_VER=$(grep ^VERSION_ID= /etc/os-release | cut -d\" -f2)
+    local ARCH
+    ARCH=$(uname -m)
+    SUSEConnect -p "PackageHub/${SP_VER}/${ARCH}" || return 1
+    SUSEConnect -p "sle-module-public-cloud/${SP_VER}/${ARCH}" || return 1
+    SUSEConnect -p "sle-module-desktop-applications/${SP_VER}/${ARCH}" || return 1
 }
 
 enable_epel() {
@@ -840,11 +922,14 @@ uninstall_opennebula_pkgs() {
         apt-get purge -q -y "$NODE_KVM_PKG" >/dev/null
         systemctl restart "${LIBVIRTD}" || true
         dpkg-statoverride --remove /var/lib/one || true
+    elif suse; then
+        zypper --non-interactive remove "$NODE_KVM_PKG" "${ONE_FE_PKGS[@]}" || true
+        systemctl restart "${LIBVIRTD}" || true
     fi
 }
 
 detect_installed_version() {
-    if centos; then
+    if centos || suse; then
         if RPM_STR=$(rpm -q opennebula 2>/dev/null); then
             VERSION=$(echo "$RPM_STR" | awk -F- '{print $3}' | cut -d. -f1,2)
         else
@@ -880,7 +965,7 @@ install_terraform() {
 NETMASK_BITS=$(mask2cidr "${VNET_NETMASK}")
 read -r DISTNAME DISTVER <<<"$(get_distname_and_version)"
 
-centos && AUGEAS_PKG='augeas'
+(centos || suse) && AUGEAS_PKG='augeas'
 
 if [[ "$PURGE" = "yes" ]] && [[ "$VERSION_GIVEN" != "yes" ]]; then
     check "detect_installed_version" "Detecting ONE installed version" 1 \
@@ -1036,10 +1121,11 @@ debian && {
 }
 
 # Check SELinux or AppArmor
+# SUSE 16+ uses SELinux, SUSE 15 uses AppArmor
 SELINUX=$(getenforce 2>/dev/null)
-centos && { check "[[ ! \"${SELINUX}\" = 'Enforcing' ]]" \
+(centos || (suse && [[ "$DISTVER" -ge 16 ]])) && { check "[[ ! \"${SELINUX}\" = 'Enforcing' ]]" \
     "Checking SELinux" 1 "SKIP will try to disable" || DISABLE_SELINUX='yes'; }
-debian && { check "! aa-status >/dev/null 2>&1" \
+(debian || (suse && [[ "$DISTVER" -lt 16 ]])) && { check "! aa-status >/dev/null 2>&1" \
     "Checking AppArmor" 1 "SKIP will try to modify" || ENABLED_APPARMOR='yes'; }
 
 # check for given ssh key
@@ -1149,7 +1235,7 @@ echo "Install OpenNebula frontend version ${VERSION}"
 $INSTALL_TERRAFORM && echo "Install Terraform"
 
 node && {
-    centos && firewalld_running && echo "Disable_firewalld"
+    (centos || suse) && firewalld_running && echo "Disable_firewalld"
     debian && unattended_upgrades_running && echo "Disable unattended-upgrades"
     echo "Configure bridge ${BRIDGE_INTERFACE} with IP ${VNET_GATEWAY}/${NETMASK_BITS}"
     echo "Enable NAT over ${NAT_INTERFACE}"
@@ -1189,7 +1275,7 @@ if [[ -n "${MISSING_PIP_PKGS}" ]]; then
         "Install from PyPI ${MISSING_PIP_PKGS}" 3
 fi
 
-centos && firewalld_running && check "disable_firewalld" "Disabling firewalld"
+(centos || suse) && firewalld_running && check "disable_firewalld" "Disabling firewalld"
 
 networking && {
     check "create_bridge" "Creating bridge interface ${BRIDGE_INTERFACE}"
@@ -1200,7 +1286,7 @@ networking && {
             echo \"net.ipv4.ip_forward=1\" >> /etc/sysctl.conf" "Persisting IPv4 forward"
     }
     check "configure_nat" "Configuring NAT"
-    centos && check "iptables-save > /etc/sysconfig/iptables" "Saving iptables changes"
+    (centos || suse) && check "iptables-save > /etc/sysconfig/iptables" "Saving iptables changes"
     debian && check "netfilter-persistent save" "Saving iptables changes"
     check "install_pkg dnsmasq" "Installing DNSMasq" 3
     check "start_dnsmasq" "Starting DNSMasq"
@@ -1211,6 +1297,7 @@ check "configure_repos" "Configuring repositories"
 debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 
 centos && check "enable_epel" "Installing EPEL"
+[[ "$DISTNAME" = "SLES" ]] && check "enable_sles_modules" "Enabling SLES modules"
 check "install_opennebula_pkgs" "Installing OpenNebula packages" 3
 $INSTALL_TERRAFORM && check "install_terraform" "Installing TerraForm"
 
@@ -1279,6 +1366,12 @@ one_is_ready() {
 }
 
 deny_ssh_from_vnet() {
+    # If sshd_config doesn't exist (e.g. openSUSE 16), creating it overrides
+    # distro compiled-in defaults (like UsePAM yes) with upstream defaults
+    # (UsePAM no), which breaks pubkey auth for system accounts.
+    if [[ ! -f /etc/ssh/sshd_config ]] && suse; then
+        echo "UsePAM yes" >/etc/ssh/sshd_config
+    fi
     if ! grep -q "DenyUsers ${STAR_NET}" /etc/ssh/sshd_config; then
         echo "" >>/etc/ssh/sshd_config
         echo "DenyUsers ${STAR_NET}" >>/etc/ssh/sshd_config
