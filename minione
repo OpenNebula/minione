@@ -137,7 +137,7 @@ ETH0_IP=''
 PUBLIC_IP=''
 ONE_SERVICES=(opennebula opennebula-fireedge opennebula-flow opennebula-gate)
 ONE_FE_PKGS=(opennebula opennebula-common opennebula-common-onecfg
-    opennebula-flow opennebula-fireedge opennebula-gate opennebula-form
+    opennebula-flow opennebula-fireedge opennebula-gate
     opennebula-libs opennebula-rubygems opennebula-tools opennebula-guacd)
 NODE_KVM_PKG='opennebula-node-kvm'
 REPO_KEY='repo2.key'
@@ -1298,6 +1298,7 @@ debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 
 centos && check "enable_epel" "Installing EPEL"
 [[ "$DISTNAME" = "SLES" ]] && check "enable_sles_modules" "Enabling SLES modules"
+verlte 7.1.80 "$VERSION" && ONE_FE_PKGS+=(opennebula-form)
 check "install_opennebula_pkgs" "Installing OpenNebula packages" 3
 $INSTALL_TERRAFORM && check "install_terraform" "Installing TerraForm"
 
