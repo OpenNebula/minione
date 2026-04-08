@@ -1715,6 +1715,7 @@ lxc && {
 }
 
 node && {
+    kvm || lxc && sleep 5 # give OpenNebula some time before restart if host was created
     check "systemctl restart opennebula" "Restarting OpenNebula"
     check "sudo -u oneadmin onehost sync -f" "Ensure host is synced"
 }
