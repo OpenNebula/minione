@@ -966,6 +966,7 @@ NETMASK_BITS=$(mask2cidr "${VNET_NETMASK}")
 read -r DISTNAME DISTVER <<<"$(get_distname_and_version)"
 
 (centos || suse) && AUGEAS_PKG='augeas'
+suse && LIBVIRTD='virtqemud'
 
 if [[ "$PURGE" = "yes" ]] && [[ "$VERSION_GIVEN" != "yes" ]]; then
     check "detect_installed_version" "Detecting ONE installed version" 1 \
