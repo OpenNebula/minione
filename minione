@@ -1368,15 +1368,16 @@ one_is_ready() {
 }
 
 deny_ssh_from_vnet() {
-    # If sshd_config doesn't exist (e.g. openSUSE 16), creating it overrides
-    # distro compiled-in defaults (like UsePAM yes) with upstream defaults
-    # (UsePAM no), which breaks pubkey auth for system accounts.
+    # If sshd_config doesn't exist (e.g. openSUSE 16), use a drop-in file
+    # to avoid overriding distro compiled-in defaults (like UsePAM, Subsystem sftp).
     if [[ ! -f /etc/ssh/sshd_config ]] && suse; then
-        echo "UsePAM yes" >/etc/ssh/sshd_config
-    fi
-    if ! grep -q "DenyUsers ${STAR_NET}" /etc/ssh/sshd_config; then
-        echo "" >>/etc/ssh/sshd_config
-        echo "DenyUsers ${STAR_NET}" >>/etc/ssh/sshd_config
+        mkdir -p /etc/ssh/sshd_config.d
+        echo "DenyUsers ${STAR_NET}" >/etc/ssh/sshd_config.d/minione.conf
+    else
+        if ! grep -q "DenyUsers ${STAR_NET}" /etc/ssh/sshd_config; then
+            echo "" >>/etc/ssh/sshd_config
+            echo "DenyUsers ${STAR_NET}" >>/etc/ssh/sshd_config
+        fi
     fi
     systemctl restart "${SSHD_SERVICE}"
 }
