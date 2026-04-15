@@ -27,7 +27,7 @@ wget 'https://github.com/OpenNebula/minione/releases/latest/download/minione'
 sudo bash minione --frontend
 ```
 
-For frontend only installation either a virtual machine or bare-metal host could be used. Afterwards, you can  follow this [tutorial](https://docs.opennebula.io/stable/quick_start/try_opennebula/opennebula_on-prem_with_minione/) to deploy edge clusters on-premises or on-cloud.
+For frontend only installation either a virtual machine or bare-metal host could be used. Afterwards, you can  follow this [tutorial](https://docs.opennebula.io/stable/getting_started/try_opennebula/opennebula_sandbox_deployment/deploy_opennebula_onprem_with_minione/) to deploy edge clusters on-premises or on-cloud.
 
 ### Get Frontend and KVM Node Cloud
 
