@@ -99,15 +99,16 @@ fi
 eval set -- "$OPTS"
 
 # global vars
-SUPPORTED_MAP+='^(AlmaLinux8 6.8|AlmaLinux8 6.10|AlmaLinux9 6.8|AlmaLinux9 6.10|AlmaLinux9 7.0|AlmaLinux9 7.2|AlmaLinux10 7.0|AlmaLinux10 7.2|'
-SUPPORTED_MAP+='RedHat8 6.8|RedHat8 6.10|RedHat9 6.8|RedHat9 6.10|RedHat9 7.0|RedHat9 7.2|RedHat10 7.0|RedHat10 7.2|'
-SUPPORTED_MAP+='Debian11 6.8|Debian11 6.10|Debian11 7.0|'
-SUPPORTED_MAP+='Debian12 6.8|Debian12 6.10|Debian12 7.0|Debian12 7.2|'
-SUPPORTED_MAP+='Debian13 7.2|'
-SUPPORTED_MAP+='Ubuntu22.04 6.8|Ubuntu22.04 6.10|Ubuntu22.04 7.0|Ubuntu22.04 7.2|'
-SUPPORTED_MAP+='Ubuntu24.04 6.8|Ubuntu24.04 6.10|Ubuntu24.04 7.0|Ubuntu24.04 7.2|'
-SUPPORTED_MAP+='SLES15 7.2|'
-SUPPORTED_MAP+='openSUSE16 7.2)'
+SUPPORTED_MAP+='^(AlmaLinux8 6.10|AlmaLinux9 6.10|AlmaLinux9 7.0|AlmaLinux9 7.2|AlmaLinux9 7.4|AlmaLinux10 7.0|AlmaLinux10 7.2|AlmaLinux10 7.4|'
+SUPPORTED_MAP+='RedHat8 6.10|RedHat9 6.10|RedHat9 7.0|RedHat9 7.2|RedHat9 7.4|RedHat10 7.0|RedHat10 7.2|RedHat10 7.4|'
+SUPPORTED_MAP+='Debian11 6.10|Debian11 7.0|'
+SUPPORTED_MAP+='Debian12 6.10|Debian12 7.0|Debian12 7.2|Debian12 7.4|'
+SUPPORTED_MAP+='Debian13 7.2|Debian13 7.4|'
+SUPPORTED_MAP+='Ubuntu22.04 6.10|Ubuntu22.04 7.0|Ubuntu22.04 7.2|'
+SUPPORTED_MAP+='Ubuntu24.04 6.10|Ubuntu24.04 7.0|Ubuntu24.04 7.2|Ubuntu24.04 7.4|'
+SUPPORTED_MAP+='Ubuntu26.04 7.4|'
+SUPPORTED_MAP+='SLES15 7.2|SLES15 7.4|'
+SUPPORTED_MAP+='openSUSE16 7.2|openSUSE16 7.4)'
 PURGE='no'
 DISABLE_SELINUX='no'
 ENABLED_APPARMOR='no'
@@ -996,7 +997,7 @@ fi
 
 lxc && MARKET_APP_NAME='alpine'
 
-if [[ "${DISTNAME}${DISTVER}" == Ubuntu24.04 ]]; then
+if [[ "${DISTNAME}" == Ubuntu ]] && verlte 24.04 "${DISTVER}"; then
     SSHD_SERVICE='ssh'
 fi
 
