@@ -488,6 +488,18 @@ opensuse() {
     [[ "$DISTNAME" =~ openSUSE ]]
 }
 
+# Distributions where the node-kvm package switches to the modular libvirt
+# daemons (virtqemud, ...) instead of the monolithic libvirtd. Only the
+# RPM-based distros ship the modular daemons; Debian/Ubuntu keep the
+# monolithic libvirtd (their libvirt-daemon-driver-* packages are loadable
+# modules of libvirtd, not standalone daemons). Keep in sync with the
+# OpenNebula node-kvm packaging.
+libvirt_modular() {
+    suse && return 0
+    centos && [[ "$DISTVER" -ge 9 ]] && return 0
+    return 1
+}
+
 firewalld_running() {
     systemctl -q is-active firewalld
 }
@@ -967,7 +979,7 @@ NETMASK_BITS=$(mask2cidr "${VNET_NETMASK}")
 read -r DISTNAME DISTVER <<<"$(get_distname_and_version)"
 
 (centos || suse) && AUGEAS_PKG='augeas'
-suse && LIBVIRTD='virtqemud'
+libvirt_modular && LIBVIRTD='virtqemud'
 
 if [[ "$PURGE" = "yes" ]] && [[ "$VERSION_GIVEN" != "yes" ]]; then
     check "detect_installed_version" "Detecting ONE installed version" 1 \
@@ -1312,7 +1324,7 @@ if kvm; then
     check "rm -f /etc/libvirt/qemu/networks/autostart/default.xml" \
         "Disable default libvirtd networking"
 
-    check "systemctl restart ${LIBVIRTD}" "Restart libvirtd"
+    check "systemctl restart ${LIBVIRTD}" "Restart libvirt"
 elif lxc; then
     check "install_opennebula_lxc_pkgs" "Installing OpenNebula lxc node packages" 3
 fi
