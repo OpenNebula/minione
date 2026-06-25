@@ -844,6 +844,7 @@ EOT
     elif debian; then
         if [[ $1 = 'purge' ]]; then
             rm -f /etc/apt/sources.list.d/opennebula.list
+            rm -f /etc/apt/preferences.d/opennebula-nodejs
         else
         # Check if /etc/apt/keyrings directory exists, if not, create it
             if [ ! -d /etc/apt/keyrings ]; then
@@ -854,6 +855,16 @@ EOT
                 gpg --dearmor --yes --output /etc/apt/keyrings/opennebula.gpg) || return 1
             echo "deb [signed-by=/etc/apt/keyrings/opennebula.gpg] ${REPO_BASE}/${DISTNAME}/${DISTVER} stable opennebula" \
                 >/etc/apt/sources.list.d/opennebula.list || return 1
+
+            # Ubuntu 26.04 ships Node.js 22 in its base repos, but FireEdge needs
+            # Node.js 20 from the OpenNebula repo. Pin it so apt prefers our v20.
+            if [[ "${DISTNAME}" == Ubuntu ]] && verlte 26.04 "${DISTVER}"; then
+                cat <<EOT >/etc/apt/preferences.d/opennebula-nodejs || return 1
+Package: nodejs
+Pin: release o=OpenNebula
+Pin-Priority: 600
+EOT
+            fi
         fi
     elif suse; then
         if [[ $1 = 'purge' ]]; then
