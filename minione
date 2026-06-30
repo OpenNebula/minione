@@ -43,6 +43,8 @@ NODE='yes'
 LXC='no'
 NETWORKING='yes'
 DELETE_ONEADMIN='yes'
+DB_BACKEND='mysql'
+DB_PASSWORD=$(tr </dev/urandom -dc A-Za-z0-9 | head -c16)
 
 [ "$(arch)" == 'aarch64' ] && MARKET_APP_NAME='Alpine Linux 3.20 (aarch64)'
 
@@ -62,6 +64,7 @@ usage() {
     e ""
     e "--lxc" "Setup host to run LXC containers"
     e "--frontend" "Install only frontend, skip node setup,"
+    e "--db [${DB_BACKEND}]" "Database backend: sqlite or mysql"
     e ""
     e "--password [random generated]" "Initial password for oneadmin"
     e "--ssh-pubkey [~/.ssh/id_rsa.pub]" "User ssh public key"
@@ -89,7 +92,7 @@ PARAMETERS='help,version:,force,verbose,yes,frontend,password:,ssh-pubkey:,'
 PARAMETERS+='bridge-interface:,nat-interface:,vnet-address:,vnet-netmask:,'
 PARAMETERS+='vnet-gateway:,vnet-ar-ip-start:,vnet-ar-ip-count:,marketapp-name:,'
 PARAMETERS+='vm-password:,lxc,sunstone-port:,purge,preserve-user,enterprise:,'
-PARAMETERS+='repo-base:'
+PARAMETERS+='repo-base:,db:'
 
 if ! OPTS=$(getopt -o "hvf" -l "$PARAMETERS" -n 'minione' -- "$@"); then
     usage
@@ -110,7 +113,7 @@ SUPPORTED_MAP+='Ubuntu26.04 7.4|'
 SUPPORTED_MAP+='SLES15 7.2|SLES15 7.4|'
 SUPPORTED_MAP+='openSUSE16 7.2|openSUSE16 7.4)'
 PURGE='no'
-DISABLE_SELINUX='no'
+CONFIGURE_SELINUX='no'
 ENABLED_APPARMOR='no'
 MISSING_PKGS=''
 MISSING_PIP_PKGS=''
@@ -242,6 +245,10 @@ while true; do
         REPO_BASE="$2"
         shift 2
         ;;
+    --db)
+        DB_BACKEND="$2"
+        shift 2
+        ;;
     --)
         shift
         break
@@ -274,6 +281,11 @@ verlte() {
 #-------------------------------------------------------------------------------
 # Options validation
 #-------------------------------------------------------------------------------
+
+if [[ "$DB_BACKEND" != 'sqlite' && "$DB_BACKEND" != 'mysql' ]]; then
+    echo "Invalid --db value '${DB_BACKEND}', expected 'sqlite' or 'mysql'" >&2
+    exit 1
+fi
 
 if [[ $EE == yes ]]; then
     REPO_URL="https://${EE_TOKEN}@enterprise.opennebula.io/repo"
@@ -516,6 +528,10 @@ node() {
     [[ $NODE == yes ]]
 }
 
+db_mysql() {
+    [[ $DB_BACKEND == mysql ]]
+}
+
 aws() {
     # try detect AWS instance by seeing 'Server: EC2ws' in headers
     type -t curl >/dev/null || return 1
@@ -588,9 +604,19 @@ disk_free() {
 # Install functions
 #-------------------------------------------------------------------------------
 
-disable_selinux() {
-    setenforce 0 >/dev/null || return 1
-    sed -i 's/^SELINUX=.*$/SELINUX=permissive/' /etc/selinux/config >/dev/null 2>&1
+configure_selinux() {
+    # Keep SELinux enforcing but grant what OpenNebula + libvirt/QEMU need:
+    # label the image datastores so the svirt-confined QEMU can access them.
+    local DS='/var/lib/one/datastores'
+
+    [[ -d "$DS" ]] || return 0
+
+    semanage fcontext -a -t virt_image_t "${DS}(/.*)?" 2>/dev/null ||
+        semanage fcontext -m -t virt_image_t "${DS}(/.*)?" || return 1
+    restorecon -R "$DS" || return 1
+
+    # Allow QEMU/libvirt to use the storage backends OpenNebula relies on.
+    setsebool -P virt_use_nfs on 2>/dev/null || true
 }
 
 modify_apparmor() {
@@ -763,9 +789,34 @@ ifup_bridge() {
     fi
 }
 
-disable_firewalld() {
-    systemctl stop firewalld >/dev/null &&
-        systemctl disable firewalld >/dev/null
+configure_firewalld() {
+    if [[ "${1:-}" = 'purge' ]]; then
+        if networking; then
+            firewall-cmd --permanent --remove-masquerade >/dev/null 2>&1 || true
+            firewall-cmd --permanent --zone=trusted \
+                --remove-interface="${BRIDGE_INTERFACE}" >/dev/null 2>&1 || true
+        fi
+        for P in "${FIREWALL_PORTS[@]}"; do
+            firewall-cmd --permanent --remove-port="$P" >/dev/null 2>&1 || true
+        done
+        firewall-cmd --reload >/dev/null 2>&1 || true
+        return 0
+    fi
+
+    # Open OpenNebula management ports (SSH, Sunstone/FireEdge, OneGate, OneFlow)
+    for P in "${FIREWALL_PORTS[@]}"; do
+        firewall-cmd --permanent --add-port="$P" >/dev/null || return 1
+    done
+
+    # Private VM network: trust the bridge so VMs reach host services
+    # (DNS, OneGate, ...) and masquerade their egress over the NAT interface.
+    if networking; then
+        firewall-cmd --permanent --zone=trusted \
+            --change-interface="${BRIDGE_INTERFACE}" >/dev/null || return 1
+        firewall-cmd --permanent --add-masquerade >/dev/null || return 1
+    fi
+
+    firewall-cmd --reload >/dev/null || return 1
 }
 
 disable_unattended_upgrades() {
@@ -780,6 +831,11 @@ disable_unattended_upgrades() {
 
     echo "Timed out waiting for dpkg lock to be released" >&2
     return 1
+}
+
+enable_unattended_upgrades() {
+    systemctl enable unattended-upgrades >/dev/null 2>&1
+    systemctl start unattended-upgrades >/dev/null 2>&1
 }
 
 configure_nat() {
@@ -985,12 +1041,76 @@ install_terraform() {
     rm /tmp/terraform.zip
 }
 
+# Run the MariaDB client as root reading SQL from stdin
+# (unix_socket auth works for root on a fresh server)
+mariadb_root() {
+    if type -t mariadb >/dev/null; then
+        mariadb
+    else
+        mysql
+    fi
+}
+
+install_mariadb() {
+    install_pkg "$MARIADB_PKG" || return 1
+    systemctl enable "$MARIADB_SERVICE" >/dev/null 2>&1
+    systemctl start "$MARIADB_SERVICE" || return 1
+}
+
+configure_mysql_db() {
+    mariadb_root <<SQL || return 1
+CREATE DATABASE IF NOT EXISTS opennebula CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
+CREATE USER IF NOT EXISTS 'oneadmin'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
+ALTER USER 'oneadmin'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
+GRANT ALL PRIVILEGES ON opennebula.* TO 'oneadmin'@'localhost';
+FLUSH PRIVILEGES;
+SQL
+}
+
+drop_mysql_db() {
+    type -t mariadb >/dev/null || type -t mysql >/dev/null || return 0
+    systemctl -q is-active "$MARIADB_SERVICE" || return 0
+    mariadb_root <<SQL
+DROP DATABASE IF EXISTS opennebula;
+DROP USER IF EXISTS 'oneadmin'@'localhost';
+FLUSH PRIVILEGES;
+SQL
+}
+
+# Switch the DB section in oned.conf from the default sqlite to MySQL.
+# Edits the existing DB block in place via augeas (oned.aug models DB/*).
+set_db_mysql() {
+    aug_set 'DB/BACKEND' '"mysql"' || return 1
+    aug_set 'DB/SERVER' '"localhost"' || return 1
+    aug_set 'DB/PORT' 0 || return 1
+    aug_set 'DB/USER' '"oneadmin"' || return 1
+    aug_set 'DB/PASSWD' "\"${DB_PASSWORD}\"" || return 1
+    aug_set 'DB/DB_NAME' '"opennebula"' || return 1
+    aug_set 'DB/CONNECTIONS' 25 || return 1
+
+    # Drop the sqlite-only TIMEOUT key if present (ignore when absent)
+    augtool -s rm '/files/etc/one/oned.conf/DB/TIMEOUT' >/dev/null 2>&1 || true
+}
+
 # Initialize some usefull vars
 NETMASK_BITS=$(mask2cidr "${VNET_NETMASK}")
 read -r DISTNAME DISTVER <<<"$(get_distname_and_version)"
 
 (centos || suse) && AUGEAS_PKG='augeas'
 libvirt_modular && LIBVIRTD='virtqemud'
+
+# Database backend package/service (MariaDB)
+MARIADB_SERVICE='mariadb'
+if suse; then
+    MARIADB_PKG='mariadb'
+else
+    MARIADB_PKG='mariadb-server'
+fi
+
+# OpenNebula management ports opened in firewalld:
+# SSH, Sunstone/FireEdge, OneGate, OneFlow
+FIREWALL_PORTS=(22/tcp "${SUNSTONE_PORT}/tcp" 5030/tcp 2474/tcp)
+REENABLE_UNATTENDED_UPGRADES='no'
 
 if [[ "$PURGE" = "yes" ]] && [[ "$VERSION_GIVEN" != "yes" ]]; then
     check "detect_installed_version" "Detecting ONE installed version" 1 \
@@ -1035,11 +1155,16 @@ purge() {
 
     title "Uninstalling"
     check "systemctl stop opennebula" "Stopping OpenNebula" 1 "SKIP"
+    db_mysql && check "drop_mysql_db" "Dropping MySQL database" 1 "SKIP"
     [[ "${ENABLED_APPARMOR}" = 'yes' ]] && check "modify_apparmor purge" "Restoring AppArmor"
     check "uninstall_opennebula_pkgs" "Uninstalling OpenNebula packages" 1 "SKIP"
     check "start_dnsmasq purge" "Stopping DNSMasq" 1 "SKIP"
     check "configure_repos purge" "Unconfiguring repositories"
-    check "configure_nat purge" "Unconfiguring NAT" 1 "SKIP"
+    if (centos || suse) && firewalld_running; then
+        check "configure_firewalld purge" "Reverting firewalld configuration" 1 "SKIP"
+    else
+        check "configure_nat purge" "Unconfiguring NAT" 1 "SKIP"
+    fi
     check "create_bridge purge" "Deleting bridge interface ${BRIDGE_INTERFACE}"
     check "rm -rf /etc/one $HOME/.one >/dev/null" "Deleting /etc/one"
     check "rm -rf /var/log/one >/dev/null" "Deleting /var/log/one"
@@ -1064,6 +1189,8 @@ clean() {
     [[ -f /var/lib/one/one.db ]] && check \
         'mv /var/lib/one/one.db /var/lib/one/one.db.old' \
         "Move old db away"
+
+    db_mysql && check "drop_mysql_db" "Dropping old MySQL database" 1 "SKIP"
 }
 
 #-------------------------------------------------------------------------------
@@ -1148,8 +1275,18 @@ debian && {
 # Check SELinux or AppArmor
 # SUSE 16+ uses SELinux, SUSE 15 uses AppArmor
 SELINUX=$(getenforce 2>/dev/null)
-(centos || (suse && [[ "$DISTVER" -ge 16 ]])) && { check "[[ ! \"${SELINUX}\" = 'Enforcing' ]]" \
-    "Checking SELinux" 1 "SKIP will try to disable" || DISABLE_SELINUX='yes'; }
+if centos || (suse && [[ "$DISTVER" -ge 16 ]]); then
+    # Keep SELinux enforcing and configure the contexts OpenNebula needs
+    # instead of disabling it.
+    if [[ "${SELINUX}" = 'Enforcing' ]]; then
+        CONFIGURE_SELINUX='yes'
+        # semanage lives in policycoreutils-python-utils on RHEL-family;
+        # only auto-install there to avoid a wrong package name on SUSE.
+        centos && { check "type -t semanage >/dev/null" \
+            "Checking semanage is installed" 1 "SKIP will try to install" ||
+            MISSING_PKGS="${MISSING_PKGS} policycoreutils-python-utils"; }
+    fi
+fi
 (debian || (suse && [[ "$DISTVER" -lt 16 ]])) && { check "! aa-status >/dev/null 2>&1" \
     "Checking AppArmor" 1 "SKIP will try to modify" || ENABLED_APPARMOR='yes'; }
 
@@ -1258,10 +1395,11 @@ title "Main deployment steps:"
 echo "Install OpenNebula frontend version ${VERSION}"
 
 $INSTALL_TERRAFORM && echo "Install Terraform"
+db_mysql && echo "Install and configure MariaDB (MySQL backend)"
+(centos || suse) && firewalld_running && echo "Configure firewalld (kept enabled)"
 
 node && {
-    (centos || suse) && firewalld_running && echo "Disable_firewalld"
-    debian && unattended_upgrades_running && echo "Disable unattended-upgrades"
+    debian && unattended_upgrades_running && echo "Pause unattended-upgrades during install"
     echo "Configure bridge ${BRIDGE_INTERFACE} with IP ${VNET_GATEWAY}/${NETMASK_BITS}"
     echo "Enable NAT over ${NAT_INTERFACE}"
     [[ "${ENABLED_APPARMOR}" = yes ]] && echo "Modify AppArmor"
@@ -1271,7 +1409,7 @@ node && {
 }
 
 [[ "${CLEAN}" = yes ]] && echo "Clean oneadmin home"
-[[ "${DISABLE_SELINUX}" = yes ]] && echo "Disable SELinux"
+[[ "${CONFIGURE_SELINUX}" = yes ]] && echo "Configure SELinux (kept enforcing)"
 [[ -n "${MISSING_PKGS}" ]] && echo "Install ${MISSING_PKGS}"
 [[ -n "${MISSING_PIP_PKGS}" ]] && echo "Install pip ${MISSING_PIP_PKGS}"
 
@@ -1287,10 +1425,11 @@ title "Installation"
 VERBOSE='yes'
 
 [[ "${CLEAN}" = yes ]] && clean
-debian && unattended_upgrades_running && \
-    check "disable_unattended_upgrades" "Disabling unattended-upgrades"
+if debian && unattended_upgrades_running; then
+    check "disable_unattended_upgrades" "Pausing unattended-upgrades during install"
+    REENABLE_UNATTENDED_UPGRADES='yes'
+fi
 debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
-[[ "${DISABLE_SELINUX}" = 'yes' ]] && check "disable_selinux" "Disabling SELinux"
 [[ -n "${MISSING_PKGS}" ]] && check "install_pkg ${MISSING_PKGS}" "Install ${MISSING_PKGS}" 3
 if [[ -n "${MISSING_PIP_PKGS}" ]]; then
     # it's evaluation tool, we can do ugly things
@@ -1300,8 +1439,6 @@ if [[ -n "${MISSING_PIP_PKGS}" ]]; then
         "Install from PyPI ${MISSING_PIP_PKGS}" 3
 fi
 
-(centos || suse) && firewalld_running && check "disable_firewalld" "Disabling firewalld"
-
 networking && {
     check "create_bridge" "Creating bridge interface ${BRIDGE_INTERFACE}"
     check "ifup_bridge" "Bring bridge interfaces up"
@@ -1310,12 +1447,23 @@ networking && {
         check "grep -q \"^net.ipv4.ip_forward=1$\" /etc/sysctl.conf || \
             echo \"net.ipv4.ip_forward=1\" >> /etc/sysctl.conf" "Persisting IPv4 forward"
     }
-    check "configure_nat" "Configuring NAT"
-    (centos || suse) && check "iptables-save > /etc/sysconfig/iptables" "Saving iptables changes"
-    debian && check "netfilter-persistent save" "Saving iptables changes"
+    # When firewalld is in charge, NAT/masquerade is configured through it
+    # (see configure_firewalld below); otherwise fall back to raw iptables/nft.
+    if (centos || suse) && firewalld_running; then
+        true
+    else
+        check "configure_nat" "Configuring NAT"
+        (centos || suse) && check "iptables-save > /etc/sysconfig/iptables" "Saving iptables changes"
+        debian && check "netfilter-persistent save" "Saving iptables changes"
+    fi
     check "install_pkg dnsmasq" "Installing DNSMasq" 3
     check "start_dnsmasq" "Starting DNSMasq"
 }
+
+# Keep firewalld enabled: open management ports and (for node installs)
+# trust the VM bridge and masquerade its egress.
+(centos || suse) && firewalld_running &&
+    check "configure_firewalld" "Configuring firewalld"
 
 check "configure_repos" "Configuring repositories"
 
@@ -1339,6 +1487,12 @@ if kvm; then
 elif lxc; then
     check "install_opennebula_lxc_pkgs" "Installing OpenNebula lxc node packages" 3
 fi
+
+db_mysql && check "install_mariadb" "Installing and starting MariaDB" 3
+
+[[ "${CONFIGURE_SELINUX}" = 'yes' ]] &&
+    check "configure_selinux" "Configuring SELinux contexts for OpenNebula" 1 \
+        "SKIP review SELinux denials if VMs fail to start"
 
 #-------------------------------------------------------------------------------
 # Configuration functions
@@ -1547,6 +1701,11 @@ check "aug_set DEFAULT_CDROM_DEVICE_PREFIX '\"sd\"'" \
 
 [[ ${SUNSTONE_PORT} != 2616 ]] && check "set_fireedge_port ${SUNSTONE_PORT}" "Switching FireEdge port"
 
+db_mysql && {
+    check "configure_mysql_db" "Creating OpenNebula MySQL database and user"
+    check "set_db_mysql" "Configuring MySQL backend in oned.conf"
+}
+
 check "systemctl start ${ONE_SERVICES[*]}" "Starting OpenNebula services"
 check "systemctl enable ${ONE_SERVICES[*]}" "Enabling OpenNebula services"
 check "add_ssh_keys_to_oneadmin" "Add ssh key to oneadmin user"
@@ -1752,6 +1911,9 @@ check "image_is_ready" "Waiting until the image is ready"
 
 check "update_template" "Updating VM template"
 
+[[ "${REENABLE_UNATTENDED_UPGRADES}" = 'yes' ]] &&
+    check "enable_unattended_upgrades" "Re-enabling unattended-upgrades" 1 "SKIP"
+
 #-------------------------------------------------------------------------------
 # Report
 #-------------------------------------------------------------------------------
@@ -1759,6 +1921,7 @@ check "update_template" "Updating VM template"
 
 title 'Report'
 echo "OpenNebula ${VERSION} was installed"
+db_mysql && echo "Database backend: MySQL (MariaDB), database 'opennebula'"
 echo "Sunstone is running on:"
 echo "  http://${REPORT_IP}${PORT_STR}/"
 
