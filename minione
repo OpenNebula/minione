@@ -1510,6 +1510,20 @@ sed_subst() {
     sed -i -e "s/^${KEY}/${VALUE}/" "${CONF}" >/dev/null
 }
 
+# OpenNebula 7.3 moved the OneGate bind address from the top level ':host:'
+# into a ':bind:' entry nested in the ':server:' block.
+set_onegate_bind() {
+    local CONF='/etc/one/onegate-server.conf'
+
+    if grep -q '^:server:' "${CONF}"; then
+        sed -i -e "s/^\(\s*\):bind:.*/\1:bind: ${ONEGATE_SERVER}/" "${CONF}" >/dev/null
+    else
+        sed -i -e "s/^:host:.*/:host: ${ONEGATE_SERVER}/" "${CONF}" >/dev/null
+    fi
+
+    grep -qE "^[[:space:]]*(:bind:|:host:)[[:space:]]+${ONEGATE_SERVER}[[:space:]]*$" "${CONF}"
+}
+
 aug_set() {
     local KEY="$1"
     local VALUE="$2"
@@ -1678,7 +1692,7 @@ fi
 check "aug_set ONEGATE_ENDPOINT '\"http://${ONEGATE_ENDPOINT}:5030\"'" \
     "Switching OneGate endpoint in oned.conf"
 
-check "sed_subst \":host: .*\" \":host: ${ONEGATE_SERVER}\" \"/etc/one/onegate-server.conf\"" \
+check "set_onegate_bind" \
     "Switching OneGate endpoint in onegate-server.conf"
 
 check "sed_subst \":keep_empty_bridge: .*\" \":keep_empty_bridge: true\" \"/var/lib/one/remotes/etc/vnm/OpenNebulaNetwork.conf\"" \
