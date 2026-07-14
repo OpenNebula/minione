@@ -516,8 +516,14 @@ firewalld_running() {
     systemctl -q is-active firewalld
 }
 
-unattended_upgrades_running() {
-    systemctl -q is-active unattended-upgrades 2>/dev/null
+unattended_upgrades_present() {
+    local UNIT
+
+    for UNIT in "${APT_PERIODIC_UNITS[@]}"; do
+        systemctl cat "$UNIT" >/dev/null 2>&1 && return 0
+    done
+
+    return 1
 }
 
 netplan_on() {
@@ -819,23 +825,57 @@ configure_firewalld() {
     firewall-cmd --reload >/dev/null || return 1
 }
 
-disable_unattended_upgrades() {
-    systemctl stop unattended-upgrades >/dev/null 2>&1
-    systemctl disable unattended-upgrades >/dev/null 2>&1
+apt_locks_free() {
+    local LOCK
 
-    # wait for any running dpkg/apt process to finish
-    for I in $(seq 60); do
-        fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || return 0
+    for LOCK in /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock \
+        /var/lib/apt/lists/lock /var/cache/apt/archives/lock; do
+        [[ -e "$LOCK" ]] || continue
+        fuser "$LOCK" >/dev/null 2>&1 && return 1
+    done
+
+    return 0
+}
+
+# Stop and mask everything which may run apt/dpkg on the background.
+disable_unattended_upgrades() {
+    local UNIT I
+
+    for UNIT in "${APT_PERIODIC_UNITS[@]}"; do
+        systemctl cat "$UNIT" >/dev/null 2>&1 || continue
+
+        if systemctl -q is-enabled "$UNIT" 2>/dev/null; then
+            ENABLED_APT_UNITS+=("$UNIT")
+        fi
+
+        MASKED_APT_UNITS+=("$UNIT")
+        systemctl stop "$UNIT" >/dev/null 2>&1
+        systemctl mask "$UNIT" >/dev/null 2>&1
+    done
+
+    # nothing new can start now, let any already running upgrade finish
+    for I in $(seq 120); do
+        apt_locks_free && return 0
         sleep 5
     done
 
-    echo "Timed out waiting for dpkg lock to be released" >&2
+    echo "Timed out waiting for the APT/dpkg locks to be released" >&2
     return 1
 }
 
 enable_unattended_upgrades() {
-    systemctl enable unattended-upgrades >/dev/null 2>&1
-    systemctl start unattended-upgrades >/dev/null 2>&1
+    local UNIT
+
+    for UNIT in "${MASKED_APT_UNITS[@]}"; do
+        systemctl unmask "$UNIT" >/dev/null 2>&1
+    done
+
+    for UNIT in "${ENABLED_APT_UNITS[@]}"; do
+        systemctl enable --now "$UNIT" >/dev/null 2>&1
+    done
+
+    MASKED_APT_UNITS=()
+    ENABLED_APT_UNITS=()
 }
 
 configure_nat() {
@@ -1110,7 +1150,17 @@ fi
 # OpenNebula management ports opened in firewalld:
 # SSH, Sunstone/FireEdge, OneGate, OneFlow
 FIREWALL_PORTS=(22/tcp "${SUNSTONE_PORT}/tcp" 5030/tcp 2474/tcp)
-REENABLE_UNATTENDED_UPGRADES='no'
+
+# Units able to run apt/dpkg on the background, paused during the installation
+APT_PERIODIC_UNITS=(
+    unattended-upgrades.service
+    apt-daily-upgrade.timer
+    apt-daily-upgrade.service
+    apt-daily.timer
+    apt-daily.service
+)
+MASKED_APT_UNITS=()
+ENABLED_APT_UNITS=()
 
 if [[ "$PURGE" = "yes" ]] && [[ "$VERSION_GIVEN" != "yes" ]]; then
     check "detect_installed_version" "Detecting ONE installed version" 1 \
@@ -1398,8 +1448,10 @@ $INSTALL_TERRAFORM && echo "Install Terraform"
 db_mysql && echo "Install and configure MariaDB (MySQL backend)"
 (centos || suse) && firewalld_running && echo "Configure firewalld (kept enabled)"
 
+debian && unattended_upgrades_present &&
+    echo "Pause unattended-upgrades during install (re-enabled afterwards)"
+
 node && {
-    debian && unattended_upgrades_running && echo "Pause unattended-upgrades during install"
     echo "Configure bridge ${BRIDGE_INTERFACE} with IP ${VNET_GATEWAY}/${NETMASK_BITS}"
     echo "Enable NAT over ${NAT_INTERFACE}"
     [[ "${ENABLED_APPARMOR}" = yes ]] && echo "Modify AppArmor"
@@ -1425,9 +1477,10 @@ title "Installation"
 VERBOSE='yes'
 
 [[ "${CLEAN}" = yes ]] && clean
-if debian && unattended_upgrades_running; then
+if debian && unattended_upgrades_present; then
+    # restore the units even if the installation is aborted in the middle
+    trap enable_unattended_upgrades EXIT
     check "disable_unattended_upgrades" "Pausing unattended-upgrades during install"
-    REENABLE_UNATTENDED_UPGRADES='yes'
 fi
 debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 [[ -n "${MISSING_PKGS}" ]] && check "install_pkg ${MISSING_PKGS}" "Install ${MISSING_PKGS}" 3
@@ -1925,8 +1978,10 @@ check "image_is_ready" "Waiting until the image is ready"
 
 check "update_template" "Updating VM template"
 
-[[ "${REENABLE_UNATTENDED_UPGRADES}" = 'yes' ]] &&
+if [[ ${#MASKED_APT_UNITS[@]} -gt 0 ]]; then
+    trap - EXIT
     check "enable_unattended_upgrades" "Re-enabling unattended-upgrades" 1 "SKIP"
+fi
 
 #-------------------------------------------------------------------------------
 # Report
