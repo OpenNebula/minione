@@ -102,16 +102,24 @@ fi
 eval set -- "$OPTS"
 
 # global vars
-SUPPORTED_MAP+='^(AlmaLinux8 6.10|AlmaLinux9 6.10|AlmaLinux9 7.0|AlmaLinux9 7.2|AlmaLinux9 7.4|AlmaLinux10 7.0|AlmaLinux10 7.2|AlmaLinux10 7.4|'
-SUPPORTED_MAP+='RedHat8 6.10|RedHat9 6.10|RedHat9 7.0|RedHat9 7.2|RedHat9 7.4|RedHat10 7.0|RedHat10 7.2|RedHat10 7.4|'
-SUPPORTED_MAP+='Debian11 6.10|Debian11 7.0|'
-SUPPORTED_MAP+='Debian12 6.10|Debian12 7.0|Debian12 7.2|Debian12 7.4|'
-SUPPORTED_MAP+='Debian13 7.2|Debian13 7.4|'
-SUPPORTED_MAP+='Ubuntu22.04 6.10|Ubuntu22.04 7.0|Ubuntu22.04 7.2|'
-SUPPORTED_MAP+='Ubuntu24.04 6.10|Ubuntu24.04 7.0|Ubuntu24.04 7.2|Ubuntu24.04 7.4|'
-SUPPORTED_MAP+='Ubuntu26.04 7.4|'
-SUPPORTED_MAP+='SLES15 7.2|SLES15 7.4|'
-SUPPORTED_MAP+='openSUSE16 7.2|openSUSE16 7.4)'
+# min/max supported OpenNebula version per distro (inclusive range);
+# odd minor versions are pre-releases of the next even one (7.3.x ~ 7.4)
+declare -A SUPPORTED=(
+    [AlmaLinux8]='6.10 6.10'
+    [AlmaLinux9]='6.10 7.4'
+    [AlmaLinux10]='7.0 7.4'
+    [RedHat8]='6.10 6.10'
+    [RedHat9]='6.10 7.4'
+    [RedHat10]='7.0 7.4'
+    [Debian11]='6.10 7.0'
+    [Debian12]='6.10 7.4'
+    [Debian13]='7.2 7.4'
+    [Ubuntu22.04]='6.10 7.2'
+    [Ubuntu24.04]='6.10 7.4'
+    [Ubuntu26.04]='7.4 7.4'
+    [SLES15]='7.2 7.4'
+    [openSUSE16]='7.2 7.4'
+)
 PURGE='no'
 CONFIGURE_SELINUX='no'
 ENABLED_APPARMOR='no'
@@ -556,11 +564,27 @@ networking() {
     [[ $NETWORKING == yes ]]
 }
 
-supported_dist_ver() {
-    local DIST_VER_MATCH=$1
+# encode MAJOR.MINOR[.PATCH] as an integer for range comparison, rounding
+# odd (pre-release) minors up to the final they lead to: 7.3.85 -> 704
+version_key() {
+    local MAJOR MINOR
+    IFS=. read -r MAJOR MINOR _ <<< "$1"
+    (( MINOR % 2 )) && MINOR=$((MINOR + 1))
+    echo $(( MAJOR * 100 + MINOR ))
+}
 
-    if [[ ! "${DISTNAME}${DISTVER} ${VERSION}" =~ $DIST_VER_MATCH ]]; then
-        echo "\"${DISTNAME}${DISTVER} ${VERSION}\" not in ${DIST_VER_MATCH:2:-2}" >&2
+supported_dist_ver() {
+    local MIN MAX RANGE=${SUPPORTED[${DISTNAME}${DISTVER}]-}
+
+    if [[ -z $RANGE ]]; then
+        echo "Unsupported distribution: ${DISTNAME}${DISTVER}" >&2
+        return 2
+    fi
+
+    read -r MIN MAX <<< "$RANGE"
+    if (( $(version_key "$VERSION") < $(version_key "$MIN") ||
+          $(version_key "$VERSION") > $(version_key "$MAX") )); then
+        echo "\"${DISTNAME}${DISTVER} ${VERSION}\" out of supported range ${MIN}-${MAX}" >&2
         return 2
     fi
 }
@@ -1250,7 +1274,7 @@ clean() {
 title "Checks & detection"
 
 # check Opennebula version & distribution & version
-check "supported_dist_ver \"$SUPPORTED_MAP\"" \
+check "supported_dist_ver" \
     "Checking distribution and version [${DISTNAME} ${DISTVER} ${VERSION}]" \
     1 "IGNORED Will try to install if repository exists"
 
