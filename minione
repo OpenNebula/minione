@@ -1212,6 +1212,15 @@ if [[ -n "$PUBLIC_IP" ]] && aws; then
     REPORT_IP=$PUBLIC_IP
 fi
 
+# OpenNebula 7.3+ ships the Kubernetes backend (opennebula-ks) also in CE.
+# VMs then reach OneGate (and oned) through a transparent proxy listening
+# on the link-local address 169.254.16.9 inside the virtual network.
+KS='no'
+if verlte 7.2.80 "$VERSION"; then
+    KS='yes'
+    node && ONEGATE_ENDPOINT='169.254.16.9'
+fi
+
 lxc && MARKET_APP_NAME='alpine'
 
 if [[ "${DISTNAME}" == Ubuntu ]] && verlte 24.04 "${DISTVER}"; then
@@ -1549,6 +1558,10 @@ debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 centos && check "enable_epel" "Installing EPEL"
 [[ "$DISTNAME" = "SLES" ]] && check "enable_sles_modules" "Enabling SLES modules"
 verlte 7.1.80 "$VERSION" && ONE_FE_PKGS+=(opennebula-form)
+if [[ "${KS}" = 'yes' ]]; then
+    ONE_FE_PKGS+=(opennebula-ks)
+    ONE_SERVICES+=(opennebula-ks)
+fi
 check "install_opennebula_pkgs" "Installing OpenNebula packages" 3
 $INSTALL_TERRAFORM && check "install_terraform" "Installing TerraForm"
 
@@ -1599,6 +1612,30 @@ set_onegate_bind() {
     fi
 
     grep -qE "^[[:space:]]*(:bind:|:host:)[[:space:]]+${ONEGATE_SERVER}[[:space:]]*$" "${CONF}"
+}
+
+# Forward connections from the VM-side transparent proxy (169.254.16.9) to
+# the real OneGate and oned XML-RPC addresses.
+configure_tproxy() {
+    local CONF='/var/lib/one/remotes/etc/vnm/OpenNebulaNetwork.conf'
+    local ONEGATE_IP
+
+    ONEGATE_IP=$(awk '$1 == ":bind:" || $1 == ":host:" { print $2; exit }' \
+        /etc/one/onegate-server.conf)
+    [ -n "${ONEGATE_IP}" ] || return 1
+
+    grep -q '^:tproxy:' "${CONF}" && return 0
+
+    cat >>"${CONF}" <<EOF
+
+:tproxy:
+  - :remote_addr: ${ONEGATE_IP}
+    :remote_port: 5030
+    :service_port: 5030
+  - :remote_addr: ${ETH0_IP}
+    :remote_port: 2633
+    :service_port: 2633
+EOF
 }
 
 aug_set() {
@@ -1774,6 +1811,10 @@ check "set_onegate_bind" \
 
 check "sed_subst \":keep_empty_bridge: .*\" \":keep_empty_bridge: true\" \"/var/lib/one/remotes/etc/vnm/OpenNebulaNetwork.conf\"" \
     "Switching keep_empty_bridge on in OpenNebulaNetwork.conf"
+
+[[ "${KS}" = 'yes' ]] && node &&
+    check "configure_tproxy" \
+        "Configuring OneGate proxy in OpenNebulaNetwork.conf"
 
 
 # new scheduler in 6.99+
