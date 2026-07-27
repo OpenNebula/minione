@@ -1006,7 +1006,11 @@ EOT
             else
                 zypper ar -f "${REPO_BASE}/${DISTNAME}/${DISTVER}/$(arch)" opennebula || true
             fi
-            if opensuse; then zypper ar -f "https://download.opensuse.org/repositories/science/openSUSE_Leap_${DISTVER}.0/" science || true; fi
+            if opensuse; then
+                local LEAP_VER
+                LEAP_VER=$(grep ^VERSION_ID= /etc/os-release | cut -d\" -f2)
+                zypper ar -f "https://download.opensuse.org/repositories/science/${LEAP_VER}/" science || true
+            fi
             rpm --import "https://downloads.opennebula.io/repo/${REPO_KEY}" || return 1
             zypper --gpg-auto-import-keys refresh || return 1
         fi
