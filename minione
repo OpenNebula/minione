@@ -22,7 +22,7 @@ fi
 #--------------------------------------------------------------------------- #
 
 # default parameters values
-VERSION='7.3'
+VERSION='7.4'
 EE='no'
 FORCE='no'
 VERBOSE='no'
