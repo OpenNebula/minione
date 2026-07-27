@@ -535,7 +535,12 @@ unattended_upgrades_present() {
 }
 
 netplan_on() {
-    [ ! -s /run/network/ifstate ] && type -t netplan >/dev/null
+    type -t netplan >/dev/null || return 1
+
+    # Ubuntu 26.04 installs ifupdown too, leaving an ifstate holding just "lo=lo"
+    ls /etc/netplan/*.yaml >/dev/null 2>&1 && return 0
+
+    [ ! -s /run/network/ifstate ]
 }
 
 node() {
@@ -895,7 +900,12 @@ enable_unattended_upgrades() {
     done
 
     for UNIT in "${ENABLED_APT_UNITS[@]}"; do
-        systemctl enable --now "$UNIT" >/dev/null 2>&1
+        # --now on the oneshot .service units would block until apt-daily runs
+        if [[ "$UNIT" == *.timer ]]; then
+            systemctl enable --now "$UNIT" >/dev/null 2>&1
+        else
+            systemctl enable "$UNIT" >/dev/null 2>&1
+        fi
     done
 
     MASKED_APT_UNITS=()
