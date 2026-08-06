@@ -1962,6 +1962,24 @@ export_marketapp() {
     rm "$OUT"
 }
 
+# opennebula-ks fails to start until the marketplace is monitored,
+# hitting its systemd start limit; reset it and start the service again
+recover_ks() {
+    local I
+
+    systemctl is-active opennebula-ks >/dev/null 2>&1 && return 0
+
+    systemctl reset-failed opennebula-ks 2>/dev/null
+    systemctl restart opennebula-ks || return 1
+
+    for I in $(seq 6); do
+        sleep 5
+        systemctl is-active opennebula-ks >/dev/null 2>&1 && return 0
+    done
+
+    return 1
+}
+
 image_is_ready() {
     for I in $(seq "$IMAGE_WAIT_TIMEOUT"); do
         STATES=$(oneimage list --csv --no-header -l stat)
@@ -2053,6 +2071,10 @@ node && {
 networking && check "create_vnet" "Creating virtual network"
 
 check "export_marketapp \"$MARKET_APP_NAME\"" "Exporting [${MARKET_APP_NAME}] from Marketplace to local datastore"
+
+[[ "${KS}" = 'yes' ]] &&
+    check "recover_ks" "Ensuring OpenNebula KS service is running"
+
 check "image_is_ready" "Waiting until the image is ready"
 
 check "update_template" "Updating VM template"
