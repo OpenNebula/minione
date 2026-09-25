@@ -1574,7 +1574,11 @@ debian && check "apt-get -q -y update >/dev/null" "Updating APT cache"
 
 centos && check "enable_epel" "Installing EPEL"
 [[ "$DISTNAME" = "SLES" ]] && check "enable_sles_modules" "Enabling SLES modules"
-verlte 7.1.80 "$VERSION" && ONE_FE_PKGS+=(opennebula-form)
+# OpenNebula 7.2+ ships OneForm, FireEdge expects it running
+if verlte 7.1.80 "$VERSION"; then
+    ONE_FE_PKGS+=(opennebula-form)
+    ONE_SERVICES+=(opennebula-form)
+fi
 if [[ "${KS}" = 'yes' ]]; then
     ONE_FE_PKGS+=(opennebula-ks)
     ONE_SERVICES+=(opennebula-ks)
