@@ -117,7 +117,8 @@ declare -A SUPPORTED=(
     [Ubuntu22.04]='6.10 7.2'
     [Ubuntu24.04]='6.10 7.4'
     [Ubuntu26.04]='7.4 7.4'
-    [SLES15]='7.2 7.4'
+    [SLES15]='7.2 7.2'
+    [SLES16]='7.4 7.4'
     [openSUSE16]='7.2 7.4'
 )
 PURGE='no'
@@ -1033,6 +1034,8 @@ enable_sles_modules() {
     local ARCH
     ARCH=$(uname -m)
     SUSEConnect -p "PackageHub/${SP_VER}/${ARCH}" || return 1
+    # SLES 16 dropped the module concept, everything is in the base repo
+    [[ "$DISTVER" -ge 16 ]] && return 0
     SUSEConnect -p "sle-module-public-cloud/${SP_VER}/${ARCH}" || return 1
     SUSEConnect -p "sle-module-desktop-applications/${SP_VER}/${ARCH}" || return 1
 }
