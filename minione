@@ -335,7 +335,9 @@ get_my_ip() {
 }
 
 get_public_ip() {
-    dig +short myip.opendns.com @resolver1.opendns.com 2>/dev/null
+    # dig prints failures to stdout, keep only a plain IPv4 address
+    dig +short +time=2 +tries=1 myip.opendns.com @resolver1.opendns.com 2>/dev/null |
+        grep -oE '^[0-9]{1,3}(\.[0-9]{1,3}){3}$' | head -1
 }
 
 get_distname_and_version() {
@@ -1666,6 +1668,12 @@ aug_set() {
 
     [ ! -f /usr/share/augeas/lenses/oned.aug ] && {
         echo "Missing oned.aug" >&2
+        return 1
+    }
+
+    # augtool runs each line as a command and exits 0 having set nothing
+    [[ "$VALUE" == *$'\n'* ]] && {
+        echo "Refusing multi-line value for $KEY: $VALUE" >&2
         return 1
     }
 
