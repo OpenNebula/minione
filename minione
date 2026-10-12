@@ -1638,7 +1638,7 @@ set_onegate_bind() {
 }
 
 # Forward connections from the VM-side transparent proxy (169.254.16.9) to
-# the real OneGate and oned XML-RPC addresses.
+# the real OneGate, oned XML-RPC and OneKS API addresses.
 configure_tproxy() {
     local CONF='/var/lib/one/remotes/etc/vnm/OpenNebulaNetwork.conf'
     local ONEGATE_IP
@@ -1658,6 +1658,9 @@ configure_tproxy() {
   - :remote_addr: ${ETH0_IP}
     :remote_port: 2633
     :service_port: 2633
+  - :remote_addr: ${ETH0_IP}
+    :remote_port: 10780
+    :service_port: 10780
 EOF
 }
 
