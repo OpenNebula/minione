@@ -36,6 +36,7 @@ VNET_NETMASK='255.255.255.0'
 VNET_GATEWAY='172.16.100.1'
 VNET_AR_IP_START='172.16.100.2'
 VNET_AR_IP_COUNT='100'
+TPROXY_ADDRESS='169.254.16.9'
 MARKET_APP_NAME='Alpine Linux 3.20'
 VM_PASSWORD='opennebula'
 SUNSTONE_PORT='80'
@@ -920,6 +921,8 @@ configure_nat() {
         if [[ $1 != 'purge' ]]; then
             run_and_print_if_failed "nft add table ip nat"
             run_and_print_if_failed "nft 'add chain ip nat postrouting { type nat hook postrouting priority 100 ; }'"
+            # Exclude TPROXY address from NAT
+            run_and_print_if_failed "nft add rule ip nat postrouting ip saddr ${VNET_ADDRESS}/${NETMASK_BITS} ip daddr ${TPROXY_ADDRESS} return"
             run_and_print_if_failed "nft add rule ip nat postrouting ip saddr ${VNET_ADDRESS}/${NETMASK_BITS} ip daddr != ${VNET_ADDRESS}/${NETMASK_BITS} masquerade"
         else
             run_and_print_if_failed "nft delete table ip nat"
@@ -927,6 +930,12 @@ configure_nat() {
     else
         ACTION='-A'
         [[ $1 = 'purge' ]] && ACTION='-D'
+
+        # the rule may be missing on purge of an older installation
+        iptables --table nat "$ACTION" POSTROUTING \
+            -s "${VNET_ADDRESS}/${NETMASK_BITS}" \
+            -d "${TPROXY_ADDRESS}" -j RETURN >/dev/null 2>&1 ||
+            [[ $1 = 'purge' ]] || return 1
 
         IPTABLES_COMMAND=$(
         cat <<EOF
@@ -1237,7 +1246,7 @@ fi
 KS='no'
 if verlte 7.2.80 "$VERSION"; then
     KS='yes'
-    node && ONEGATE_ENDPOINT='169.254.16.9'
+    node && ONEGATE_ENDPOINT=$TPROXY_ADDRESS
 fi
 
 lxc && MARKET_APP_NAME='alpine'
