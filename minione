@@ -1986,6 +1986,14 @@ export_marketapp() {
         return 1
     fi
 
+    # remember IDs of the exported images, e.g.:
+    # IMAGE
+    #     ID: 0
+    # VMTEMPLATE
+    #     ID: 0
+    EXPORTED_IMAGE_IDS=$(awk '/^[^[:space:]]/ { sect=$1 }
+        sect == "IMAGE" && $1 == "ID:" { print $2 }' <"$OUT")
+
     rm "$OUT"
 }
 
@@ -2007,9 +2015,24 @@ recover_ks() {
     return 1
 }
 
+# wait only for the images exported by export_marketapp, other images
+# (e.g. the KS appliance downloaded by opennebula-ks) are not waited for
 image_is_ready() {
+    local ID
+    local I
+
+    if [ -z "$EXPORTED_IMAGE_IDS" ]; then
+        echo "No exported image found" >&2
+        return 1
+    fi
+
     for I in $(seq "$IMAGE_WAIT_TIMEOUT"); do
-        STATES=$(oneimage list --csv --no-header -l stat)
+        STATES=$(for ID in $EXPORTED_IMAGE_IDS; do
+            # e.g. "STATE          : rdy", "missing" if the image is not found
+            oneimage show "$ID" 2>/dev/null |
+                awk '/^STATE[[:space:]]*:/ { print $3; found=1 }
+                    END { if (!found) print "missing" }'
+        done)
 
         # some error occurs
         echo "$STATES" | grep err && {
